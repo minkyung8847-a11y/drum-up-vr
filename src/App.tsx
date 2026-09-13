@@ -11,13 +11,16 @@ import type { GameScore, SongChart } from "./types";
 import { MidiSettingsModal } from "./components/MidiSettingsModal";
 import { DrumKitSelector } from "./components/DrumKitSelector";
 import { BeatIndicator, type TimeSignature } from "./components/BeatIndicator";
+import { DrumKitShowroom } from "./components/showroom/DrumKitShowroom";
 
 type ActiveTab = "FREE PLAY" | "RUDIMENT" | "RHYTHM GAME";
+type AppView = "SHOWROOM" | "PLAY";
 type DrumPadId = "kick" | "snare" | "hihat" | "tom1" | "tom2" | "tom3" | "crash" | "ride";
 type RudimentDifficulty = "EASY" | "NORMAL" | "HARD";
 
 function App() {
   const drumRef = useRef<Drum3DHandle | null>(null);
+  const [appView, setAppView] = useState<AppView>("SHOWROOM");
   const [activeTab, setActiveTab] = useState<ActiveTab>("FREE PLAY");
   const [selectedKitId, setSelectedKitId] = useState<string>(() => drumSynth.getCurrentKitId());
 
@@ -213,19 +216,47 @@ function App() {
 
   const beatsPerBar = timeSignature === "3/4" ? 3 : timeSignature === "6/8" ? 6 : 4;
 
+  if (appView === "SHOWROOM") {
+    return (
+      <DrumKitShowroom
+        initialKitId={selectedKitId}
+        onEnterPlay={(kitId) => {
+          handleSelectKit(kitId);
+          setAppView("PLAY");
+        }}
+      />
+    );
+  }
+
   return (
-    <div className={`app-container ${activeTab === "FREE PLAY" ? "acoustic-studio" : ""}`}>
+    <div className={`app-container play-view-in ${activeTab === "FREE PLAY" ? "acoustic-studio" : ""}`}>
       {/* HEADER SECTION */}
       <header className="app-header">
         <div className="header-left">
           <button className="menu-button">
             <Menu size={20} />
           </button>
-          <h1 className="logo brand-header"><BrandLogo /></h1>
+          <h1
+            className="logo brand-header"
+            onClick={() => setAppView("SHOWROOM")}
+            style={{ cursor: "pointer" }}
+            title="Go to Drum Kit Showroom"
+          >
+            <BrandLogo />
+          </h1>
         </div>
 
         {/* Tab Navigation Capsule */}
         <nav className="nav-tabs">
+          <button
+            type="button"
+            className="tab-button"
+            onClick={() => setAppView("SHOWROOM")}
+            style={{ color: "var(--accent-color, #ff5500)", fontWeight: 700 }}
+            title="Return to Drum Kit Selection Showroom"
+          >
+            ← DRUM KITS
+          </button>
           {(["FREE PLAY", "RUDIMENT", "RHYTHM GAME"] as ActiveTab[]).map((tab) => (
             <button
               key={tab}
@@ -332,6 +363,7 @@ function App() {
               <DrumKitSelector
                 currentKitId={selectedKitId}
                 onSelectKit={handleSelectKit}
+                onOpenShowroom={() => setAppView("SHOWROOM")}
               />
             )}
 

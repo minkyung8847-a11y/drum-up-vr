@@ -11,12 +11,14 @@ interface DrumKitSelectorProps {
   currentKitId: string;
   onSelectKit: (kitId: string) => void;
   disabled?: boolean;
+  onOpenShowroom?: () => void;
 }
 
 export const DrumKitSelector: React.FC<DrumKitSelectorProps> = ({
   currentKitId,
   onSelectKit,
   disabled = false,
+  onOpenShowroom,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<DrumKitCategory>("All");
@@ -76,9 +78,34 @@ export const DrumKitSelector: React.FC<DrumKitSelectorProps> = ({
     >
       <div className="drum-kit-card-header">
         <span className="control-label">DRUM KIT / SOUND PRESET</span>
-        <span className="drum-kit-toggle-btn">
-          {isOpen ? "▲" : "▼"}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {onOpenShowroom && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenShowroom();
+              }}
+              style={{
+                background: "rgba(255,85,0,0.12)",
+                border: "1px solid rgba(255,85,0,0.35)",
+                color: "#ff5500",
+                fontSize: "10px",
+                fontWeight: 700,
+                padding: "2px 7px",
+                borderRadius: "4px",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+              title="3D 악기 쇼룸 열기"
+            >
+              쇼룸 ↗
+            </button>
+          )}
+          <span className="drum-kit-toggle-btn">
+            {isOpen ? "▲" : "▼"}
+          </span>
+        </div>
       </div>
 
       <div className="drum-kit-current-info">

@@ -1,0 +1,598 @@
+/* ==========================================================================
+   DRUM UP - DRUM KIT SELECTION SHOWROOM
+   Dark Full-Screen Interface | Instrument Showroom | Minimal Product Design
+   ========================================================================== */
+
+:root {
+  --showroom-bg: #070708;
+  --showroom-bg-subtle: #0d0d10;
+  --showroom-text-primary: #f2f2f2;
+  --showroom-text-secondary: #777777;
+  --showroom-text-tertiary: #444448;
+  --showroom-line: #222226;
+  --showroom-line-active: #333339;
+  --showroom-accent: #ff5500;
+  --showroom-accent-hover: #ff6a1a;
+  --showroom-accent-glow: rgba(255, 85, 0, 0.35);
+}
+
+.showroom-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--showroom-bg);
+  background: radial-gradient(circle at 50% 32%, #131318 0%, #08080a 55%, #040405 100%);
+  color: var(--showroom-text-primary);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  user-select: none;
+  z-index: 1000;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  animation: showroom-fade-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes showroom-fade-in {
+  0% {
+    opacity: 0;
+    filter: brightness(0.7);
+  }
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+/* ==========================================================================
+   TOP NAVIGATION BAR
+   ========================================================================== */
+
+.showroom-header {
+  height: 64px;
+  padding: 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--showroom-line);
+  position: relative;
+  z-index: 50;
+}
+
+.showroom-header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.showroom-logo-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.showroom-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+}
+
+.showroom-nav-link {
+  background: none;
+  border: none;
+  color: var(--showroom-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  padding: 8px 0;
+  position: relative;
+  transition: color 0.2s ease;
+  text-transform: uppercase;
+}
+
+.showroom-nav-link:hover {
+  color: var(--showroom-text-primary);
+}
+
+.showroom-nav-link.active {
+  color: var(--showroom-accent);
+}
+
+.showroom-nav-link.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--showroom-accent);
+  box-shadow: 0 0 8px var(--showroom-accent-glow);
+}
+
+.showroom-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.showroom-tagline-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.showroom-tagline-line {
+  width: 48px;
+  height: 1px;
+  background: var(--showroom-line);
+}
+
+.showroom-tagline-text {
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  color: var(--showroom-text-secondary);
+  text-transform: uppercase;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.showroom-profile-btn {
+  background: none;
+  border: 1px solid var(--showroom-line);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--showroom-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.showroom-profile-btn:hover {
+  border-color: var(--showroom-text-secondary);
+  color: var(--showroom-text-primary);
+}
+
+/* Sub-header side slogans */
+.showroom-side-slogan {
+  position: absolute;
+  top: 92px;
+  left: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  color: var(--showroom-text-secondary);
+  z-index: 20;
+  pointer-events: none;
+}
+
+.showroom-side-slogan .slogan-bar {
+  width: 24px;
+  height: 1px;
+  background: var(--showroom-line-active);
+  margin-top: 6px;
+}
+
+/* ==========================================================================
+   HERO / STAGE AREA
+   ========================================================================== */
+
+.showroom-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+/* Kit Typography Header */
+.showroom-info {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  z-index: 30;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.showroom-label {
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: var(--showroom-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.showroom-title {
+  font-family: var(--font-display, var(--font-sans));
+  font-size: 38px;
+  font-weight: 850;
+  letter-spacing: 12px;
+  color: var(--showroom-text-primary);
+  margin: 2px 0 0 12px; /* balance wide letter-spacing */
+  text-transform: uppercase;
+}
+
+.showroom-tagline {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--showroom-text-secondary);
+  font-weight: 400;
+}
+
+/* Carousel Container */
+.showroom-carousel-wrapper {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Arrow Navigation Buttons */
+.showroom-arrow-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--showroom-text-secondary);
+  cursor: pointer;
+  padding: 18px 12px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.showroom-arrow-btn:hover {
+  color: var(--showroom-text-primary);
+  transform: translateY(-50%) scale(1.15);
+}
+
+.showroom-arrow-btn.prev {
+  left: 18%;
+}
+
+.showroom-arrow-btn.next {
+  right: 18%;
+}
+
+/* Visual Stage */
+.showroom-stage-track {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1200px;
+}
+
+.showroom-kit-slot {
+  position: absolute;
+  width: 580px;
+  height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+              opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+              filter 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform, opacity;
+  cursor: pointer;
+}
+
+/* Spotlight & Floor Reflection */
+.showroom-spotlight {
+  position: absolute;
+  width: 500px;
+  height: 120px;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.08) 0%, rgba(255, 85, 0, 0.04) 40%, transparent 70%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.showroom-drum-img-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease-out;
+}
+
+.showroom-drum-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 24px 36px rgba(0, 0, 0, 0.85));
+  pointer-events: none;
+  transition: transform 0.25s ease;
+}
+
+/* Floor Reflection Layer */
+.showroom-drum-reflection {
+  position: absolute;
+  bottom: -50px;
+  left: 50%;
+  transform: translateX(-50%) scaleY(-0.35);
+  opacity: 0.12;
+  filter: blur(4px);
+  mask-image: linear-gradient(to top, transparent 40%, rgba(0, 0, 0, 0.8) 100%);
+  -webkit-mask-image: linear-gradient(to top, transparent 40%, rgba(0, 0, 0, 0.8) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* State Positions */
+.showroom-kit-slot.slot-active {
+  transform: translateX(0) scale(1);
+  opacity: 1;
+  z-index: 10;
+  cursor: default;
+}
+
+.showroom-kit-slot.slot-prev {
+  transform: translateX(-68%) scale(0.74);
+  opacity: 0.25;
+  filter: brightness(0.6);
+  z-index: 5;
+}
+
+.showroom-kit-slot.slot-next {
+  transform: translateX(68%) scale(0.74);
+  opacity: 0.25;
+  filter: brightness(0.6);
+  z-index: 5;
+}
+
+.showroom-kit-slot.slot-hidden {
+  transform: translateX(0) scale(0.5);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Primary Action: SELECT KIT */
+.showroom-select-btn {
+  position: absolute;
+  bottom: 24px;
+  right: 12%;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  background: rgba(10, 10, 12, 0.8);
+  border: 1px solid var(--showroom-accent);
+  color: var(--showroom-accent);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 35;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.showroom-select-btn:hover {
+  background-color: var(--showroom-accent);
+  color: #000000;
+  box-shadow: 0 0 24px var(--showroom-accent-glow);
+  transform: translateY(-2px);
+}
+
+.showroom-select-btn .btn-arrow {
+  transition: transform 0.25s ease;
+}
+
+.showroom-select-btn:hover .btn-arrow {
+  transform: translateX(4px);
+}
+
+/* ==========================================================================
+   BOTTOM GALLERY THUMBNAILS STRIP
+   ========================================================================== */
+
+.showroom-bottom-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 40px 24px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  z-index: 30;
+}
+
+.showroom-thumbnails-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  position: relative;
+  width: 100%;
+}
+
+.showroom-thumb-card {
+  width: 146px;
+  height: 110px;
+  background: rgba(15, 15, 18, 0.7);
+  border: 1px solid var(--showroom-line);
+  border-radius: 2px;
+  padding: 8px 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s ease;
+}
+
+.showroom-thumb-card:hover {
+  border-color: #383842;
+  background: rgba(22, 22, 28, 0.85);
+  transform: translateY(-2px);
+}
+
+.showroom-thumb-card.active {
+  border-color: var(--showroom-line-active);
+  background: rgba(26, 26, 32, 0.95);
+}
+
+.showroom-thumb-card.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--showroom-accent);
+  box-shadow: 0 0 8px var(--showroom-accent-glow);
+}
+
+.thumb-image-container {
+  width: 100%;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.thumb-image {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+  opacity: 0.65;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.showroom-thumb-card:hover .thumb-image,
+.showroom-thumb-card.active .thumb-image {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.thumb-name {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  color: var(--showroom-text-secondary);
+  transition: color 0.25s ease;
+}
+
+.showroom-thumb-card.active .thumb-name {
+  color: var(--showroom-text-primary);
+}
+
+/* ==========================================================================
+   FOOTER PROGRESS & TAGLINES
+   ========================================================================== */
+
+.showroom-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--showroom-line);
+  padding-top: 14px;
+}
+
+.showroom-counter-group {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.showroom-counter-text {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--showroom-text-secondary);
+}
+
+.showroom-progress-bars {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.showroom-progress-bar {
+  width: 24px;
+  height: 2px;
+  background: var(--showroom-line);
+  border-radius: 1px;
+  transition: background-color 0.25s ease, width 0.25s ease;
+  cursor: pointer;
+}
+
+.showroom-progress-bar.active {
+  background: var(--showroom-accent);
+  width: 28px;
+  box-shadow: 0 0 6px var(--showroom-accent-glow);
+}
+
+.showroom-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.showroom-footer-line {
+  width: 60px;
+  height: 1px;
+  background: var(--showroom-line);
+}
+
+.showroom-footer-tagline {
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  color: var(--showroom-text-secondary);
+  text-transform: uppercase;
+  font-weight: 600;
+  text-align: right;
+  line-height: 1.25;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .showroom-title {
+    font-size: 28px;
+    letter-spacing: 8px;
+  }
+  .showroom-kit-slot {
+    width: 440px;
+    height: 280px;
+  }
+  .showroom-thumb-card {
+    width: 110px;
+    height: 88px;
+  }
+}
