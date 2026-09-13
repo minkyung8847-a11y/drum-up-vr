@@ -1,3 +1,4 @@
+import { BrandLogo } from "./components/brand/BrandLogo";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Drum3D } from "./components/Drum3D";
 import type { Drum3DHandle } from "./components/Drum3D";
@@ -213,14 +214,14 @@ function App() {
   const beatsPerBar = timeSignature === "3/4" ? 3 : timeSignature === "6/8" ? 6 : 4;
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${activeTab === "FREE PLAY" ? "acoustic-studio" : ""}`}>
       {/* HEADER SECTION */}
       <header className="app-header">
         <div className="header-left">
           <button className="menu-button">
             <Menu size={20} />
           </button>
-          <h1 className="logo">DrumUp</h1>
+          <h1 className="logo brand-header"><BrandLogo /></h1>
         </div>
 
         {/* Tab Navigation Capsule */}

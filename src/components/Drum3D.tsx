@@ -1,5 +1,6 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import * as THREE from "three";
+import { createStudioEnvironment } from "./studioEnvironment";
 import { createVirtualDrumSet } from "./virtualDrumSet";
 
 export type Drum3DPartId = "kick" | "snare" | "hihat" | "tom1" | "tom2" | "tom3" | "crash" | "ride";
@@ -76,8 +77,15 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
 
     // 2. Camera setup - centered on the 3D drum kit bounds
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 20);
-    camera.position.set(0, 2.05, 2.45);
-    camera.lookAt(0, 0.95, 0.15);
+    // Fit the complete kit, including cymbal edges, in both wide and narrow stages.
+    const frameKit = (w: number, h: number) => {
+      camera.aspect = w / Math.max(h, 1);
+      const distance = Math.max(2.65, 1.65 / (Math.tan(Math.PI / 8) * camera.aspect));
+      camera.position.set(0, 0.70 + distance * 0.58, 0.1 + distance * 0.815);
+      camera.lookAt(0, 0.70, 0.1);
+      camera.updateProjectionMatrix();
+    };
+    frameKit(width, height);
 
     // 3. Renderer setup
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -86,18 +94,31 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 0.95;
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const room = createStudioEnvironment();
+    const environment = pmrem.fromScene(room, 0.015);
+    scene.environment = environment.texture;
+    scene.environmentIntensity = 0.95;
+    room.traverse(object => { if(object instanceof THREE.Mesh) { object.geometry.dispose(); (object.material as THREE.Material).dispose(); } });
+    pmrem.dispose();
     container.appendChild(renderer.domElement);
 
     // 4. Lighting setup
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    const ambientLight = new THREE.AmbientLight(0xe8eaf0, 0.28);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.95);
-    dirLight.position.set(3, 6, 4);
+    const dirLight = new THREE.DirectionalLight(0xfff4e5, 2.8);
+    dirLight.position.set(-3, 6, 4);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 1024;
-    dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.left = -2;
+    dirLight.shadow.camera.right = 2;
+    dirLight.shadow.camera.top = 2;
+    dirLight.shadow.camera.bottom = -2;
+    dirLight.shadow.normalBias = 0.012;
+    dirLight.shadow.radius = 4;
     dirLight.shadow.bias = -0.001;
     scene.add(dirLight);
 
@@ -105,6 +126,14 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
     const spotLight = new THREE.SpotLight(0xffffff, 1.2, 10, Math.PI / 6, 0.5, 1);
     spotLight.position.set(0, 5, 2);
     scene.add(spotLight);
+    const rimLight = new THREE.DirectionalLight(0xc6d6ef, 1.6);
+    rimLight.position.set(2, 3, -2);
+    scene.add(rimLight);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(20,20), new THREE.ShadowMaterial({opacity:0.13}));
+    ground.rotation.x = -Math.PI/2;
+    ground.position.y = -0.016;
+    ground.receiveShadow = true;
+    scene.add(ground);
 
     // 5. Initialize the high-fidelity procedural 3D Drum Set
     const virtualDrum = createVirtualDrumSet(scene);
@@ -141,6 +170,19 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
     };
 
     renderer.domElement.addEventListener("mousedown", handleMouseDown);
+
+    // Presentation-only hover; the existing mousedown callback and ID mapping stay intact.
+    const handleHover = (event: MouseEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.set(((event.clientX-rect.left)/rect.width)*2-1, -((event.clientY-rect.top)/rect.height)*2+1);
+      raycaster.setFromCamera(mouse,camera);
+      const target = raycaster.intersectObjects(virtualDrum.raycastTargets,true)[0]?.object;
+      virtualDrum.setHovered(target?.userData.drumType ?? null);
+      renderer.domElement.style.cursor = target ? 'pointer' : 'default';
+    };
+    const clearHover = () => virtualDrum.setHovered(null);
+    renderer.domElement.addEventListener('mousemove', handleHover);
+    renderer.domElement.addEventListener('mouseleave', clearHover);
 
     // 7. Animation Loop
     let reqId = 0;
@@ -200,26 +242,48 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
       if (!container) return;
       const w = container.clientWidth;
       const h = container.clientHeight;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
+      if (w <= 0 || h <= 0) return;
+      frameKit(w, h);
       renderer.setSize(w, h);
       updateProjectedPositions();
     };
 
     window.addEventListener("resize", handleResize);
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(container);
 
     // Cleanup
     return () => {
+      resizeObserver.disconnect();
       clearTimeout(initTimer1);
       clearTimeout(initTimer2);
       window.removeEventListener("resize", handleResize);
       if (renderer.domElement) {
         renderer.domElement.removeEventListener("mousedown", handleMouseDown);
+        renderer.domElement.removeEventListener('mousemove', handleHover);
+        renderer.domElement.removeEventListener('mouseleave', clearHover);
         if (container) {
           container.removeChild(renderer.domElement);
         }
       }
       cancelAnimationFrame(reqId);
+      const geometries = new Set<THREE.BufferGeometry>();
+      const materials = new Set<THREE.Material>();
+      const textures = new Set<THREE.Texture>();
+      scene.traverse(object => {
+        if (object instanceof THREE.Mesh) {
+          geometries.add(object.geometry);
+          (Array.isArray(object.material) ? object.material : [object.material]).forEach(material => {
+            materials.add(material);
+            Object.values(material).forEach(value => { if(value instanceof THREE.Texture) textures.add(value); });
+          });
+        }
+      });
+      geometries.forEach(geometry => geometry.dispose());
+      materials.forEach(material => material.dispose());
+      textures.forEach(texture => texture.dispose());
+      environment.dispose();
+      renderer.dispose();
       scene.clear();
     };
   }, []);
@@ -233,7 +297,7 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
         display: "block",
         position: "relative",
         cursor: "pointer",
-        minHeight: "480px",
+        minHeight: "0",
       }}
     />
   );

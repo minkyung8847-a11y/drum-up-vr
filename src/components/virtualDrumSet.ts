@@ -1,5 +1,6 @@
 // @ts-nocheck
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 export const drumPositions = {
   crash: [-0.88, 1.32, 0.02],
@@ -14,33 +15,22 @@ export const drumPositions = {
 };
 
 const drumColors = {
-  blackShell: 0x222426,
+  blackShell: 0xffe0bc,
   blackShellDark: 0x0e1011,
-  chrome: 0xffffff,
-  chromeDark: 0x8a8f94,
-  cymbal: 0xdedfe1,
+  chrome: 0xeff3f6,
+  chromeDark: 0x34383c,
+  cymbal: 0xf0ce80,
   cymbalDark: 0x93979b,
-  drumHead: 0xfaf8f2,
+  drumHead: 0xd8d5cc,
   rubber: 0x161616,
   highlight: 0xffe6a3,
 };
 
-const PART_FLASH_COLORS = {
-  crash: 0xf3cd82,
-  ride: 0xf3cd82,
-  hihat: 0xf4a7b9,
-  openHihat: 0xf4a7b9,
-  snare: 0x95c2de,
-  kick: 0x98d9c2,
-  smallTom: 0xaf78db,
-  middleTom: 0x708ee6,
-  floorTom: 0xe98862,
-};
 
 export function createVirtualDrumSet(scene) {
   const group = new THREE.Group();
   const parts = new Map();
-  const effects = [];
+  let hoveredPart = null;
   const raycastTargets = [];
   
   let kickPedalBoard = null;
@@ -48,24 +38,28 @@ export function createVirtualDrumSet(scene) {
   let kickPedalTimer = 0;
   let kickPedalPower = 0;
 
-  const shellTexture = createBrushedTexture('#17191b', '#5f6261', 512, 256, 'vertical');
-  const cymbalTexture = createCymbalTexture();
+  const shellTexture = createWoodTexture();
+  const cymbalSurface = createCymbalSurface();
 
-  const shellMat = new THREE.MeshStandardMaterial({
+  const shellMat = new THREE.MeshPhysicalMaterial({
     color: drumColors.blackShell,
     map: shellTexture,
-    metalness: 0.62,
-    roughness: 0.28,
+    metalness: 0.05,
+    roughness: 0.29,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.12,
+    side: THREE.DoubleSide,
   });
   const headMat = new THREE.MeshStandardMaterial({
     color: drumColors.drumHead,
-    roughness: 0.72,
-    metalness: 0.02,
+    roughness: 0.56,
+    metalness: 0.04,
+    map: createHeadTexture(),
   });
   const chromeMat = new THREE.MeshStandardMaterial({
     color: drumColors.chrome,
     metalness: 0.95,
-    roughness: 0.13,
+    roughness: 0.095,
     side: THREE.DoubleSide, // Support inside-out view for open cylinders
   });
   const darkChromeMat = new THREE.MeshStandardMaterial({
@@ -78,21 +72,27 @@ export function createVirtualDrumSet(scene) {
     color: drumColors.rubber,
     roughness: 0.78,
   });
-  const cymbalMat = new THREE.MeshStandardMaterial({
+  const cymbalMat = new THREE.MeshPhysicalMaterial({
     color: drumColors.cymbal,
-    map: cymbalTexture,
-    metalness: 0.72,
+    metalness: 1,
     roughness: 0.34,
+    envMapIntensity: 1.05,
+    map: cymbalSurface.color,
+    normalMap: cymbalSurface.normal,
+    normalScale: new THREE.Vector2(0.65, 0.65),
+    anisotropy: 0.28,
+    anisotropyMap: cymbalSurface.direction,
+    side: THREE.DoubleSide,
   });
 
   createBassDrum('kick', [0, 0.39, 0.08]);
-  createTom('snare', drumPositions.snare, 0.24, 0.16, { tiltX: 0.08, tiltZ: -0.06, legStyle: 'stand' });
-  createTom('smallTom', drumPositions.smallTom, 0.2, 0.24, { tiltX: 0.16, tiltZ: 0.12, mountToBass: true });
-  createTom('middleTom', drumPositions.middleTom, 0.22, 0.26, { tiltX: 0.14, tiltZ: -0.1, mountToBass: true });
-  createTom('floorTom', drumPositions.floorTom, 0.24, 0.36, { tiltX: 0.04, tiltZ: -0.04, legStyle: 'floor' });
-  createCymbal('hihat', drumPositions.hihat, 0.21, { stacked: true, standHeight: 0.95 });
-  createCymbal('crash', drumPositions.crash, 0.29, { standHeight: 1.33, tiltX: 0.18, tiltZ: -0.1 });
-  createCymbal('ride', drumPositions.ride, 0.3, { standHeight: 1.18, tiltX: 0.16, tiltZ: 0.1 });
+  createTom('snare', drumPositions.snare, 0.29, 0.16, { tiltX: 0.08, tiltZ: -0.06, legStyle: 'stand' });
+  createTom('smallTom', drumPositions.smallTom, 0.225, 0.26, { tiltX: 0.46, tiltZ: 0.12, mountToBass: true });
+  createTom('middleTom', drumPositions.middleTom, 0.245, 0.28, { tiltX: 0.43, tiltZ: -0.1, mountToBass: true });
+  createTom('floorTom', drumPositions.floorTom, 0.32, 0.38, { tiltX: 0.04, tiltZ: -0.04, legStyle: 'floor' });
+  createCymbal('hihat', drumPositions.hihat, 0.25, { stacked: true, standHeight: 0.95 });
+  createCymbal('crash', drumPositions.crash, 0.39, { standHeight: 1.33, tiltX: 0.18, tiltZ: -0.1 });
+  createCymbal('ride', drumPositions.ride, 0.43, { standHeight: 1.18, tiltX: 0.16, tiltZ: 0.1 });
   createKickPedal();
   createHihatPedal();
 
@@ -110,10 +110,18 @@ export function createVirtualDrumSet(scene) {
     shell.userData.drumType = name;
     drum.add(shell);
 
-    const topHead = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius * 0.94, radius * 0.94, 0.014, 72),
-      headMat.clone(),
-    );
+    // Solid, opaque coated drumhead for all drums (including toms) so that interior/mounting hardware is completely hidden
+    const isTom = name !== 'snare';
+    const headGeometry = new THREE.RingGeometry(0, radius * 0.968, 128, 24);
+    headGeometry.rotateX(-Math.PI / 2);
+    const drumHeadMat = headMat.clone();
+    drumHeadMat.transparent = false;
+    drumHeadMat.opacity = 1.0;
+    drumHeadMat.depthWrite = true;
+    drumHeadMat.roughness = 0.52;
+
+    const topHead = new THREE.Mesh(headGeometry, drumHeadMat);
+    if (isTom) topHead.userData.deformRadius = radius * 0.968;
     topHead.position.y = 0.006;
     topHead.castShadow = true;
     topHead.receiveShadow = true;
@@ -122,7 +130,7 @@ export function createVirtualDrumSet(scene) {
 
     const bottomHead = new THREE.Mesh(
       new THREE.CylinderGeometry(radius * 0.92, radius * 0.92, 0.01, 72),
-      new THREE.MeshStandardMaterial({ color: 0xd9d6c8, roughness: 0.78 }),
+      new THREE.MeshStandardMaterial({ color: 0x43494e, roughness: 0.55 }),
     );
     bottomHead.position.y = -depth - 0.004;
     bottomHead.userData.drumType = name;
@@ -130,7 +138,7 @@ export function createVirtualDrumSet(scene) {
 
     addHoop(drum, radius, 0.018, 0.018, 0.014);
     addHoop(drum, radius, -depth - 0.006, 0.016, 0.012);
-    addLugs(drum, name, radius, depth, options.legStyle === 'floor' ? 8 : 6);
+    addLugs(drum, name, radius, depth, options.legStyle === 'floor' || name === 'snare' ? 10 : 8);
 
     if (options.mountToBass) {
       addTomMount(position, radius);
@@ -180,7 +188,7 @@ export function createVirtualDrumSet(scene) {
 
     const frontHead = new THREE.Mesh(
       new THREE.CylinderGeometry(radius * 0.93, radius * 0.93, 0.018, 96),
-      new THREE.MeshStandardMaterial({ color: 0xe2dfd1, roughness: 0.82 }),
+      new THREE.MeshStandardMaterial({ color: 0x999b97, roughness: 0.5, map: createHeadTexture() }),
     );
     frontHead.position.y = depth / 2 + 0.012;
     frontHead.userData.drumType = name;
@@ -232,28 +240,35 @@ export function createVirtualDrumSet(scene) {
     cymbal.position.set(...position);
     cymbal.rotation.set(options.tiltX ?? 0.08, 0, options.tiltZ ?? 0);
 
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 0.96, 0.012, 96), cymbalMat.clone());
-    body.scale.y = 0.55;
-    body.castShadow = true;
-    body.receiveShadow = true;
-    body.userData.drumType = name;
+    const profile = [];
+    for (let i=0;i<=180;i++) {
+      const t=0.022+(i/180)*0.978;
+      const y=0.049*Math.exp(-Math.pow(t/0.2,3))+0.019*Math.pow(1-t,2);
+      profile.push(new THREE.Vector2(radius*t,y));
+    }
+    const geometry = new THREE.LatheGeometry(profile,192);
+    const pos = geometry.attributes.position, uv = geometry.attributes.uv;
+    for(let i=0;i<pos.count;i++) uv.setXY(i,pos.getX(i)/(radius*2)+0.5,pos.getZ(i)/(radius*2)+0.5);
+    const body = new THREE.Mesh(geometry,cymbalMat.clone());
+    body.castShadow=true; body.receiveShadow=true;
+    body.userData.drumType=name;
     cymbal.add(body);
+    const edge = new THREE.Mesh(new THREE.TorusGeometry(radius,0.0012,6,192),cymbalMat);
+    edge.rotation.x=Math.PI/2;
+    cymbal.add(edge);
 
-    const bell = new THREE.Mesh(
-      new THREE.SphereGeometry(radius * 0.22, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-      cymbalMat.clone(),
-    );
-    bell.scale.y = 0.38;
-    bell.position.y = 0.012;
-    bell.userData.drumType = name;
-    cymbal.add(bell);
-
-    const felt = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.018, 24), rubberMat);
-    felt.position.y = 0.025;
+    const felt = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.021, 0.012, 32), rubberMat);
+    felt.position.y = 0.072;
     cymbal.add(felt);
 
-    const wingNut = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.012, 0.016), chromeMat);
-    wingNut.position.y = 0.043;
+    const wingNut = new THREE.Mesh(new RoundedBoxGeometry(0.052, 0.012, 0.014, 3, 0.004), chromeMat);
+    wingNut.position.y = 0.087;
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.004,0.055,16),chromeMat);
+    stem.position.y=0.092;
+    cymbal.add(stem);
+    const washer = new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.003,32),chromeMat);
+    washer.position.y=0.081;
+    cymbal.add(washer);
     cymbal.add(wingNut);
 
     if (options.stacked) {
@@ -285,50 +300,52 @@ export function createVirtualDrumSet(scene) {
       isCymbal: true,
       isKick: false,
     });
-    raycastTargets.push(body, bell);
+    raycastTargets.push(body);
   }
 
-  function addHoop(parent, radius, y, tubeRadius, metalRadius) {
-    // Sharp metal band hoop wrapping the drum cylinder
-    const height = Math.abs(tubeRadius) * 2; // e.g. ~0.035
-    const hoop = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius + 0.005, radius + 0.005, height, 72, 1, true),
-      chromeMat
-    );
-    hoop.position.y = y;
-    hoop.castShadow = true;
-    parent.add(hoop);
-
-    // Inner sharp metal shadow ring
-    const innerShadow = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius + 0.002, radius + 0.002, height * 0.5, 72, 1, true),
-      darkChromeMat
-    );
-    innerShadow.position.y = y - 0.002;
-    parent.add(innerShadow);
+  function addHoop(parent, radius, y, tubeRadius, _metalRadius) {
+    // Closed, rolled triple-flange cross section: highlights and dark recesses have real depth.
+    const h = Math.abs(tubeRadius);
+    const section = [[-0.008,-h],[-0.008,h*0.7],[-0.006,h],[-0.002,h+0.003],
+      [0.004,h+0.003],[0.008,h],[0.009,h*0.55],[0.009,-h*0.45],
+      [0.017,-h*0.55],[0.02,-h*0.8],[0.02,-h],[0.013,-h*1.1],[-0.008,-h]];
+    const hoop = new THREE.Mesh(new THREE.LatheGeometry(section.map(([r,y])=>new THREE.Vector2(radius+r,y)),160),chromeMat);
+    hoop.position.y=y;hoop.castShadow=true;parent.add(hoop);
+    const seat = new THREE.Mesh(new THREE.TorusGeometry(radius-0.005,0.0035,10,160),darkChromeMat);
+    seat.rotation.x=Math.PI/2;seat.position.y=y-h*0.7;parent.add(seat);
+    const bead = new THREE.Mesh(new THREE.TorusGeometry(radius-0.004,0.0024,10,160),chromeMat);
+    bead.rotation.x=Math.PI/2;bead.position.y=y-h*0.92;parent.add(bead);
   }
 
   function addLugs(parent, drumType, radius, depth, count) {
-    for (let i = 0; i < count; i += 1) {
-      const angle = (i / count) * Math.PI * 2;
-      const x = Math.cos(angle) * (radius + 0.014);
-      const z = Math.sin(angle) * (radius + 0.014);
-
-      const lug = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.07, 0.024), chromeMat);
-      lug.position.set(x, -depth * 0.45, z);
-      lug.rotation.y = -angle;
-      lug.castShadow = true;
-      lug.userData.drumType = drumType;
-      parent.add(lug);
-
-      const rod = createPipeBetweenPoints(
-        new THREE.Vector3(x, 0.01, z),
-        new THREE.Vector3(x, -depth - 0.01, z),
-        0.004,
-        chromeMat,
-      );
-      rod.userData.drumType = drumType;
-      parent.add(rod);
+    for(let i=0;i<count;i++) {
+      const angle=i/count*Math.PI*2;
+      const hardware=new THREE.Group();
+      hardware.rotation.y=Math.PI/2-angle;
+      hardware.position.set(Math.cos(angle)*radius,0,Math.sin(angle)*radius);
+      hardware.userData.drumType=drumType;
+      // Separate top/bottom cast housings, black gaskets and machined tension screws.
+      [0,-depth].forEach((end,index)=>{
+        const sign=index===0?-1:1;
+        const gasket=new THREE.Mesh(new RoundedBoxGeometry(0.032,0.056,0.009,2,0.003),rubberMat);
+        gasket.position.set(0,end+sign*0.078,0.009);hardware.add(gasket);
+        const lug=new THREE.Mesh(new RoundedBoxGeometry(0.027,0.048,0.023,3,0.007),chromeMat);
+        lug.position.set(0,end+sign*0.078,0.019);lug.castShadow=true;hardware.add(lug);
+        const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.0035,0.0035,0.073,16),chromeMat);
+        rod.position.set(0,end+sign*0.018,0.026);hardware.add(rod);
+        const washer=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.004,24),chromeMat);
+        washer.position.set(0,end-sign*0.024,0.026);hardware.add(washer);
+        const bolt=new THREE.Mesh(new RoundedBoxGeometry(0.010,0.010,0.010,2,0.001),chromeMat);
+        bolt.position.set(0,end-sign*0.031,0.026);hardware.add(bolt);
+        const ear=new THREE.Mesh(new RoundedBoxGeometry(0.027,0.006,0.027,3,0.006),chromeMat);
+        ear.position.set(0,end-sign*0.019,0.015);hardware.add(ear);
+        for(let thread=0;thread<5;thread++) {
+          const ridge=new THREE.Mesh(new THREE.TorusGeometry(0.0037,0.00055,4,12),darkChromeMat);
+          ridge.rotation.x=Math.PI/2;ridge.position.set(0,end+sign*(0.033+thread*0.003),0.026);
+          hardware.add(ridge);
+        }
+      });
+      parent.add(hardware);
     }
   }
 
@@ -359,10 +376,10 @@ export function createVirtualDrumSet(scene) {
   }
 
   function addTomMount(position, radius) {
-    const base = new THREE.Vector3(position[0] * 0.55, 0.78, -0.08);
-    const target = new THREE.Vector3(position[0], position[1] - 0.16, position[2] - radius * 0.45);
+    const base = new THREE.Vector3(position[0] * 0.55, 0.78, -0.24);
+    const target = new THREE.Vector3(position[0], position[1] - 0.20, position[2] - radius - 0.024);
     group.add(createPipeBetweenPoints(base, target, 0.015, chromeMat));
-    const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.05), chromeMat);
+    const clamp = new THREE.Mesh(new RoundedBoxGeometry(0.06, 0.05, 0.05, 3, 0.008), chromeMat);
     clamp.position.copy(target);
     clamp.castShadow = true;
     group.add(clamp);
@@ -514,31 +531,31 @@ export function createVirtualDrumSet(scene) {
     return mesh;
   }
 
-  function hit(drumType, velocity = 1, isLeft = true) {
+  function hit(drumType, velocity = 1, _isLeft = true) {
     const part = parts.get(drumType === 'openHihat' ? 'hihat' : drumType);
     if (!part) return;
 
-    part.flash = Math.max(part.flash, 0.16 + velocity * 0.14);
+    part.flash = Math.max(part.flash, 0.10 + velocity * 0.06);
 
     if (part.isCymbal) {
       // Scale down swing/movement velocity by ~50%
-      part.swingVelocityX = -(12.0 + velocity * 9.0);
+      part.swingVelocityX = -(0.45 + velocity * 0.35);
       const isLeftSide = (drumType === 'crash' || drumType === 'hihat' || drumType === 'openHihat');
-      part.swingVelocityZ = (isLeftSide ? 1.0 : -1.0) * (9.0 + velocity * 6.0);
-      part.bodyPunchVelocity = 1.75 * velocity;
-      part.scaleYVelocity = -3.25 * velocity;
+      part.swingVelocityZ = (isLeftSide ? 1.0 : -1.0) * (0.22 + velocity * 0.18);
+      part.bodyPunchVelocity = 0.04 * velocity;
+      part.scaleYVelocity = -0.12 * velocity;
     } else {
-      // Scale down compression / squash velocity by ~50%
-      part.depressVelocity = -(part.isTom ? 5.0 : 4.0) * velocity;
-      part.bodyPunchVelocity = -(part.isTom ? 3.0 : 2.0) * velocity;
-      part.scaleYVelocity = -6.0 * velocity;
+      // Balanced compression / squash velocity
+      part.depressVelocity = -(part.isTom ? 0.35 : 0.12) * velocity;
+      part.bodyPunchVelocity = -(part.isTom ? 0.04 : 0.045) * velocity;
+      part.scaleYVelocity = -(part.isTom ? 0.16 : 0.18) * velocity;
       if (drumType === 'kick') {
         kickPedalTimer = 0.16;
         kickPedalPower = velocity;
       }
     }
 
-    spawnHitEffect(part.group.position, velocity, part.isKick);
+    // The existing hit drives only a brief local surface response.
   }
 
   function update(delta) {
@@ -566,18 +583,23 @@ export function createVirtualDrumSet(scene) {
       if (part.flash > 0) {
         part.flash = Math.max(0, part.flash - dt);
         if (part.flashMesh?.material) {
-          const colorHex = PART_FLASH_COLORS[partName] || drumColors.highlight;
+          const colorHex = 0xe8ac70;
           part.flashMesh.material.emissive?.setHex(colorHex);
-          part.flashMesh.material.emissiveIntensity = part.flash * 3.8;
+          part.flashMesh.material.emissiveIntensity = part.flash * 0.7;
         }
       } else if (part.flashMesh?.material) {
         part.flashMesh.material.emissive?.setHex(0x000000);
       }
 
+      if (part.flashMesh?.material && hoveredPart === partName) {
+        part.flashMesh.material.emissive.setHex(0xbe793d);
+        part.flashMesh.material.emissiveIntensity = Math.max(part.flash * 0.7, 0.065);
+      }
+
       if (part.isCymbal) {
         // Lower tension and higher damping for slower, longer, more obvious swaying
-        const tension = 32;
-        const damping = 0.94;
+        const tension = 100;
+        const damping = 0.72;
         part.wobbleTime += dt;
         
         part.swingVelocityX += (0 - part.swingAngleX) * tension * dt;
@@ -607,22 +629,35 @@ export function createVirtualDrumSet(scene) {
       }
 
       // Deeper, slower, more organic bouncing for drums
-      const tension = part.isKick ? 45 : part.isTom ? 55 : 65;
-      const damping = part.isKick ? 0.88 : part.isTom ? 0.84 : 0.86;
+      const tension = part.isKick ? 45 : part.isTom ? 130 : 65;
+      const damping = part.isKick ? 0.88 : part.isTom ? 0.82 : 0.86;
       part.depressVelocity += (0 - part.depression) * tension * dt;
       part.depressVelocity *= Math.pow(damping, dt * 60);
       part.depression += part.depressVelocity * dt;
-      const maxDepression = part.isKick ? -0.045 : part.isTom ? -0.14 : -0.08;
+      const maxDepression = part.isKick ? -0.045 : part.isTom ? -0.022 : -0.08;
       part.depression = Math.max(maxDepression, Math.min(0.0175, part.depression));
 
       part.bodyPunchVelocity += (0 - part.bodyPunch) * (part.isTom ? 20 : 15) * dt;
       part.bodyPunchVelocity *= Math.pow(part.isTom ? 0.84 : 0.86, dt * 60);
       part.bodyPunch += part.bodyPunchVelocity * dt;
-      const maxBodyPunch = part.isTom ? -0.10 : -0.05;
+      const maxBodyPunch = part.isTom ? -0.025 : -0.05;
       part.bodyPunch = Math.max(maxBodyPunch, Math.min(0.0125, part.bodyPunch));
 
       part.group.position.y = part.baseGroupY + part.bodyPunch;
-      part.headMesh.position.y = part.baseHeadY + part.depression;
+      if (part.isTom) {
+        // Pinned rim, visible concave centre. No expanding head that protrudes through the hoop.
+        part.headMesh.position.y=part.baseHeadY;
+        const positions=part.headMesh.geometry.attributes.position;
+        const radius=part.headMesh.userData.deformRadius;
+        for(let i=0;i<positions.count;i++) {
+          const distance=Math.hypot(positions.getX(i),positions.getZ(i))/radius;
+          positions.setY(i,Math.min(0,part.depression)*Math.pow(Math.max(0,1-distance*distance),2));
+        }
+        positions.needsUpdate=true;
+        part.headMesh.geometry.computeVertexNormals();
+      } else {
+        part.headMesh.position.y = part.baseHeadY + part.depression;
+      }
 
       // Group scale animation for drums
       part.scaleYVelocity += (1 - part.group.scale.y) * 160 * dt;
@@ -630,7 +665,7 @@ export function createVirtualDrumSet(scene) {
       part.group.scale.y += part.scaleYVelocity * dt;
       part.group.scale.x = 1;
       part.group.scale.z = 1;
-      if (part.baseHeadScale) {
+      if (part.baseHeadScale && !part.isTom) {
         const pressAmount = Math.max(0, -part.depression / Math.abs(maxDepression));
         const spread = part.isTom ? 0.175 : 0.075;
         const flatten = part.isTom ? 0.20 : 0.09;
@@ -642,44 +677,6 @@ export function createVirtualDrumSet(scene) {
       }
     });
 
-    for (let i = effects.length - 1; i >= 0; i -= 1) {
-      const effect = effects[i];
-      effect.life -= dt;
-      effect.mesh.scale.multiplyScalar(1 + dt * 4.8);
-      effect.mesh.material.opacity = Math.max(0, effect.life / effect.maxLife);
-
-      if (effect.life <= 0) {
-        group.remove(effect.mesh);
-        effect.mesh.geometry.dispose();
-        effect.mesh.material.dispose();
-        effects.splice(i, 1);
-      }
-    }
-  }
-
-  function spawnHitEffect(position, velocity, isKick = false) {
-    const mesh = new THREE.Mesh(
-      new THREE.RingGeometry(0.07, 0.1, 32),
-      new THREE.MeshBasicMaterial({
-        color: drumColors.highlight,
-        opacity: 0.75,
-        side: THREE.DoubleSide,
-        transparent: true,
-      }),
-    );
-    mesh.position.copy(position);
-
-    if (isKick) {
-      mesh.position.z += 0.22;
-      mesh.position.y += 0.03;
-    } else {
-      mesh.position.y += 0.035;
-      mesh.rotation.x = -Math.PI / 2;
-    }
-
-    mesh.scale.setScalar(0.7 + velocity * 0.9);
-    group.add(mesh);
-    effects.push({ life: 0.22, maxLife: 0.22, mesh });
   }
 
   return {
@@ -687,70 +684,68 @@ export function createVirtualDrumSet(scene) {
     hit,
     update,
     raycastTargets,
+    setHovered(drumType) { hoveredPart = drumType === 'openHihat' ? 'hihat' : drumType; },
   };
 }
 
-function createBrushedTexture(baseColor, streakColor, width, height, direction) {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = baseColor;
-  ctx.fillRect(0, 0, width, height);
+function createCymbalSurface() {
+  const size=1024;
+  const normal=new Uint8Array(size*size*4), direction=new Uint8Array(size*size*4), color=new Uint8Array(size*size*4);
+  for(let y=0;y<size;y++) for(let x=0;x<size;x++) {
+    const u=(x-size/2)/(size/2),v=(y-size/2)/(size/2);
+    const radius=Math.hypot(u,v),angle=Math.atan2(v,u),i=(y*size+x)*4;
+    const grooves=Math.sin(radius*2*Math.PI*85)*0.28+Math.sin(radius*2*Math.PI*43)*0.07;
+    const hammer=Math.sin(x*0.71+y*0.31)*Math.sin(y*0.47-x*0.27)*0.035;
+    const nx=Math.cos(angle)*grooves+hammer,ny=Math.sin(angle)*grooves+hammer;
+    const length=Math.hypot(nx,ny,1);
+    normal[i]=(nx/length*.5+.5)*255;normal[i+1]=(ny/length*.5+.5)*255;
+    normal[i+2]=(1/length*.5+.5)*255;normal[i+3]=255;
+    direction[i]=(-Math.sin(angle)*.5+.5)*255;direction[i+1]=(Math.cos(angle)*.5+.5)*255;
+    direction[i+2]=255;direction[i+3]=255;
+    const ring=Math.sin(radius*Math.PI*2*85);
+    const value=236+ring*13+Math.sin(radius*Math.PI*2*43)*5;
+    color[i]=value;color[i+1]=value;color[i+2]=value;color[i+3]=255;
+  }
+  const make=data=>{
+    const tex=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
+    tex.magFilter=THREE.LinearFilter;tex.minFilter=THREE.LinearMipmapLinearFilter;
+    tex.generateMipmaps=true;tex.needsUpdate=true;return tex;
+  };
+  const albedo=make(color);albedo.colorSpace=THREE.SRGBColorSpace;
+  return {normal:make(normal),direction:make(direction),color:albedo};
+}
 
-  for (let i = 0; i < (direction === 'vertical' ? width : height); i += 1) {
-    const alpha = 0.05 + Math.random() * 0.18;
-    ctx.strokeStyle = withAlpha(streakColor, alpha);
+// Procedural visual assets: no downloaded images or audio dependencies.
+function createWoodTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024; canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#a23a10'; ctx.fillRect(0,0,1024,512);
+  for (let y = 0; y < 512; y++) {
+    const light = 0.5 + 0.5*Math.sin(y*1.71)*Math.sin(y*0.37);
+    ctx.strokeStyle = y%4 === 0 ? 'rgba(47,12,4,0.42)' : 'rgba(236,135,55,'+(light*0.36)+')';
     ctx.beginPath();
-    if (direction === 'vertical') {
-      ctx.moveTo(i, 0);
-      ctx.lineTo(i + Math.random() * 2 - 1, height);
-    } else {
-      ctx.moveTo(0, i);
-      ctx.lineTo(width, i + Math.random() * 2 - 1);
+    for(let x=0;x<=1024;x+=8) {
+      const yy=y+2.1*Math.sin(x*0.016+y*0.09)+0.8*Math.sin(x*0.035+y*0.12);
+      if(x===0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy);
     }
     ctx.stroke();
   }
-
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(2.5, 1);
   return texture;
 }
-
-function createCymbalTexture() {
-  const size = 512;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const center = size / 2;
-  const gradient = ctx.createRadialGradient(center, center, 12, center, center, center);
-  gradient.addColorStop(0, '#ffffff');
-  gradient.addColorStop(0.45, '#d3d6da');
-  gradient.addColorStop(1, '#93989c');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, size, size);
-
-  for (let radius = 18; radius < center; radius += 5) {
-    ctx.strokeStyle = radius % 10 === 0 ? 'rgba(255,255,255,0.32)' : 'rgba(100,100,100,0.15)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(center, center, radius, 0, Math.PI * 2);
-    ctx.stroke();
+function createHeadTexture() {
+  const canvas = document.createElement('canvas'); canvas.width=256;canvas.height=256;
+  const ctx=canvas.getContext('2d');
+  const light=ctx.createRadialGradient(94,84,6,128,128,170);
+  light.addColorStop(0,'#deddd5');light.addColorStop(0.65,'#c9c9c3');light.addColorStop(1,'#969b9b');
+  ctx.fillStyle=light;ctx.fillRect(0,0,256,256);
+  for(let i=0;i<12000;i++) {
+    const hashX=Math.sin(i*127.1)*43758.5453,hashY=Math.sin(i*311.7)*19234.135;
+    const x=(hashX-Math.floor(hashX))*256,y=(hashY-Math.floor(hashY))*256;
+    ctx.fillStyle='rgba(90,85,74,0.045)';ctx.fillRect(x,y,1,1);
   }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  return texture;
-}
-
-function withAlpha(hex, alpha) {
-  const value = Number.parseInt(hex.slice(1), 16);
-  const r = (value >> 16) & 255;
-  const g = (value >> 8) & 255;
-  const b = value & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;return tex;
 }

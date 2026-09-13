@@ -1686,3 +1686,50 @@ input:checked + .switch-slider:before {
   box-shadow: 0 0 4px rgba(255, 255, 255, 0.9);
 }
 
+
+/* Acoustic instrument stage. Scoped to Free Play; all existing controls remain available. */
+.acoustic-studio {
+  --text-primary: #e9e5de; --text-secondary: #a4a3a0; --text-tertiary: #777978;
+  --bg-card: #17191b; --border-card: #2c2e30;
+  --accent-color: #cc8652; --accent-color-hover: #dfa477;
+  background: radial-gradient(ellipse at 50% 64%, #282a2e 0%, #111315 48%, #090a0c 85%);
+}
+.acoustic-studio .app-header { background: #111315; border-color: #292b2e; height:64px; flex-shrink:0; }
+.acoustic-studio .logo { background: none; -webkit-text-fill-color: #ece6dd; }
+.acoustic-studio .nav-tabs { background:#08090a; border:1px solid #2a2c2f; border-radius:8px; }
+.acoustic-studio .tab-button { border-radius:5px; font-size:12px; }
+.acoustic-studio .tab-button.active { background:#303132; color:#f1d0ac; box-shadow:none; }
+.acoustic-studio .sidebar-left, .acoustic-studio .sidebar-right { flex:0 0 232px; width:232px !important; padding:20px 12px; gap:14px; }
+.acoustic-studio .glass-panel { border-radius:10px; box-shadow:none; backdrop-filter:none; gap:12px; }
+.acoustic-studio .control-label { font-size:10px; letter-spacing:1px; }
+.acoustic-studio .bpm-btn, .acoustic-studio .time-sig-btn,
+.acoustic-studio .custom-select, .acoustic-studio .action-btn.secondary { background:#242629; color:#d4d4d0; border-color:#383b3e; }
+.acoustic-studio .custom-slider, .acoustic-studio .switch-slider { background:#3a3c3e; }
+.acoustic-studio .action-btn.primary { background:#b87948; color:#fff4e7; box-shadow:none; }
+.acoustic-studio .play-area { min-width:0; }
+.acoustic-studio .play-area::before {
+  content:'ACOUSTIC  /  STUDIO KIT'; position:absolute; top:30px; left:50%; transform:translateX(-50%);
+  color:#bcb3a5; font-size:10px; font-weight:600; letter-spacing:3px; white-space:nowrap; pointer-events:none; z-index:2;
+}
+.acoustic-studio .play-area::after {
+  content:'각 드럼과 심벌을 클릭해 연주하세요'; position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+  color:#858581; font-size:11px; letter-spacing:0.5px; white-space:nowrap; pointer-events:none; z-index:2;
+}
+.acoustic-studio .drum-kit-dropdown { background:#1c1e20; border-color:#36393b; }
+.acoustic-studio .drum-kit-item:hover { background:#292c2f; }
+.acoustic-studio .drum-kit-item.selected { background:#30261e; }
+@media (max-width:1100px) {
+  .acoustic-studio .sidebar-left, .acoustic-studio .sidebar-right { flex-basis:196px; width:196px !important; padding:14px 8px; }
+}
+@media (max-width:800px) {
+  .acoustic-studio { height:auto; min-height:100dvh; overflow:visible; }
+  .acoustic-studio .app-header { padding:12px; gap:8px; flex-wrap:wrap; height:auto; }
+  .acoustic-studio .nav-tabs { order:3; width:100%; justify-content:center; }
+  .acoustic-studio .main-layout { flex-wrap:wrap; overflow:visible; }
+  .acoustic-studio .play-area { order:-1; flex:1 0 100%; height:65vh; min-height:380px; }
+  .acoustic-studio .sidebar-left, .acoustic-studio .sidebar-right { flex:1 1 50%; width:50% !important; }
+}
+
+.acoustic-studio .drum-kit-title, .acoustic-studio .drum-kit-item-name { color:#e6e1d9; }
+.acoustic-studio .drum-kit-cat-chip { background:#272a2c; color:#bbbcb8; border-color:#35383a; }
+.acoustic-studio .drum-kit-cat-chip.active { background:#4b3424; color:#f0c7a4; border-color:#775238; }
