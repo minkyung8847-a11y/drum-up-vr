@@ -244,6 +244,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: grab;
+  user-select: none;
+  touch-action: pan-y;
+}
+
+.showroom-carousel-wrapper.is-dragging {
+  cursor: grabbing;
+}
+
+.showroom-carousel-wrapper.is-dragging * {
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 /* Arrow Navigation Buttons */
@@ -314,6 +326,21 @@
   z-index: 1;
 }
 
+/* Decoupled Dynamic Floor Shadow */
+.showroom-floor-shadow {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 460px;
+  height: 38px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.45) 45%, rgba(0, 0, 0, 0.1) 70%, transparent 85%);
+  filter: blur(8px);
+  pointer-events: none;
+  z-index: 1;
+}
+
 .showroom-drum-img-wrapper {
   position: relative;
   width: 100%;
@@ -327,10 +354,10 @@
 }
 
 .showroom-drum-img {
-  max-width: 100%;
-  max-height: 100%;
+  max-width: 96%;
+  max-height: 96%;
   object-fit: contain;
-  filter: drop-shadow(0 24px 36px rgba(0, 0, 0, 0.85));
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.5));
   pointer-events: none;
   transition: transform 0.25s ease;
 }
