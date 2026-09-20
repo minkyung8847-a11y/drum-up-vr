@@ -100,30 +100,12 @@ function App() {
   const {
     connectionState,
     inputs: midiInputs,
-    selectedInputId,
-    setSelectedInputId,
     midiMap,
-    permissionError,
-    scanDevices,
-    connectDevice,
-    disconnectDevice,
-    signalActive,
     learningPadId,
     startLearning,
     stopLearning,
     resetToDefaultMapping,
   } = useMidi(handleMidiPadHit);
-
-  // Audio Context Unlocking gesture wrappers
-  const handleScanDevices = useCallback(() => {
-    drumSynth.init();
-    scanDevices();
-  }, [scanDevices]);
-
-  const handleConnectDevice = useCallback((id: string) => {
-    drumSynth.init();
-    connectDevice(id);
-  }, [connectDevice]);
 
   // Global document click unlocker to bypass browser Web Audio policies
   useEffect(() => {
@@ -229,11 +211,11 @@ function App() {
   }
 
   return (
-    <div className={`app-container play-view-in ${activeTab === "FREE PLAY" ? "acoustic-studio" : ""}`}>
+    <div className={`app-container play-view-in ${activeTab === "FREE PLAY" ? "acoustic-studio" : ""}`} data-view={activeTab}>
       {/* HEADER SECTION */}
       <header className="app-header">
         <div className="header-left">
-          <button className="menu-button">
+          <button className="menu-button" aria-label="드럼 키트 선택" onClick={() => setAppView("SHOWROOM")}>
             <Menu size={20} />
           </button>
           <h1
@@ -252,7 +234,7 @@ function App() {
             type="button"
             className="tab-button"
             onClick={() => setAppView("SHOWROOM")}
-            style={{ color: "var(--accent-color, #ff5500)", fontWeight: 700 }}
+            style={{ color: "var(--accent-color, #FF6D2D)", fontWeight: 700 }}
             title="Return to Drum Kit Selection Showroom"
           >
             ← DRUM KITS
@@ -281,13 +263,13 @@ function App() {
             style={{ 
               color: 
                 connectionState === "connected" 
-                  ? "#00c781" 
+                  ? "#FF6D2D" 
                   : connectionState === "lost" 
-                  ? "#ff9500" 
+                  ? "#FF6D2D" 
                   : connectionState === "error" 
-                  ? "#ff3b30"
+                  ? "#FF6D2D"
                   : (connectionState === "scanning" || connectionState === "connecting")
-                  ? "#ff9500"
+                  ? "#FF6D2D"
                   : "var(--text-secondary)" 
             }}
             title={
@@ -306,32 +288,32 @@ function App() {
               fontWeight: "bold",
               background: 
                 connectionState === "connected"
-                  ? "rgba(0,199,129,0.1)"
+                  ? "rgba(255, 109, 45, 0.1)"
                   : connectionState === "lost"
-                  ? "rgba(255,149,0,0.1)"
+                  ? "rgba(255, 109, 45, 0.1)"
                   : connectionState === "error"
-                  ? "rgba(255,59,48,0.1)"
+                  ? "rgba(255, 109, 45, 0.1)"
                   : (connectionState === "scanning" || connectionState === "connecting")
-                  ? "rgba(255,149,0,0.1)"
-                  : "rgba(0,0,0,0.04)",
+                  ? "rgba(255, 109, 45, 0.1)"
+                  : "rgba(255, 255, 255, 0.04)",
               color: 
                 connectionState === "connected"
-                  ? "#00c781"
+                  ? "#FF6D2D"
                   : connectionState === "lost"
-                  ? "#ff9500"
+                  ? "#FF6D2D"
                   : connectionState === "error"
-                  ? "#ff3b30"
+                  ? "#FF6D2D"
                   : (connectionState === "scanning" || connectionState === "connecting")
-                  ? "#ff9500"
+                  ? "#FF6D2D"
                   : "var(--text-tertiary)",
               border: 
                 connectionState === "connected"
-                  ? "1px solid rgba(0,199,129,0.2)"
+                  ? "1px solid rgba(255, 109, 45, 0.2)"
                   : connectionState === "lost"
-                  ? "1px solid rgba(255,149,0,0.2)"
+                  ? "1px solid rgba(255, 109, 45, 0.2)"
                   : connectionState === "error"
-                  ? "1px solid rgba(255,59,48,0.2)"
-                  : "1px solid rgba(0,0,0,0.06)",
+                  ? "1px solid rgba(255, 109, 45, 0.2)"
+                  : "1px solid rgba(255, 255, 255, 0.06)",
               borderRadius: "20px",
             }}
           >
@@ -376,7 +358,7 @@ function App() {
                   <span className="control-label" style={{ fontSize: "11px", margin: 0 }}>TEMPO / METRONOME</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={{ fontSize: "10px", fontWeight: 700, color: metronomeOn ? "#00c781" : "rgba(255,255,255,0.4)" }}>
+                  <span style={{ fontSize: "10px", fontWeight: 700, color: metronomeOn ? "#FF6D2D" : "rgba(255,255,255,0.4)" }}>
                     {metronomeOn ? "ON" : "OFF"}
                   </span>
                   <label className="switch">
@@ -548,14 +530,14 @@ function App() {
                 }}
               >
                 <svg width="100%" height="100%">
-                  <line x1="34%" y1="0" x2="13.3%" y2="100%" stroke="rgba(0,0,0,0.04)" strokeDasharray="3,5" strokeWidth="1" />
-                  <line x1="38.5%" y1="0" x2="23.1%" y2="100%" stroke="rgba(0,0,0,0.04)" strokeDasharray="3,5" strokeWidth="1" />
-                  <line x1="43%" y1="0" x2="31.2%" y2="100%" stroke="rgba(0,0,0,0.04)" strokeDasharray="3,5" strokeWidth="1" />
-                  <line x1="47.5%" y1="0" x2="40.7%" y2="100%" stroke="rgba(0,0,0,0.04)" strokeDasharray="3,5" strokeWidth="1" />
-                  <line x1="52%" y1="0" x2="50%" y2="100%" stroke="rgba(0,0,0,0.04)" strokeDasharray="3,5" strokeWidth="1" />
-                  <line x1="56.5%" y1="0" x2="59.3%" y2="100%" stroke="rgba(0,0,0,0.04)" strokeDasharray="3,5" strokeWidth="1" />
-                  <line x1="61%" y1="0" x2="72.2%" y2="100%" stroke="rgba(0,0,0,0.04)" strokeDasharray="3,5" strokeWidth="1" />
-                  <line x1="66%" y1="0" x2="87.5%" y2="100%" stroke="rgba(0,0,0,0.04)" strokeDasharray="3,5" strokeWidth="1" />
+                  <line x1="34%" y1="0" x2="13.3%" y2="100%" stroke="rgba(255, 255, 255, 0.04)" strokeDasharray="3,5" strokeWidth="1" />
+                  <line x1="38.5%" y1="0" x2="23.1%" y2="100%" stroke="rgba(255, 255, 255, 0.04)" strokeDasharray="3,5" strokeWidth="1" />
+                  <line x1="43%" y1="0" x2="31.2%" y2="100%" stroke="rgba(255, 255, 255, 0.04)" strokeDasharray="3,5" strokeWidth="1" />
+                  <line x1="47.5%" y1="0" x2="40.7%" y2="100%" stroke="rgba(255, 255, 255, 0.04)" strokeDasharray="3,5" strokeWidth="1" />
+                  <line x1="52%" y1="0" x2="50%" y2="100%" stroke="rgba(255, 255, 255, 0.04)" strokeDasharray="3,5" strokeWidth="1" />
+                  <line x1="56.5%" y1="0" x2="59.3%" y2="100%" stroke="rgba(255, 255, 255, 0.04)" strokeDasharray="3,5" strokeWidth="1" />
+                  <line x1="61%" y1="0" x2="72.2%" y2="100%" stroke="rgba(255, 255, 255, 0.04)" strokeDasharray="3,5" strokeWidth="1" />
+                  <line x1="66%" y1="0" x2="87.5%" y2="100%" stroke="rgba(255, 255, 255, 0.04)" strokeDasharray="3,5" strokeWidth="1" />
                 </svg>
               </div>
 
@@ -567,250 +549,7 @@ function App() {
           )}
         </section>
 
-        {/* SIDEBAR RIGHT: MIDI DIAGNOSTICS & WIZARD */}
-        {activeTab !== "RUDIMENT" && (
-          <aside className="sidebar-right" style={{ display: "flex", flexDirection: "column", gap: "16px", width: "360px" }}>
-            {/* Card 1: Connection Status & Wizard */}
-            <div className="glass-panel" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
-              <span className="control-label" style={{ fontSize: "11px" }}>MIDI CONNECTION WIZARD</span>
-              
-              {/* Dual connection and signal status indicators */}
-              <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-                {/* 장치 연결 상태 */}
-                <div style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "8px 10px",
-                  background: connectionState === "connected" ? "rgba(0,199,129,0.08)" : "rgba(0,0,0,0.03)",
-                  border: connectionState === "connected" ? "1px solid rgba(0,199,129,0.2)" : "1px solid rgba(0,0,0,0.06)",
-                  borderRadius: "6px",
-                  fontSize: "11px",
-                  fontWeight: "600",
-                  color: connectionState === "connected" ? "#00c781" : "var(--text-secondary)"
-                }}>
-                  <span style={{
-                    width: "6px",
-                    height: "6px",
-                    borderRadius: "50%",
-                    background: connectionState === "connected" ? "#00c781" : "#8e8e93"
-                  }} />
-                  장치: {connectionState === "connected" ? "연결됨" : "연결 없음"}
-                </div>
 
-                {/* 실제 입력 상태 */}
-                <div style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "8px 10px",
-                  background: signalActive ? "rgba(0,199,129,0.15)" : "rgba(0,0,0,0.03)",
-                  border: signalActive ? "1px solid rgba(0,199,129,0.4)" : "1px solid rgba(0,0,0,0.06)",
-                  borderRadius: "6px",
-                  fontSize: "11px",
-                  fontWeight: "600",
-                  color: signalActive ? "#00c781" : "var(--text-secondary)",
-                  transition: "all 0.1s ease"
-                }}>
-                  <span style={{
-                    width: "6px",
-                    height: "6px",
-                    borderRadius: "50%",
-                    background: signalActive ? "#00c781" : "#8e8e93",
-                    boxShadow: signalActive ? "0 0 8px #00c781" : "none"
-                  }} />
-                  입력: {signalActive ? "수신 중" : "없음"}
-                </div>
-              </div>
-
-              {/* Step 1: Disconnected / Idle */}
-              {connectionState === "disconnected" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  <div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: "1.4" }}>
-                    노트북에 전자드럼을 연결한 상태에서 아래 버튼을 클릭하여 기기 감지를 시작해 주세요.
-                  </div>
-                  <button 
-                    className="action-btn primary" 
-                    onClick={handleScanDevices}
-                    style={{ width: "100%", padding: "10px", fontWeight: "bold", fontSize: "13px" }}
-                  >
-                    드럼 연결
-                  </button>
-                  <div style={{ fontSize: "10px", color: "var(--text-tertiary)", marginTop: "4px", lineHeight: "1.4" }}>
-                    💡 <strong>연결 팁:</strong> 케이블을 노트북에 연결했는데도 인식이 안 될 경우, USB 포트를 뽑았다가 다시 꽂은 뒤 브라우저 창을 <strong>새로고침(F5)</strong>하고 다시 연결을 시도해 보세요.
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2: Scanning */}
-              {connectionState === "scanning" && (
-                <button 
-                  disabled 
-                  className="action-btn secondary" 
-                  style={{ width: "100%", padding: "10px", fontWeight: "bold", fontSize: "13px", background: "rgba(0,0,0,0.02)", cursor: "not-allowed" }}
-                >
-                  MIDI 장치 확인 중...
-                </button>
-              )}
-
-              {/* Step 3: Selection */}
-              {connectionState === "selection" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  <span style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: "600" }}>연결할 MIDI 장치를 선택하세요:</span>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", background: "rgba(0,0,0,0.01)", border: "1px solid rgba(0,0,0,0.05)", borderRadius: "6px", padding: "8px" }}>
-                    {midiInputs.length === 0 ? (
-                      <div style={{ fontSize: "12px", color: "var(--text-secondary)", padding: "4px" }}>
-                        사용 가능한 MIDI 장치를 찾을 수 없습니다.
-                      </div>
-                    ) : (
-                      midiInputs.map(input => (
-                        <label key={input.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", cursor: "pointer", padding: "4px" }}>
-                          <input 
-                            type="radio" 
-                            name="midi-device" 
-                            value={input.id} 
-                            checked={selectedInputId === input.id}
-                            onChange={() => setSelectedInputId(input.id)}
-                          />
-                          <strong style={{ color: "var(--text-primary)" }}>{input.name || "알 수 없는 기기"}</strong>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button 
-                      disabled={midiInputs.length === 0 || !selectedInputId}
-                      className="action-btn primary" 
-                      onClick={() => handleConnectDevice(selectedInputId)}
-                      style={{ flex: 1, padding: "8px", fontSize: "12px" }}
-                    >
-                      연결
-                    </button>
-                    <button 
-                      className="action-btn secondary" 
-                      onClick={handleScanDevices}
-                      style={{ flex: 1, padding: "8px", fontSize: "12px" }}
-                    >
-                      다시 검색
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 4: Connecting */}
-              {connectionState === "connecting" && (
-                <button 
-                  disabled 
-                  className="action-btn secondary" 
-                  style={{ width: "100%", padding: "10px", fontWeight: "bold", fontSize: "13px", cursor: "not-allowed" }}
-                >
-                  연결 중...
-                </button>
-              )}
-
-              {/* Step 5: Connected */}
-              {connectionState === "connected" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "10px",
-                    borderRadius: "var(--radius-sm)",
-                    fontWeight: "bold",
-                    fontSize: "13px",
-                    color: "#ffffff",
-                    background: "#00c781"
-                  }}>
-                    ✓ 호시미 드럼 연결됨
-                  </div>
-                  <button 
-                    className="action-btn secondary" 
-                    onClick={disconnectDevice}
-                    style={{ width: "100%", padding: "8px", fontSize: "12px" }}
-                  >
-                    연결 해제
-                  </button>
-                </div>
-              )}
-
-              {/* Step 6: Hardware Connection Lost */}
-              {connectionState === "lost" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "10px",
-                    borderRadius: "var(--radius-sm)",
-                    fontWeight: "bold",
-                    fontSize: "13px",
-                    color: "#ffffff",
-                    background: "#ff9500"
-                  }}>
-                    ⚠ 연결 해제됨
-                  </div>
-                  <button 
-                    className="action-btn primary" 
-                    onClick={handleScanDevices}
-                    style={{ width: "100%", padding: "8px", fontSize: "12px" }}
-                  >
-                    다시 연결하기
-                  </button>
-                </div>
-              )}
-
-              {/* Step 7: Connection Error / Permission Denied */}
-              {connectionState === "error" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "10px",
-                    borderRadius: "var(--radius-sm)",
-                    fontWeight: "bold",
-                    fontSize: "13px",
-                    color: "#ffffff",
-                    background: "#ff3b30"
-                  }}>
-                    ✕ 연결 오류
-                  </div>
-                  {permissionError && (
-                    <div style={{ fontSize: "11px", color: "#ff3b30", lineHeight: "1.4", background: "rgba(255,59,48,0.05)", border: "1px solid rgba(255,59,48,0.15)", borderRadius: "6px", padding: "8px" }}>
-                      {permissionError}
-                    </div>
-                  )}
-                  <button 
-                    className="action-btn primary" 
-                    onClick={handleScanDevices}
-                    style={{ width: "100%", padding: "8px", fontSize: "12px" }}
-                  >
-                    다시 시도
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Card 4: HDMI Connection Warning Notice */}
-            <div style={{
-              background: "rgba(255, 149, 0, 0.05)",
-              border: "1px solid rgba(255, 149, 0, 0.2)",
-              borderRadius: "var(--radius-sm)",
-              padding: "12px 14px",
-              fontSize: "11px",
-              color: "#b25900",
-              lineHeight: "1.5",
-            }}>
-              <strong>⚠️ HDMI 연결 관련 안내:</strong>
-              <div style={{ marginTop: "4px" }}>
-                HDMI 케이블은 화면 및 오디오 출력 규격으로, 전자드럼의 MIDI 타격 신호는 전달할 수 없습니다. 실제 신호를 감지하려면 USB 케이블 또는 MIDI-to-USB 젠더를 노트북에 직접 연결해 주세요.
-              </div>
-            </div>
-          </aside>
-        )}
       </main>
       <MidiSettingsModal
         isOpen={isSettingsOpen}
