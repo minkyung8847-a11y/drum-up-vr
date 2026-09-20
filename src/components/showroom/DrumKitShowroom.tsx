@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { ArrowRight } from "lucide-react";
 import { SHOWROOM_DRUM_KITS, type ShowroomDrumKit } from "../../config/showroomKits";
-import { DrumKitNav } from "./DrumKitNav";
 import { DrumKitInfo } from "./DrumKitInfo";
 import { DrumKitCarousel } from "./DrumKitCarousel";
 import { DrumKitThumbnails } from "./DrumKitThumbnails";
-import { KitIndicator } from "./KitIndicator";
 import { drumSynth } from "../../utils/synth";
 import "./drumKitShowroom.css";
 
@@ -36,24 +35,6 @@ export const DrumKitShowroom: React.FC<DrumKitShowroomProps> = ({
     setActiveIndex((prev) => (prev + 1) % SHOWROOM_DRUM_KITS.length);
   }, []);
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        handlePrev();
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        handleNext();
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        handleSelectKit(activeKit);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handlePrev, handleNext, activeKit]);
-
   // Audio auditioning on drum click or kit switch
   const handleAuditionKit = useCallback((kit: ShowroomDrumKit) => {
     try {
@@ -81,57 +62,66 @@ export const DrumKitShowroom: React.FC<DrumKitShowroomProps> = ({
     [onEnterPlay]
   );
 
-  const handleNav = (tab: "HOME" | "DRUM KITS" | "PLAY" | "SESSIONS" | "SETTINGS") => {
-    if (tab === "PLAY") {
-      handleSelectKit(activeKit);
-    } else if (tab === "HOME") {
-      setActiveIndex(0);
-    }
-  };
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey ||
+          (e.target instanceof HTMLElement && e.target.closest('[inert], input, textarea, select, [contenteditable="true"]'))) return;
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        handlePrev();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        handleNext();
+      } else if (e.key === "Enter") {
+        if (e.target instanceof HTMLElement && e.target.closest('button, a')) return;
+        e.preventDefault();
+        handleSelectKit(activeKit);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handlePrev, handleNext, activeKit, handleSelectKit]);
 
   return (
     <div className="showroom-container">
-      {/* Top Navigation */}
-      <DrumKitNav activeNav="DRUM KITS" onNavigate={handleNav} />
-
-      {/* Left Sub-heading: Play / Feel / Go Higher */}
-      <div className="showroom-side-slogan">
-        <span>Play</span>
-        <span>Feel</span>
-        <span>Go Higher</span>
-        <div className="slogan-bar" />
-      </div>
-
       {/* Center Stage Area */}
       <main className="showroom-stage">
-        {/* Minimal Typography Header */}
-        <DrumKitInfo kit={activeKit} />
-
         {/* 3D-Feel Carousel */}
         <DrumKitCarousel
           kits={SHOWROOM_DRUM_KITS}
           activeIndex={activeIndex}
           onPrev={handlePrev}
           onNext={handleNext}
-          onSelectKit={handleSelectKit}
           onAuditionKit={handleAuditionKit}
         />
+
+        {/* Kit Name & Tagline below the drum */}
+        <DrumKitInfo kit={activeKit} />
+
+        {/* Primary Action Button: SELECT KIT */}
+        <button
+          type="button"
+          className="showroom-select-btn"
+          onClick={() => handleSelectKit(activeKit)}
+        >
+          <span>SELECT KIT</span>
+          <ArrowRight size={14} className="btn-arrow" />
+        </button>
       </main>
 
-      {/* Bottom Section: Thumbnails & Progress Indicator */}
+      {/* Bottom Section: Thumbnails */}
       <div className="showroom-bottom-section">
         <DrumKitThumbnails
           kits={SHOWROOM_DRUM_KITS}
           activeIndex={activeIndex}
-          onSelectKit={(idx) => setActiveIndex(idx)}
-        />
-
-        <KitIndicator
-          currentIndex={activeIndex}
-          totalKits={SHOWROOM_DRUM_KITS.length}
-          onSelectIndex={(idx) => setActiveIndex(idx)}
+          onSelectKit={(idx) => {
+            setActiveIndex(idx);
+            handleAuditionKit(SHOWROOM_DRUM_KITS[idx]);
+          }}
         />
       </div>
     </div>
   );
 };
+

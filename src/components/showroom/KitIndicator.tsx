@@ -32,12 +32,6 @@ export const KitIndicator: React.FC<KitIndicatorProps> = ({
         </div>
       </div>
 
-      <div className="showroom-footer-right">
-        <span className="showroom-footer-line" />
-        <span className="showroom-footer-tagline">
-          MORE DRUMS<br />MORE YOU
-        </span>
-      </div>
     </footer>
   );
 };

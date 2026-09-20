@@ -15,15 +15,15 @@ export const drumPositions = {
 };
 
 const drumColors = {
-  blackShell: 0xffe0bc,
-  blackShellDark: 0x0e1011,
+  blackShell: 0xffffff,
+  blackShellDark: 0x1a0800,
   chrome: 0xeff3f6,
   chromeDark: 0x34383c,
-  cymbal: 0xf0ce80,
-  cymbalDark: 0x93979b,
+  cymbal: 0xd8e0e8, // Sleek silver/platinum cymbal alloy
+  cymbalDark: 0x7c858d,
   drumHead: 0xd8d5cc,
   rubber: 0x161616,
-  highlight: 0xffe6a3,
+  highlight: 0xf2f6fa,
 };
 
 
@@ -720,10 +720,11 @@ function createWoodTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 1024; canvas.height = 512;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#a23a10'; ctx.fillRect(0,0,1024,512);
+  // DRUM UP signature vibrant orange (#ff5500)
+  ctx.fillStyle = '#ff5500'; ctx.fillRect(0,0,1024,512);
   for (let y = 0; y < 512; y++) {
     const light = 0.5 + 0.5*Math.sin(y*1.71)*Math.sin(y*0.37);
-    ctx.strokeStyle = y%4 === 0 ? 'rgba(47,12,4,0.42)' : 'rgba(236,135,55,'+(light*0.36)+')';
+    ctx.strokeStyle = y%4 === 0 ? 'rgba(70,18,0,0.42)' : 'rgba(255,155,60,'+(light*0.42)+')';
     ctx.beginPath();
     for(let x=0;x<=1024;x+=8) {
       const yy=y+2.1*Math.sin(x*0.016+y*0.09)+0.8*Math.sin(x*0.035+y*0.12);

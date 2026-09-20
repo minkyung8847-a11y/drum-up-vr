@@ -13,24 +13,23 @@ export const DrumKitThumbnails: React.FC<DrumKitThumbnailsProps> = ({
   onSelectKit,
 }) => {
   return (
-    <div className="showroom-thumbnails-strip" role="tablist" aria-label="Drum Kit Selection Thumbnails">
+    <div className="showroom-thumbnails-strip" role="group" aria-label="Drum kit selection">
       {kits.map((kit, idx) => {
         const isActive = idx === activeIndex;
         return (
           <button
             key={kit.id}
             type="button"
-            role="tab"
-            aria-selected={isActive}
+            aria-pressed={isActive}
             className={`showroom-thumb-card ${isActive ? "active" : ""}`}
             onClick={() => onSelectKit(idx)}
             title={`Select ${kit.displayName} Kit`}
           >
-            <div className="thumb-image-container">
+            <div className="thumb-icon-box">
               <img
                 src={kit.thumbnail || kit.image}
                 alt={kit.displayName}
-                className="thumb-image"
+                className="thumb-icon-img"
                 draggable={false}
               />
             </div>

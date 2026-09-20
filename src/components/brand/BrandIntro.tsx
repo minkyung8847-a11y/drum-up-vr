@@ -3,17 +3,14 @@ import { BrandLogo, BRAND_LOGO_URL } from "./BrandLogo";
 import { IntroAudio, INTRO_SCORE } from "./introScore";
 import "./brandIntro.css";
 
-const SEEN_KEY = "drumup.brand-intro.v1";
 const clamp = (n: number) => Math.min(1, Math.max(0, n));
 const ease = (n: number) => 1 - Math.pow(1 - clamp(n), 3);
-function hasSeenIntro() { try { return sessionStorage.getItem(SEEN_KEY) === "1"; } catch { return false; } }
 
 export function BrandExperience({ children }: { children: ReactNode }) {
-  const [active, setActive] = useState(() => !hasSeenIntro());
+  const [active, setActive] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const finish = useCallback(() => {
-    try { sessionStorage.setItem(SEEN_KEY, "1"); } catch { /* Private storage can be unavailable. */ }
     setActive(false);
     requestAnimationFrame(() => {
       const target = returnFocus.current?.isConnected ? returnFocus.current : contentRef.current?.querySelector<HTMLElement>("button");
@@ -23,7 +20,7 @@ export function BrandExperience({ children }: { children: ReactNode }) {
   return <>
     <div ref={contentRef} inert={active} aria-hidden={active || undefined}>{children}</div>
     {active && <BrandIntro onComplete={finish} />}
-    {import.meta.env.DEV && !active && <button className="intro-replay" onClick={event => {
+    {import.meta.env.DEV && <button hidden={active} className="intro-replay" onClick={event => {
       returnFocus.current = event.currentTarget; setActive(true);
     }}>↻ REPLAY INTRO</button>}
   </>;
@@ -106,6 +103,10 @@ export function BrandIntro({ onComplete }: { onComplete: () => void }) {
           set("--land-x",`${(target.left+target.width/2-window.innerWidth/2)*p}px`);
           set("--land-y",`${(target.top+target.height/2-window.innerHeight*0.43)*p}px`);
           set("--land-scale",1+(target.width/width-1)*p);
+        } else {
+          const p=ease((time-5.2)/0.46);
+          set("--land-scale",1+p*0.16);
+          set("--land-y",`${-24*p}px`);
         }
       }
       raf=requestAnimationFrame(render);
@@ -137,6 +138,8 @@ export function BrandIntro({ onComplete }: { onComplete: () => void }) {
   };
   return <div ref={rootRef} className="brand-intro" role="dialog" aria-modal="true" aria-label="DRUM UP 시작 인트로"
     onKeyDown={event=>{
+      event.stopPropagation();
+      if(event.key==="Escape") { event.preventDefault(); finish(); return; }
       if(event.key==="Tab") {
         const buttons=Array.from(rootRef.current?.querySelectorAll<HTMLButtonElement>("button")??[]);
         const i=buttons.indexOf(document.activeElement as HTMLButtonElement);
