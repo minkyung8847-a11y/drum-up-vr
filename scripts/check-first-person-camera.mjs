@@ -8,7 +8,7 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(`${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);
   await page.locator('.vr-practice-stage canvas').waitFor();
-  await page.getByRole('button', { name: 'Pause demo', exact: true }).click();
+  if (await page.getByRole('button', { name: 'Pause demo', exact: true }).count()) await page.getByRole('button', { name: 'Pause demo', exact: true }).click();
   await page.getByRole('status').filter({ hasText: 'Click to play' }).waitFor({ timeout: 60000 });
   await page.evaluate(async () => {
     const url = performance.getEntriesByType('resource').find(entry => /\/three\.js\?/.test(entry.name)).name;
@@ -30,7 +30,7 @@ try {
         direction: camera.getWorldDirection(new THREE.Vector3()).toArray(),
         yaw: camera.parent.parent.rotation.y, pitch: camera.parent.rotation.x,
         fov: camera.fov,
-        world: roots.map(root => root.matrixWorld.toArray()),
+        world: roots.filter(Boolean).map(root => root.matrixWorld.toArray()),
         kitParts: kit.children.map(part => part.matrixWorld.toArray()),
       };
     };

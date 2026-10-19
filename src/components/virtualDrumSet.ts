@@ -27,7 +27,13 @@ const drumColors = {
 };
 
 
-export function createVirtualDrumSet(scene) {
+export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
+  diameter: number; depth?: number; position: [number, number, number];
+}> } = {}) {
+  const layout = options.layout;
+  const positions = Object.fromEntries(Object.entries(drumPositions).map(([id, position]) => [id, layout?.[id]?.position ?? position]));
+  const radiusFor = (id, fallback) => layout?.[id] ? layout[id].diameter / 2 : fallback;
+  const depthFor = (id, fallback) => layout?.[id]?.depth ?? fallback;
   const group = new THREE.Group();
   const parts = new Map();
   let hoveredPart = null;
@@ -85,15 +91,15 @@ export function createVirtualDrumSet(scene) {
     side: THREE.DoubleSide,
   });
 
-  createBassDrum('kick', drumPositions.kick);
-  createTom('snare', drumPositions.snare, 0.23, 0.16, { tiltX: 0.08, tiltZ: -0.06, legStyle: 'stand' });
-  createTom('smallTom', drumPositions.smallTom, 0.24, 0.26, { tiltX: 0.40, tiltZ: 0.08, mountToBass: true });
-  createTom('middleTom', drumPositions.middleTom, 0.24, 0.26, { tiltX: 0.40, tiltZ: -0.08, mountToBass: true });
+  createBassDrum('kick', positions.kick);
+  createTom('snare', positions.snare, radiusFor('snare', 0.23), depthFor('snare', 0.16), { tiltX: 0.08, tiltZ: -0.06, legStyle: 'stand' });
+  createTom('smallTom', positions.smallTom, radiusFor('smallTom', 0.24), depthFor('smallTom', 0.26), { tiltX: 0.40, tiltZ: 0.08, mountToBass: true });
+  createTom('middleTom', positions.middleTom, radiusFor('middleTom', 0.24), depthFor('middleTom', 0.26), { tiltX: 0.40, tiltZ: -0.08, mountToBass: true });
   addCentralTomPost();
-  createTom('floorTom', drumPositions.floorTom, 0.38, 0.38, { tiltX: 0.04, tiltZ: -0.04, legStyle: 'floor' });
-  createCymbal('hihat', drumPositions.hihat, 0.25, { stacked: true, standHeight: 0.95 });
-  createCymbal('crash', drumPositions.crash, 0.39, { standHeight: 1.33, tiltX: 0.18, tiltZ: -0.1 });
-  createCymbal('ride', drumPositions.ride, 0.43, { standHeight: 1.48, tiltX: 0.16, tiltZ: 0.1 });
+  createTom('floorTom', positions.floorTom, radiusFor('floorTom', 0.38), depthFor('floorTom', 0.38), { tiltX: 0.04, tiltZ: -0.04, legStyle: 'floor' });
+  createCymbal('hihat', positions.hihat, radiusFor('hihat', 0.25), { stacked: true, standHeight: layout ? positions.hihat[1] : 0.95 });
+  createCymbal('crash', positions.crash, radiusFor('crash', 0.39), { standHeight: layout ? positions.crash[1] : 1.33, tiltX: 0.18, tiltZ: -0.1 });
+  createCymbal('ride', positions.ride, radiusFor('ride', 0.43), { standHeight: positions.ride[1], tiltX: 0.16, tiltZ: 0.1 });
   createKickPedal();
   createHihatPedal();
 
@@ -181,8 +187,8 @@ export function createVirtualDrumSet(scene) {
     drum.position.set(...position);
     drum.rotation.x = Math.PI / 2;
 
-    const radius = 0.44;
-    const depth = 0.38;
+    const radius = radiusFor(name, 0.44);
+    const depth = depthFor(name, 0.38);
     const shell = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, depth, 96, 1, true), shellMat);
     shell.castShadow = true;
     shell.receiveShadow = true;
@@ -387,7 +393,7 @@ export function createVirtualDrumSet(scene) {
   }
 
   function addTomMount(position, radius) {
-    const base = new THREE.Vector3(0, 1.16, -0.06);
+    const base = layout ? new THREE.Vector3(positions.kick[0], Math.min(positions.smallTom[1], positions.middleTom[1]) - 0.12, positions.kick[2]) : new THREE.Vector3(0, 1.16, -0.06);
     const target = new THREE.Vector3(position[0], position[1] - 0.20, position[2] - radius - 0.024);
     group.add(createPipeBetweenPoints(base, target, 0.015, chromeMat));
     const clamp = new THREE.Mesh(new RoundedBoxGeometry(0.06, 0.05, 0.05, 3, 0.008), chromeMat);
@@ -397,19 +403,20 @@ export function createVirtualDrumSet(scene) {
   }
 
   function addCentralTomPost() {
-    const bottom = new THREE.Vector3(0, 0.84, -0.06);
-    const top = new THREE.Vector3(0, 1.18, -0.06);
+    const bottom = layout ? new THREE.Vector3(positions.kick[0], positions.kick[1] + radiusFor('kick', 0.44), positions.kick[2]) : new THREE.Vector3(0, 0.84, -0.06);
+    const top = layout ? new THREE.Vector3(positions.kick[0], Math.min(positions.smallTom[1], positions.middleTom[1]) - 0.10, positions.kick[2]) : new THREE.Vector3(0, 1.18, -0.06);
     group.add(createPipeBetweenPoints(bottom, top, 0.018, chromeMat));
-    for (const y of [0.88, 1.16]) {
+    for (const y of layout ? [bottom.y + 0.02, top.y - 0.02] : [0.88, 1.16]) {
       const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.029, 0.029, 0.045, 24), darkChromeMat);
-      collar.position.set(0, y, -0.06);
+      collar.position.set(top.x, y, top.z);
       collar.castShadow = true;
       group.add(collar);
     }
   }
 
   function addSnareStand(position, radius) {
-    const top = new THREE.Vector3(position[0], position[1] - 0.16, position[2]);
+    const standDepth = depthFor('snare', 0.16);
+    const top = new THREE.Vector3(position[0], position[1] - standDepth, position[2]);
     const bottom = new THREE.Vector3(position[0], 0.08, position[2]);
     group.add(createPipeBetweenPoints(bottom, top, 0.014, chromeMat));
     addTripodFeet(new THREE.Vector3(position[0], 0.08, position[2]), 0.27, 0);
@@ -418,7 +425,7 @@ export function createVirtualDrumSet(scene) {
       const angle = (i / 3) * Math.PI * 2 + 0.3;
       const end = new THREE.Vector3(
         position[0] + Math.cos(angle) * radius * 0.8,
-        position[1] - 0.11,
+        position[1] - standDepth + 0.05,
         position[2] + Math.sin(angle) * radius * 0.8,
       );
       group.add(createPipeBetweenPoints(top, end, 0.006, chromeMat));
@@ -430,6 +437,12 @@ export function createVirtualDrumSet(scene) {
       const angle = (i / 3) * Math.PI * 2 + 0.2;
       const top = new THREE.Vector3(Math.cos(angle) * radius * 0.95, -depth * 0.35, Math.sin(angle) * radius * 0.95);
       const bottom = new THREE.Vector3(Math.cos(angle) * (radius + 0.1), -0.7, Math.sin(angle) * (radius + 0.1));
+      if (layout) {
+        parent.updateMatrixWorld(true);
+        parent.localToWorld(bottom);
+        bottom.y = 0.025;
+        parent.worldToLocal(bottom);
+      }
       parent.add(createPipeBetweenPoints(top, bottom, 0.007, chromeMat));
       const foot = new THREE.Mesh(new THREE.SphereGeometry(0.028, 16, 8), rubberMat);
       foot.scale.set(1.25, 0.65, 1.25);
@@ -485,7 +498,7 @@ export function createVirtualDrumSet(scene) {
   // Detailed single-pedal kick mechanism, aligned to the bass drum center.
   function createKickPedal() {
     const pedal = new THREE.Group();
-    pedal.position.set(0, 0.04, 0.50);
+    pedal.position.set(layout ? positions.kick[0] : 0, 0.04, layout ? positions.kick[2] + depthFor('kick', 0.38) / 2 + 0.23 : 0.50);
 
     const base = new THREE.Mesh(new RoundedBoxGeometry(0.19, 0.025, 0.50, 4, 0.008), rubberMat);
     base.position.y = 0.006;
@@ -647,7 +660,7 @@ export function createVirtualDrumSet(scene) {
 
   function createHihatPedal() {
     const pedal = new THREE.Group();
-    pedal.position.set(-0.82, 0.035, 0.52);
+    pedal.position.set(positions.hihat[0], 0.035, layout ? positions.hihat[2] + 0.16 : 0.52);
 
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.025, 0.34), rubberMat);
     base.castShadow = true;

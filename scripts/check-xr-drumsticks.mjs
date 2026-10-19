@@ -10,7 +10,7 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(`${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);
   await page.locator('.vr-practice-stage canvas').waitFor();
-  await page.getByRole('button', { name: 'Pause demo', exact: true }).click();
+  if (await page.getByRole('button', { name: 'Pause demo', exact: true }).count()) await page.getByRole('button', { name: 'Pause demo', exact: true }).click();
   await page.getByText('Stick setup', { exact: true }).click();
   const canvas = page.locator('.vr-practice-stage canvas');
   const baseline = await canvas.screenshot();

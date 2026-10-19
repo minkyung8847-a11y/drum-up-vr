@@ -10,7 +10,7 @@ try {
   await page.goto(`${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);
   const canvas = page.locator('.vr-practice-stage canvas');
   await canvas.waitFor();
-  await page.getByRole('button', { name: 'Pause demo', exact: true }).click();
+  if (await page.getByRole('button', { name: 'Pause demo', exact: true }).count()) await page.getByRole('button', { name: 'Pause demo', exact: true }).click();
   await page.getByRole('status').filter({ hasText: 'Click to play' }).waitFor({ timeout: 20000 }).catch(async error => {
     console.log('Audio status:', await page.getByRole('status').textContent());
     console.log(await page.evaluate(async () => {
@@ -34,6 +34,12 @@ try {
     window.feedbackSeen = false;
     window.motionSeen = false;
     let targets = [];
+    let activeCamera;
+    const fromCamera = THREE.Raycaster.prototype.setFromCamera;
+    THREE.Raycaster.prototype.setFromCamera = function (point, camera) {
+      activeCamera = camera;
+      return fromCamera.call(this, point, camera);
+    };
     const intersect = THREE.Raycaster.prototype.intersectObjects;
     THREE.Raycaster.prototype.intersectObjects = function (objects, ...args) {
       targets = objects;
@@ -45,6 +51,27 @@ try {
       root?.traverse(object => values.push([object.id, ...object.position.toArray(), ...object.quaternion.toArray(), ...object.scale.toArray(), object.material?.emissive?.getHex()]));
       return values;
     };
+    window.hitPointFor = pad => {
+      const id = { 'hihat-closed': 'hihat', 'tom-high': 'smallTom', 'tom-mid': 'middleTom', 'tom-floor': 'floorTom' }[pad] ?? pad;
+      const canvas = document.querySelector('.vr-practice-stage canvas');
+      const rect = canvas.getBoundingClientRect();
+      const ray = new THREE.Raycaster();
+      for (const mesh of targets.filter(target => target.userData.drumType === id)) {
+        mesh.geometry.computeBoundingBox();
+        const radius = mesh.geometry.boundingBox.max.x;
+        for (const ratio of [0.2, 0.5, 0.8]) for (let angle = 0; angle < 12; angle++) {
+          const point = new THREE.Vector3(Math.cos(angle * Math.PI / 6) * radius * ratio,
+            mesh.geometry.type === 'CylinderGeometry' ? mesh.geometry.boundingBox.max.y : 0.02,
+            Math.sin(angle * Math.PI / 6) * radius * ratio).applyMatrix4(mesh.matrixWorld).project(activeCamera);
+          if (Math.abs(point.x) >= 0.98 || Math.abs(point.y) >= 0.98) continue;
+          ray.setFromCamera(new THREE.Vector2(point.x, point.y), activeCamera);
+          const found = ray.intersectObjects(targets, true)[0];
+          if (found?.object.userData.drumType === id) return { x: rect.left + (point.x + 1) * rect.width / 2,
+            y: rect.top + (1 - point.y) * rect.height / 2 };
+        }
+      }
+      throw Error(`No visible mouse target for ${id}`);
+    };
     const observeFeedback = () => {
       for (const object of targets) {
         if (['crash', 'ride', 'hihat'].includes(object.userData.drumType)
@@ -53,7 +80,7 @@ try {
         if (object.parent?.userData.drumType === 'snare'
             && object.geometry.type === 'RingGeometry'
             && Math.abs(object.position.y - 0.006) > 0.00001
-            && object.parent.position.y === 0.7) window.motionSeen = true;
+            && object.parent.position.y === 0.67) window.motionSeen = true;
       }
       requestAnimationFrame(observeFeedback);
     };
@@ -80,12 +107,9 @@ try {
   await page.mouse.click(100, 150);
   await page.waitForTimeout(500);
   const resting = await page.evaluate(() => window.kitSnapshot());
-  const hits = [
-    ['crash', 480, 310], ['ride', 990, 310], ['hihat-closed', 480, 430],
-    ['tom-high', 650, 320], ['tom-mid', 790, 320], ['snare', 550, 550],
-    ['kick', 720, 520], ['tom-floor', 865, 590],
-  ];
-  for (const [index, [pad, x, y]] of hits.entries()) {
+  const hits = ['crash', 'ride', 'hihat-closed', 'tom-high', 'tom-mid', 'snare', 'kick', 'tom-floor'];
+  for (const [index, pad] of hits.entries()) {
+    const { x, y } = await page.evaluate(pad => window.hitPointFor(pad), pad);
     const before = await page.evaluate(() => window.hitCalls.length);
     await page.mouse.click(x, y, { button: index % 2 === 0 ? 'left' : 'right' });
     const result = await page.evaluate(() => ({ count: window.hitCalls.length,
@@ -99,9 +123,10 @@ try {
   const beforeRapid = await page.evaluate(() => window.audioStarts.length);
   await page.evaluate(() => {
     const canvas = document.querySelector('.vr-practice-stage canvas');
+    const point = window.hitPointFor('snare');
     for (let i = 0; i < 20; i++) {
       canvas.dispatchEvent(new PointerEvent('pointerdown', {
-        button: 0, pointerId: 1, clientX: 550, clientY: 550, bubbles: true,
+        button: 0, pointerId: 1, clientX: point.x, clientY: point.y, bubbles: true,
       }));
     }
   });

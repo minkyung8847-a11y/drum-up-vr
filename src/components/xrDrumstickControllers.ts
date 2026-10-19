@@ -23,8 +23,8 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
   const offsets = structuredClone(DEFAULT_GRIP_OFFSETS);
   let active = false;
   const tipSamples = {
-    left: { valid: false, previous: new THREE.Vector3(), current: new THREE.Vector3() },
-    right: { valid: false, previous: new THREE.Vector3(), current: new THREE.Vector3() },
+    left: { valid: false, previous: new THREE.Vector3(), current: new THREE.Vector3(), grip: new THREE.Vector3() },
+    right: { valid: false, previous: new THREE.Vector3(), current: new THREE.Vector3(), grip: new THREE.Vector3() },
   };
   const slots = [0, 1].map(index => {
     const grip = xr.getControllerGrip(index);
@@ -112,6 +112,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
           continue;
         }
         sample.previous.copy(sample.current);
+        slot.grip.getWorldPosition(sample.grip);
         sticks.tips[hand].getWorldPosition(sample.current);
         if (!sample.valid) sample.previous.copy(sample.current);
         sample.valid = true;

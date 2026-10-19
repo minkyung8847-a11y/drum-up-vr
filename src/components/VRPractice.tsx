@@ -6,7 +6,8 @@ import { createDrumEnvironments, getSavedDrumEnvironment } from './drumEnvironme
 import type { DrumEnvironmentId } from './drumEnvironments';
 import { EnvironmentSwitcher } from './EnvironmentSwitcher';
 import { createVRDrumInteraction } from './vrDrumInteraction';
-import { createVRStickCollision } from './vrStickCollision';
+import { createVRAssistedStrikes } from './vrAssistedStrikes';
+import { VR_DRUM_LAYOUT, VR_FREE_DRUMMING } from './vrDrumConfig';
 import { createVRSeating } from './vrSeating';
 import { createVirtualDrumsticks } from './virtualDrumsticks';
 import { createVRNoteHighway } from './vrNoteHighway';
@@ -74,38 +75,8 @@ export default function VRPractice() {
     rim.position.set(2, 3, -2);
     scene.add(rim);
 
-    // Reuse the original kit; these placement adjustments apply only to this view.
-    const kit = createVirtualDrumSet(scene);
-    for (const part of kit.group.children) {
-      if (part.userData.drumType === 'floorTom') {
-        const originalFloor = new THREE.Box3().setFromObject(part).min.y;
-        part.scale.setScalar(0.8);
-        // Keep the legs grounded while scaling the complete instrument uniformly.
-        part.position.y += originalFloor - new THREE.Box3().setFromObject(part).min.y;
-        part.position.x -= 0.24;
-        // Put the complete floor tom just ahead of the kick's rear hoop in +Z.
-        // Normal depth testing handles overlap; its size and materials stay intact.
-        part.position.z += 0.18;
-      }
-      if (part.userData.drumType === 'crash' || part.userData.drumType === 'ride') {
-        // Positive X tilt points the playing surface toward the seated player (+Z).
-        part.rotation.x += THREE.MathUtils.degToRad(8);
-      }
-    }
-    const crash = kit.group.children.find((part: THREE.Object3D) => part.userData.drumType === 'crash');
-    const ride = kit.group.children.find((part: THREE.Object3D) => part.userData.drumType === 'ride');
-    if (crash && ride) {
-      // The factory adds the ride's stand pieces between the two cymbal groups.
-      const standPieces = kit.group.children.slice(kit.group.children.indexOf(crash) + 1, kit.group.children.indexOf(ride));
-      const stand = new THREE.Group();
-      stand.position.set(ride.position.x, 0.05, ride.position.z);
-      kit.group.add(stand);
-      kit.group.updateMatrixWorld(true);
-      for (const piece of standPieces) stand.attach(piece);
-      stand.scale.y = (crash.position.y - 0.09) / (ride.position.y - 0.09);
-      stand.position.set(-crash.position.x, 0.05, crash.position.z);
-      ride.position.set(-crash.position.x, crash.position.y, crash.position.z);
-    }
+    // The shared model builder retains its design/materials; this VR-only layout uses metres.
+    const kit = createVirtualDrumSet(scene, { layout: VR_DRUM_LAYOUT });
     const interaction = createVRDrumInteraction(kit);
     let disposed = false;
     let audioReady = false;
@@ -128,7 +99,7 @@ export default function VRPractice() {
     // reserved for future headset poses; desktop look lives on separate parents.
     const rig = new THREE.Group();
     rig.name = 'player-rig';
-    rig.position.set(0, 1.55, 1.6);
+    rig.position.set(0, 1.22, 1.0);
     const yaw = new THREE.Group();
     const pitch = new THREE.Group();
     const camera = new THREE.PerspectiveCamera(85, 1, 0.03, 30);
@@ -141,7 +112,7 @@ export default function VRPractice() {
     scene.add(rig);
     const sticks = createVirtualDrumsticks(camera);
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
-    const collisions = createVRStickCollision(kit.hitSurfaces, (id, hand, velocity) => {
+    const collisions = createVRAssistedStrikes(kit.hitSurfaces, (id, hand, velocity) => {
       if (audioReady && interaction.hit(id, velocity)) controllers.pulse(hand, velocity);
     });
     const seating = createVRSeating(rig, kit.group, () => {
@@ -168,8 +139,8 @@ export default function VRPractice() {
       desktopPose.pitch = pitch.rotation.x;
       targetYaw = desktopPose.yaw;
       targetPitch = desktopPose.pitch;
-      // local-floor supplies physical eye height. Seating adds only an 8 cm lift
-      // and places the kit closer; never apply a gameplay head rotation.
+      // local-floor supplies physical seated eye height, without a synthetic lift
+      // or an imposed head rotation during gameplay.
       seating.enter();
       yaw.rotation.y = 0;
       pitch.rotation.x = 0;
@@ -179,7 +150,7 @@ export default function VRPractice() {
       controllers.setActive(true);
       collisions.reset();
       setImmersive(true);
-      setXRMessage('VR active — swing either controller to strike with the stick tip. Lift clear before striking again.');
+      setXRMessage('VR free play — flick either wrist toward a nearby instrument. Lift back to strike again.');
     };
     const endXR = () => {
       cancelLook();
@@ -233,7 +204,7 @@ export default function VRPractice() {
         if (!disposed) setXRBusy(false);
       }
     };
-    const highway = createVRNoteHighway(scene);
+    const highway = VR_FREE_DRUMMING.fallingNotes ? createVRNoteHighway(scene) : null;
     const seatedOrientation = new THREE.Quaternion().setFromEuler(new THREE.Euler(seatedPitch, 0, 0));
     let demoEpoch = performance.now();
     let demoPauseTime: number | null = null;
@@ -294,7 +265,7 @@ export default function VRPractice() {
       camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(tangent / 0.9));
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
-      highway.layout(camera, rig.position, seatedOrientation);
+      highway?.layout(camera, rig.position, seatedOrientation);
     };
 
     let pointerId: number | null = null;
@@ -378,6 +349,7 @@ export default function VRPractice() {
     observer.observe(host);
     resize();
 
+    const headPosition = new THREE.Vector3();
     let previousTime: number | null = null;
     const unlockControllerAudio = () => { void drumSynth.unlock(); };
     const referenceReset = () => { controllers.resetSamples(); collisions.reset(); };
@@ -410,13 +382,16 @@ export default function VRPractice() {
       }
       if (renderer.xr.isPresenting && frame && reference) seating.update(frame, reference);
       controllers.update(frame);
-      if (renderer.xr.isPresenting && frame && audioReady) {
+      const viewer = frame && reference ? frame.getViewerPose(reference) : null;
+      if (renderer.xr.isPresenting && frame && viewer && audioReady) {
+        const p = viewer.transform.position;
+        headPosition.set(p.x, p.y, p.z).applyMatrix4(rig.matrixWorld);
         for (const hand of ['left', 'right'] as const) {
-          collisions.update(hand, controllers.tipSamples[hand], frameDelta, time / 1000);
+          collisions.update(hand, controllers.tipSamples[hand], frameDelta, time / 1000, headPosition);
         }
       } else collisions.reset();
       interaction.update(delta);
-      highway.update(((demoPauseTime ?? performance.now()) - demoEpoch) / 1000);
+      highway?.update(((demoPauseTime ?? performance.now()) - demoEpoch) / 1000);
       renderer.render(scene, camera);
     });
 
@@ -436,7 +411,7 @@ export default function VRPractice() {
       xrActionRef.current = async () => {};
       unsubscribeKit();
       interaction.dispose();
-      highway.dispose();
+      highway?.dispose();
       demoRef.current = { toggle: () => false, restart: () => {} };
       renderer.setAnimationLoop(null);
       observer.disconnect();
@@ -478,9 +453,9 @@ export default function VRPractice() {
         <a href="#/">Back to DRUM UP</a>
         <span>VR PRACTICE · {immersive ? 'HEADSET VIEW' : 'DESKTOP VIEW'}</span>
         <div className="vr-practice-actions">
-          <span className="vr-demo-label">120 BPM · VISUAL DEMO</span>
+          {VR_FREE_DRUMMING.fallingNotes && <><span className="vr-demo-label">120 BPM · VISUAL DEMO</span>
           <button onClick={() => setDemoPaused(demoRef.current.toggle())}>{demoPaused ? 'Resume demo' : 'Pause demo'}</button>
-          <button onClick={() => { demoRef.current.restart(); setDemoPaused(false); }}>Restart demo</button>
+          <button onClick={() => { demoRef.current.restart(); setDemoPaused(false); }}>Restart demo</button></>}
           <button onClick={() => resetRef.current()}>Reset view</button>
           <button disabled={!xrSupported || xrBusy} title={xrMessage} onClick={() => { void xrActionRef.current(); }}>{xrBusy ? 'Connecting…' : immersive ? 'Exit VR' : xrSupported ? 'Enter VR' : 'VR unavailable'}</button>
           <EnvironmentSwitcher selected={background} onSelect={id => { backgroundRef.current(id); setBackground(id); }} />
