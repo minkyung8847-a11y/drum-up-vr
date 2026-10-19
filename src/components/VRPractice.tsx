@@ -6,6 +6,7 @@ import { createDrumEnvironments, getSavedDrumEnvironment } from './drumEnvironme
 import type { DrumEnvironmentId } from './drumEnvironments';
 import { EnvironmentSwitcher } from './EnvironmentSwitcher';
 import { createVRDrumInteraction } from './vrDrumInteraction';
+import { createVRStickCollision } from './vrStickCollision';
 import { createVirtualDrumsticks } from './virtualDrumsticks';
 import { createVRNoteHighway } from './vrNoteHighway';
 import { applyStickPose, createXRDrumstickControllers } from './xrDrumstickControllers';
@@ -139,10 +140,14 @@ export default function VRPractice() {
     scene.add(rig);
     const sticks = createVirtualDrumsticks(camera);
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
+    const collisions = createVRStickCollision(kit.hitSurfaces, (id, hand, velocity) => {
+      if (audioReady && interaction.hit(id, velocity)) controllers.pulse(hand, velocity);
+    });
     poseRef.current = (mode, hand, pose) => {
       if (mode === 'preview') applyStickPose(sticks.grips[hand], pose);
       else {
         controllers.setOffset(hand, pose);
+        collisions.reset(hand);
         applyStickPose(sticks.offsets[hand], pose);
       }
     };
@@ -165,12 +170,14 @@ export default function VRPractice() {
       camera.quaternion.identity();
       sticks.grips.left.visible = sticks.grips.right.visible = false;
       controllers.setActive(true);
+      collisions.reset();
       setImmersive(true);
-      setXRMessage('VR active — controller drumsticks only; collisions are not enabled.');
+      setXRMessage('VR active — swing either controller to strike with the stick tip. Lift clear before striking again.');
     };
     const endXR = () => {
       cancelLook();
       controllers.setActive(false);
+      collisions.reset();
       rig.position.copy(desktopPose.rig);
       yaw.rotation.y = desktopPose.yaw;
       pitch.rotation.x = desktopPose.pitch;
@@ -199,6 +206,8 @@ export default function VRPractice() {
       }
     })();
     xrActionRef.current = async () => {
+      // Resume in this button's user gesture, before awaiting XR permission.
+      void drumSynth.unlock();
       setXRBusy(true);
       let requested: XRSession | null = null;
       try {
@@ -309,6 +318,7 @@ export default function VRPractice() {
     };
     const down = (event: PointerEvent) => {
       if (renderer.xr.isPresenting) return;
+      void drumSynth.unlock();
       if (event.button !== 0 && event.button !== 2) return;
       if (!event.shiftKey) {
         hitAtPointer(event);
@@ -361,8 +371,13 @@ export default function VRPractice() {
     resize();
 
     let previousTime: number | null = null;
-    renderer.setAnimationLoop(time => {
-      const delta = previousTime === null ? 0 : Math.min((time - previousTime) / 1000, 0.05);
+    const unlockControllerAudio = () => { void drumSynth.unlock(); };
+    const referenceReset = () => { controllers.resetSamples(); collisions.reset(); };
+    let referenceSpace: XRReferenceSpace | null = null;
+    let audioSession: XRSession | null = null;
+    renderer.setAnimationLoop((time, frame) => {
+      const frameDelta = previousTime === null ? 0 : (time - previousTime) / 1000;
+      const delta = Math.min(frameDelta, 0.05);
       previousTime = time;
       backgrounds.update(time / 1000);
       if (!renderer.xr.isPresenting) {
@@ -370,7 +385,27 @@ export default function VRPractice() {
         pitch.rotation.x = THREE.MathUtils.damp(pitch.rotation.x, targetPitch, 14, delta);
         sticks.update(delta);
       }
-      controllers.update();
+      const session = renderer.xr.getSession();
+      if (session !== audioSession) {
+        audioSession?.removeEventListener('selectstart', unlockControllerAudio);
+        audioSession?.removeEventListener('squeezestart', unlockControllerAudio);
+        audioSession = session;
+        session?.addEventListener('selectstart', unlockControllerAudio);
+        session?.addEventListener('squeezestart', unlockControllerAudio);
+      }
+      const reference = renderer.xr.getReferenceSpace();
+      if (reference !== referenceSpace) {
+        referenceSpace?.removeEventListener('reset', referenceReset);
+        referenceSpace = reference;
+        referenceSpace?.addEventListener('reset', referenceReset);
+        referenceReset();
+      }
+      controllers.update(frame);
+      if (renderer.xr.isPresenting && frame && audioReady) {
+        for (const hand of ['left', 'right'] as const) {
+          collisions.update(hand, controllers.tipSamples[hand], frameDelta, time / 1000);
+        }
+      } else collisions.reset();
       interaction.update(delta);
       highway.update(((demoPauseTime ?? performance.now()) - demoEpoch) / 1000);
       renderer.render(scene, camera);
@@ -378,6 +413,9 @@ export default function VRPractice() {
 
     return () => {
       disposed = true;
+      audioSession?.removeEventListener('selectstart', unlockControllerAudio);
+      audioSession?.removeEventListener('squeezestart', unlockControllerAudio);
+      referenceSpace?.removeEventListener('reset', referenceReset);
       backgrounds.dispose();
       backgroundRef.current = () => {};
       renderer.xr.removeEventListener('sessionstart', startXR);

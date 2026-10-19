@@ -47,10 +47,13 @@ try {
     };
     const observeFeedback = () => {
       for (const object of targets) {
-        if (object.material?.emissive?.getHex() === 0xffad68
+        if (['crash', 'ride', 'hihat'].includes(object.userData.drumType)
+            && object.material?.emissive?.b > 0 && object.material.emissive.b >= object.material.emissive.r
             && object.material.emissiveIntensity > 0) window.feedbackSeen = true;
         if (object.parent?.userData.drumType === 'snare'
-            && object.parent.position.y < 0.6999) window.motionSeen = true;
+            && object.geometry.type === 'RingGeometry'
+            && Math.abs(object.position.y - 0.006) > 0.00001
+            && object.parent.position.y === 0.7) window.motionSeen = true;
       }
       requestAnimationFrame(observeFeedback);
     };

@@ -1,66 +1,72 @@
 import * as THREE from 'three';
 import type { DrumPadId } from '../types';
+import type { DrumHitSurface } from './vrStickCollision';
 import { drumSynth } from '../utils/synth';
 
-const SOUND_IDS: Record<string, DrumPadId> = {
+export const VR_SOUND_IDS: Record<string, DrumPadId> = {
   kick: 'kick', snare: 'snare', hihat: 'hihat-closed',
   smallTom: 'tom-high', middleTom: 'tom-mid', floorTom: 'tom-floor',
   crash: 'crash', ride: 'ride',
 };
 
 interface DrumKitScene {
-  group: THREE.Group;
-  raycastTargets: THREE.Object3D[];
+  hitSurfaces: DrumHitSurface[];
 }
 
-// Input-independent hit handling. Mouse rays and future collision events use hit().
+// Shared by real controller collisions and existing desktop clicks.
 export function createVRDrumInteraction(kit: DrumKitScene) {
-  const parts = kit.group.children.filter(part => SOUND_IDS[part.userData.drumType]);
-  const states = new Map(parts.map(part => [part.userData.drumType as string, {
-    part, position: part.position.clone(), rotation: part.rotation.clone(),
-    age: Infinity, velocity: 1, materials: [] as THREE.MeshStandardMaterial[],
-  }]));
-  const originals: { mesh: THREE.Mesh; material: THREE.Material | THREE.Material[] }[] = [];
-  for (const target of kit.raycastTargets) {
-    if (!(target instanceof THREE.Mesh)) continue;
-    const state = states.get(target.userData.drumType);
-    if (!state) continue;
-    originals.push({ mesh: target, material: target.material });
-    const clone = (material: THREE.Material) => {
-      const copy = material.clone();
-      if (copy instanceof THREE.MeshStandardMaterial) state.materials.push(copy);
-      return copy;
-    };
-    target.material = Array.isArray(target.material) ? target.material.map(clone) : clone(target.material);
-  }
+  const silver = new THREE.Color(0xeef4ff);
+  const states = kit.hitSurfaces.map(surface => {
+    const meshes = surface.cymbal
+      ? surface.mesh.parent!.children.filter((object): object is THREE.Mesh =>
+        object instanceof THREE.Mesh && (object.userData.drumType === surface.id || object.geometry.type === 'TorusGeometry'))
+      : [surface.mesh];
+    const targets = meshes.map(mesh => {
+      const original = mesh.material;
+      const materials: { material: THREE.MeshStandardMaterial; emissive: THREE.Color; intensity: number }[] = [];
+      const clone = (source: THREE.Material) => {
+        const material = source.clone();
+        if (material instanceof THREE.MeshStandardMaterial) materials.push({ material,
+          emissive: material.emissive.clone(), intensity: material.emissiveIntensity });
+        return material;
+      };
+      mesh.material = Array.isArray(original) ? original.map(clone) : clone(original);
+      return { mesh, original, materials, position: mesh.position.clone(), rotation: mesh.rotation.clone() };
+    });
+    return { id: surface.id, cymbal: surface.cymbal, targets, age: Infinity, velocity: 1 };
+  });
 
   function hit(partId: string, velocity = 1) {
-    const state = states.get(partId);
-    if (!state) return false;
-    // No debounce, timers, or awaiting animation: each hit starts its own audio voice.
-    drumSynth.trigger(SOUND_IDS[partId], velocity);
+    const state = states.find(item => item.id === partId);
+    if (!state || !VR_SOUND_IDS[partId]) return false;
+    // Each trigger creates an overlapping Web Audio voice from preloaded samples.
+    drumSynth.trigger(VR_SOUND_IDS[partId], velocity);
     state.age = 0;
     state.velocity = THREE.MathUtils.clamp(velocity, 0, 1);
     return true;
   }
 
   function update(delta: number) {
-    for (const [id, state] of states) {
+    for (const state of states) {
       if (state.age === Infinity) continue;
       state.age += delta;
-      const { part, age, velocity } = state;
-      part.position.copy(state.position);
-      part.rotation.copy(state.rotation);
-      if (age < 0.4) {
-        const response = Math.sin(age * 38) * Math.exp(-age * 12) * velocity;
-        if (id === 'crash' || id === 'ride' || id === 'hihat') part.rotation.x += response * 0.035;
-        else part.position.y -= Math.max(0, response) * 0.008;
+      const { age, velocity, cymbal } = state;
+      const duration = cymbal ? 0.55 : 0.22;
+      const response = age < duration ? Math.sin(age * (cymbal ? 34 : 95)) * Math.exp(-age * (cymbal ? 10 : 23)) * velocity : 0;
+      for (const target of state.targets) {
+        target.mesh.position.copy(target.position);
+        target.mesh.rotation.copy(target.rotation);
+        if (cymbal) {
+          target.mesh.rotation.x += response * 0.025;
+          target.mesh.rotation.z += response * 0.012;
+        } else target.mesh.position.y -= response * 0.0025;
+        for (const { material, emissive, intensity } of target.materials) {
+          const glow = cymbal ? Math.max(0, 1 - age / 0.085) * velocity : 0;
+          material.emissive.copy(emissive).lerp(silver, glow);
+          material.emissiveIntensity = intensity + glow * 0.18;
+        }
       }
-      for (const material of state.materials) {
-        material.emissive.setHex(age < 0.10 ? 0xffad68 : 0x000000);
-        material.emissiveIntensity = Math.max(0, 1 - age / 0.10) * 0.28 * velocity;
-      }
-      if (age >= 0.4) state.age = Infinity;
+      if (age >= duration) state.age = Infinity;
     }
   }
 
@@ -68,9 +74,9 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
     hit, update,
     dispose() {
       update(1);
-      for (const { mesh, material } of originals) {
-        for (const copy of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) copy.dispose();
-        mesh.material = material;
+      for (const state of states) for (const target of state.targets) {
+        for (const material of Array.isArray(target.mesh.material) ? target.mesh.material : [target.mesh.material]) material.dispose();
+        target.mesh.material = target.original;
       }
     },
   };

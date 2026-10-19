@@ -32,7 +32,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
     calibration.name = `controller-${index}-stick-offset`;
     grip.add(calibration);
     rig.add(grip);
-    return { grip, calibration, hand: null as StickHand | null };
+    return { grip, calibration, hand: null as StickHand | null, source: null as XRInputSource | null };
   });
   function disconnect(slot: typeof slots[number]) {
     if (!slot.hand) return;
@@ -41,6 +41,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
     sticks.grips[hand].visible = false;
     tipSamples[hand].valid = false;
     slot.hand = null;
+    slot.source = null;
   }
   const listeners = slots.map(slot => {
     const connected = (event: { data: XRInputSource }) => {
@@ -51,6 +52,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
       const hand = source.handedness;
       for (const other of slots) if (other.hand === hand) disconnect(other);
       slot.hand = hand;
+      slot.source = source;
       applyStickPose(slot.calibration, offsets[hand]);
       slot.calibration.add(sticks.grips[hand]);
       sticks.grips[hand].visible = active;
@@ -66,6 +68,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
     tipSamples,
     setActive(value: boolean) {
       active = value;
+      tipSamples.left.valid = tipSamples.right.valid = false;
       for (const slot of slots) {
         if (!value) disconnect(slot);
         else if (slot.hand) sticks.grips[slot.hand].visible = true;
@@ -73,15 +76,41 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
     },
     setOffset(hand: StickHand, pose: StickPose) {
       offsets[hand] = structuredClone(pose);
+      tipSamples[hand].valid = false;
       const slot = slots.find(item => item.hand === hand);
       if (slot) applyStickPose(slot.calibration, pose);
     },
-    update() {
+    pulse(hand: StickHand, velocity: number) {
+      const source = slots.find(slot => slot.hand === hand)?.source;
+      if (!active || !source?.gamepad) return;
+      // XR gamepads normally expose pulse(); some expose dual-rumble instead.
+      // Neither unsupported actuators nor rejected promises can stop playback.
+      const pad = source.gamepad;
+      const strength = THREE.MathUtils.clamp(0.12 + velocity * 0.18, 0.12, 0.3);
+      try {
+        const actuator = pad.hapticActuators?.[0];
+        if (actuator?.pulse) void Promise.resolve(actuator.pulse(strength, 18)).catch(() => {});
+        else if (pad.vibrationActuator?.playEffect) {
+          void Promise.resolve(pad.vibrationActuator.playEffect('dual-rumble', {
+            duration: 18, startDelay: 0, weakMagnitude: strength, strongMagnitude: strength * 0.5,
+          })).catch(() => {});
+        }
+      } catch { /* Haptics are optional. */ }
+    },
+    resetSamples() { tipSamples.left.valid = tipSamples.right.valid = false; },
+    update(frame?: XRFrame) {
       rig.updateWorldMatrix(true, true);
       for (const hand of ['left', 'right'] as const) {
         const slot = slots.find(item => item.hand === hand);
         const sample = tipSamples[hand];
-        if (!active || !slot || !slot.grip.visible) { sample.valid = false; continue; }
+        const reference = xr.getReferenceSpace?.();
+        const pose = frame && reference && slot?.source?.gripSpace
+          ? frame.getPose(slot.source.gripSpace, reference) : null;
+        if (!active || !slot || !slot.grip.visible
+          || (frame && (frame.session.visibilityState !== 'visible' || !pose || pose.emulatedPosition))) {
+          sample.valid = false;
+          continue;
+        }
         sample.previous.copy(sample.current);
         sticks.tips[hand].getWorldPosition(sample.current);
         if (!sample.valid) sample.previous.copy(sample.current);

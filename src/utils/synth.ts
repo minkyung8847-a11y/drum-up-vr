@@ -114,6 +114,15 @@ class DrumSynth {
   }
 
   // Let interactive views finish loading before accepting timing-sensitive hits.
+  public async unlock(): Promise<boolean> {
+    this.init();
+    if (!this.ctx) return false;
+    try {
+      if (this.ctx.state === 'suspended') await this.ctx.resume();
+      return this.ctx.state === 'running';
+    } catch { return false; }
+  }
+
   public async prepareKit(): Promise<boolean> {
     this.init();
     if (!this.ctx) return false;

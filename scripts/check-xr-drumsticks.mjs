@@ -4,6 +4,8 @@ import { chromium } from 'playwright';
 const browser = await chromium.launch({ headless: true, channel: 'msedge' });
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  // Pose reset screenshots need a static environment, not moving stage lights.
+  await page.addInitScript(() => localStorage.setItem('drumup_vr_environment', 'studio'));
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(`${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);

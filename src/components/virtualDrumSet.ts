@@ -157,6 +157,7 @@ export function createVirtualDrumSet(scene) {
     parts.set(name, {
       group: drum,
       headMesh: topHead,
+      hitRadius: radius * 0.968,
       flashMesh: topHead,
       baseGroupY: drum.position.y,
       baseHeadY: topHead.position.y,
@@ -220,6 +221,7 @@ export function createVirtualDrumSet(scene) {
     parts.set(name, {
       group: drum,
       headMesh: frontHead,
+      hitRadius: radius * 0.93,
       flashMesh: frontHead,
       baseGroupY: drum.position.y,
       baseHeadY: frontHead.position.y,
@@ -293,6 +295,7 @@ export function createVirtualDrumSet(scene) {
     parts.set(name, {
       group: cymbal,
       flashMesh: body,
+      hitRadius: radius,
       baseGroupY: cymbal.position.y,
       baseRotation: cymbal.rotation.clone(),
       swingAngleX: 0,
@@ -827,6 +830,13 @@ export function createVirtualDrumSet(scene) {
     hit,
     update,
     raycastTargets,
+    // Playing surfaces only: shells, stands and hardware are not VR hit zones.
+    // Mesh transforms include the caller's existing kit placement and scale.
+    hitSurfaces: [...parts.entries()].map(([id, part]) => ({
+      id, mesh: part.isCymbal ? part.flashMesh : part.headMesh,
+      radius: part.hitRadius, cymbal: part.isCymbal,
+      height: part.isKick ? 0.009 : 0,
+    })),
     setHovered(drumType) { hoveredPart = drumType === 'openHihat' ? 'hihat' : drumType; },
   };
 }
