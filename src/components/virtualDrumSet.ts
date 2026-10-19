@@ -410,6 +410,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
   }
 
   function addCentralTomPost() {
+    const supportStart = group.children.length;
     const bottom = layout ? new THREE.Vector3(positions.kick[0], positions.kick[1] + radiusFor('kick', 0.44), positions.kick[2]) : new THREE.Vector3(0, 0.84, -0.06);
     const top = layout ? new THREE.Vector3(positions.kick[0], Math.min(positions.smallTom[1], positions.middleTom[1]) - 0.10, positions.kick[2]) : new THREE.Vector3(0, 1.18, -0.06);
     group.add(createPipeBetweenPoints(bottom, top, 0.018, chromeMat));
@@ -419,6 +420,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
       collar.castShadow = true;
       group.add(collar);
     }
+    layoutSupports.set('rackPost', group.children.slice(supportStart));
   }
 
   function addSnareStand(position, radius) {

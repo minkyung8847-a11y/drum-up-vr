@@ -26,7 +26,7 @@ try {
     const THREE = await import(url);
     const { ORIGINAL_IMPORTED_KIT: history } = await import('/src/components/originalImportedKit.ts');
     const { createVirtualDrumSet } = await import('/src/components/virtualDrumSet.ts');
-    const { applyOriginalDrumTransforms, RESTORED_VR_SCALE: factor } = await import('/src/components/restoredVRDrumSet.ts');
+    const { applyOriginalDrumTransforms, applyCurrentDrumLayout, RESTORED_VR_SCALE: factor } = await import('/src/components/restoredVRDrumSet.ts');
     const { VR_DRUM_LAYOUT, VR_FREE_DRUMMING } = await import('/src/components/vrDrumConfig.ts');
     const { createVRAssistedStrikes } = await import('/src/components/vrAssistedStrikes.ts');
     const actualScene = window.originalTestScene;
@@ -43,11 +43,17 @@ try {
       hash: fingerprints(object.geometry), material: object.material,
       textures: Object.values(object.material).filter(value => value?.isTexture) }); });
     applyOriginalDrumTransforms(fixture);
-    const unchangedGeometryAndMaterials = before.every(({ object, geometry, hash, material, textures }) =>
+    const geometryAndMaterialsPreserved = () => before.every(({ object, geometry, hash, material, textures }) =>
       object.geometry === geometry && fingerprints(geometry) === hash && object.material === material
       && textures.every(texture => Object.values(object.material).includes(texture)));
     const partFor = (group, id) => group.children.find(child => child.userData.drumType === id);
     const measurements = [];
+    // Independent expected deltas: metres and degrees, relative to initial Git.
+    const adjustments = {
+      smallTom: [0, 0.14, 0, 5], middleTom: [0, 0.14, 0, 5],
+      snare: [0, 0, 0.04, 0], floorTom: [-0.02, 0, 0.04, 0],
+      hihat: [0, 0, 0, 4], crash: [0, 0, 0, 4], ride: [0, 0, 0, 4], kick: [0, 0, 0, 0],
+    };
     for (const [id, recorded] of Object.entries(history.instruments)) {
       const old = partFor(original.group, id), now = partFor(fixture.group, id), live = partFor(actual, id);
       const shell = old.children.find(child => child.geometry?.parameters.openEnded);
@@ -56,9 +62,13 @@ try {
       const liveBody = liveShell ?? live.children.find(child => child.geometry?.type === 'LatheGeometry');
       const liveRadius = liveShell ? liveShell.geometry.parameters.radiusTop : liveBody.geometry.parameters.points.at(-1).x;
       const worldScale = live.getWorldScale(new THREE.Vector3());
+      const [dx, dy, dz, tilt] = adjustments[id];
+      const expectedPosition = old.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(dx, dy, dz));
+      const expectedRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(recorded.rotation[0] + tilt * Math.PI / 180, 0, recorded.rotation[2]));
       measurements.push({ id, positionError: now.position.distanceTo(old.position), rotationError: now.quaternion.angleTo(old.quaternion),
-        livePositionError: live.getWorldPosition(new THREE.Vector3()).distanceTo(old.getWorldPosition(new THREE.Vector3())),
-        liveRotationError: live.quaternion.angleTo(old.quaternion),
+        livePositionError: live.getWorldPosition(new THREE.Vector3()).distanceTo(expectedPosition),
+        liveRotationError: live.quaternion.angleTo(expectedRotation),
+        worldPosition: live.getWorldPosition(new THREE.Vector3()).toArray(), tiltDegrees: live.rotation.x * 180 / Math.PI,
         diameter: 2 * liveRadius * worldScale.x, expectedDiameter: 2 * body.geometry.parameters.radiusTop * factor,
         depth: liveShell && liveShell.geometry.parameters.height * worldScale.y,
         expectedDepth: shell && shell.geometry.parameters.height * factor,
@@ -87,6 +97,58 @@ try {
       || (o.geometry.type === 'SphereGeometry' && o.geometry.parameters.radius === 0.028)));
     const oldLegs = floorLegs(partFor(original.group, 'floorTom')), newLegs = floorLegs(partFor(fixture.group, 'floorTom'));
     oldLegs.forEach((old, index) => checkSupport(newLegs[index], old));
+    // The historical restoration stays exact; the active factory adds only the
+    // requested layout adjustments before collision/feedback caches are built.
+    const supportBefore = [...fixture.layoutSupports.get('snare')].map(o => o.matrix.clone());
+    const scalesBefore = fixture.group.children.filter(o => o.userData.drumType).map(o => o.scale.toArray());
+    applyCurrentDrumLayout(fixture);
+    const unchangedGeometryAndMaterials = geometryAndMaterialsPreserved();
+    const scalesUnchanged = fixture.group.children.filter(o => o.userData.drumType).every((o, i) => o.scale.toArray().every((v, j) => v === scalesBefore[i][j]));
+    const snareStandAligned = fixture.layoutSupports.get('snare').every((o, i) => {
+      const expected = supportBefore[i].clone().premultiply(new THREE.Matrix4().makeTranslation(0, 0, 0.04 / factor));
+      return expected.elements.every((v, j) => Math.abs(v - o.matrix.elements[j]) < 1e-10);
+    });
+    const bounds = id => new THREE.Box3().setFromObject(partFor(actual, id));
+    const kickBox = bounds('kick'), beaterBox = new THREE.Box3().setFromObject(actual.getObjectByName('kick-beater'));
+    // A global AABB incorrectly treats the curved bass shell as a solid square.
+    // Project every original mesh vertex (including hardware) onto XY axes.
+    // A positive separating gap proves the complete convex hulls are disjoint.
+    const vertices = group => {
+      const points = [], point = new THREE.Vector3();
+      group.traverse(o => {
+        const positions = o.geometry?.attributes.position;
+        if (!positions) return;
+        for (let i = 0; i < positions.count; i++) {
+          point.fromBufferAttribute(positions, i).applyMatrix4(o.matrixWorld); points.push(point.x, point.y, point.z);
+        }
+      });
+      return points;
+    };
+    const project = (points, x, y) => {
+      let min = Infinity, max = -Infinity;
+      for (let i = 0; i < points.length; i += 3) {
+        const dot = points[i] * x + points[i + 1] * y;
+        min = Math.min(min, dot); max = Math.max(max, dot);
+      }
+      return { min, max };
+    };
+    const bassVertices = vertices(partFor(actual, 'kick'));
+    const clearance = ['smallTom', 'middleTom'].map(id => {
+      const box = bounds(id);
+      const tomVertices = vertices(partFor(actual, id));
+      let bassSeparatingGap = -Infinity;
+      for (let degrees = 0; degrees <= 90; degrees++) {
+        const theta = degrees * Math.PI / 180, x = Math.cos(theta) * (id === 'smallTom' ? -1 : 1), y = Math.sin(theta);
+        bassSeparatingGap = Math.max(bassSeparatingGap, project(tomVertices, x, y).min - project(bassVertices, x, y).max);
+      }
+      return { id, aabbVerticalGap: box.min.y - kickBox.max.y, bassSeparatingGap, aboveBeater: box.min.y - beaterBox.max.y };
+    });
+    const cymbalTomIntersections = [];
+    for (const cymbal of ['hihat', 'crash', 'ride']) for (const tom of ['smallTom', 'middleTom']) {
+      if (bounds(cymbal).intersectsBox(bounds(tom))) cymbalTomIntersections.push([cymbal, tom]);
+    }
+    const centrePost = fixture.layoutSupports.get('rackPost');
+    const postCentred = centrePost.every(o => Math.abs(o.position.x) < 1e-10);
     const hits = [], failures = [], head = new THREE.Vector3(0, 1.22, 1);
     for (const fps of [60, 72, 90, 120]) for (const hand of ['left', 'right']) for (const height of [0.08, 0.15, 0.2]) for (const surface of fixture.hitSurfaces) {
       const found = [], detector = createVRAssistedStrikes(fixture.hitSurfaces, id => found.push(id));
@@ -104,24 +166,28 @@ try {
     camera.rotation.x = -Math.atan2(0.83, 1.45); camera.updateMatrixWorld(true); renderer.render(actualScene, camera);
     const image = renderer.domElement.toDataURL('image/png'); renderer.dispose();
     return { sourceCommit: history.sourceCommit, sourceBlobMatchesGit: history.sourceBlob === blob, factor, measurements,
-      unchangedGeometryAndMaterials, maximumSupportError, supportCount, cases: hits.length, failures,
+      unchangedGeometryAndMaterials, maximumSupportError, supportCount, scalesUnchanged, snareStandAligned,
+      clearance, cymbalTomIntersections, postCentred, cases: hits.length, failures,
       rig: rig.position.toArray(), rootPosition: actual.position.toArray(), rootScale: actual.scale.toArray(),
       notes, fallingNotes: VR_FREE_DRUMMING.fallingNotes, image };
   }, { legacyJS, blob });
-  await writeFile(`${process.env.VR_ARTIFACT_DIR || '.'}/vr-original-layout-restored.png`, Buffer.from(result.image.split(',')[1], 'base64'));
+  await writeFile(`${process.env.VR_ARTIFACT_DIR || '.'}/vr-current-layout.png`, Buffer.from(result.image.split(',')[1], 'base64'));
   delete result.image; console.log(JSON.stringify(result, null, 2));
-  await writeFile(`${process.env.VR_ARTIFACT_DIR || '.'}/vr-original-layout-validation.json`, JSON.stringify(result, null, 2));
+  await writeFile(`${process.env.VR_ARTIFACT_DIR || '.'}/vr-current-layout-validation.json`, JSON.stringify(result, null, 2));
   assert.equal(result.sourceCommit, ref); assert(result.sourceBlobMatchesGit && result.unchangedGeometryAndMaterials);
   for (const measured of result.measurements) {
     assert(measured.snapshotMatchesGit && measured.positionError < 1e-8 && measured.rotationError < 1e-7
-      && measured.livePositionError < 1e-8 && measured.liveRotationError < 1e-7, `${measured.id}: exact initial-Git pose`);
+      && measured.livePositionError < 1e-8 && measured.liveRotationError < 1e-7, `${measured.id}: original restoration and requested current pose`);
     assert(Math.abs(measured.diameter - measured.expectedDiameter) < 1e-8, `${measured.id}: original relative diameter`);
     if (measured.depth) assert(Math.abs(measured.depth - measured.expectedDepth) < 1e-8, `${measured.id}: original relative depth`);
   }
   assert(Math.abs(result.measurements.find(item => item.id === 'kick').diameter - 0.5588) < 1e-8, 'Current overall bass size preserved');
   assert(result.maximumSupportError < 1e-7); assert.equal(result.supportCount, 48);
+  assert(result.scalesUnchanged && result.snareStandAligned && result.postCentred);
+  assert(result.clearance.every(c => c.bassSeparatingGap > 0.002 && c.aboveBeater > 0.002), 'Raised tom geometry clears bass and beater geometry');
+  assert.deepEqual(result.cymbalTomIntersections, [], 'Cymbals do not intersect rack tom bounds');
   assert.deepEqual(result.failures, []); assert.deepEqual(result.rig, [0, 1.22, 1]); assert.deepEqual(result.rootPosition, [0, 0, 0]);
   assert(result.rootScale.every(value => Math.abs(value - result.factor) < 1e-10));
   assert.equal(result.fallingNotes, false); assert.deepEqual(result.notes, []); assert.deepEqual(errors, []);
-  console.log('PASS: independently executed initial Git model matches restored poses, relative sizes and supports; current geometry/material identity and bass world size preserved; both-hand hit zones, seat and disabled notes preserved. Headset NOT tested.');
+  console.log('PASS: exact original restoration plus only requested live offsets/tilts; unchanged sizes, geometry/materials, stand alignment, bass/beater/cymbal clearance; 192 active both-hand hits, seat and notes-disabled state. Headset NOT tested.');
 } finally { await browser.close(); }

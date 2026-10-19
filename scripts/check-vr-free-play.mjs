@@ -22,7 +22,7 @@ try {
   const result = await page.evaluate(async () => {
     const { VR_FREE_DRUMMING } = await import('/src/components/vrDrumConfig.ts');
     const { ORIGINAL_IMPORTED_KIT } = await import('/src/components/originalImportedKit.ts');
-    const { RESTORED_VR_SCALE } = await import('/src/components/restoredVRDrumSet.ts');
+    const { RESTORED_VR_SCALE, VR_LAYOUT_ADJUSTMENTS } = await import('/src/components/restoredVRDrumSet.ts');
     const { createVirtualDrumSet } = await import('/src/components/virtualDrumSet.ts');
     const threeURL = performance.getEntriesByType('resource').find(entry => /\/three\.js\?/.test(entry.name)).name;
     const THREE = await import(threeURL);
@@ -32,7 +32,7 @@ try {
     const instruments = Object.entries(ORIGINAL_IMPORTED_KIT.instruments).map(([id, original]) => {
       const expected = { diameter: original.diameter * RESTORED_VR_SCALE,
         depth: original.depth && original.depth * RESTORED_VR_SCALE,
-        position: original.position.map(value => value * RESTORED_VR_SCALE) };
+        position: original.position.map((value, axis) => value * RESTORED_VR_SCALE + (VR_LAYOUT_ADJUSTMENTS[id]?.offset[axis] ?? 0)) };
       const part = kit.children.find(child => child.userData.drumType === id);
       const shell = part.children.find(child => child.geometry?.type === 'CylinderGeometry' && child.geometry.parameters.openEnded);
       const body = part.children.find(child => child.geometry?.type === 'LatheGeometry');
@@ -64,7 +64,7 @@ try {
   for (const instrument of result.instruments) {
     assert(Math.abs(instrument.diameter - instrument.expected.diameter) < 1e-8, `${instrument.id} measured diameter`);
     if (instrument.depth) assert(Math.abs(instrument.depth - instrument.expected.depth) < 1e-8);
-    assert(instrument.position.every((value, axis) => Math.abs(value - instrument.expected.position[axis]) < 1e-8), `${instrument.id} original normalized position`);
+    assert(instrument.position.every((value, axis) => Math.abs(value - instrument.expected.position[axis]) < 1e-8), `${instrument.id} current adjusted position`);
   }
   assert(result.rootScale.every(value => Math.abs(value - result.expectedRootScale) < 1e-10)); assert.deepEqual(result.rootPosition, [0, 0, 0]);
   assert.deepEqual(result.notes, []); assert.equal(result.notesEnabled, false);

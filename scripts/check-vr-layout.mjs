@@ -1,2 +1,2 @@
-// The current layout is defined by the initial Git model, not manual adjustments.
+// Verify the original Git baseline and the small requested current-layout deltas.
 import './check-vr-original-layout.mjs';

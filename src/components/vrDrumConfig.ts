@@ -4,8 +4,8 @@ const inch = 0.0254;
 export const VR_FREE_DRUMMING = { fallingNotes: false };
 // Construction baseline frozen at 6d78dff so existing vertex buffers/materials
 // remain unchanged. These placements are NOT the active VR arrangement:
-// createRestoredVRDrumSet replaces them with initial-Git transforms before
-// hit zones, feedback and hardware instances are created.
+// createRestoredVRDrumSet restores initial-Git transforms and applies the small
+// current-layout offsets before hit zones, feedback and instances are created.
 export const VR_DRUM_LAYOUT: Record<string, {
   diameter: number; depth?: number; position: [number, number, number];
   tilt?: [number, number]; // X / Z: adjust the existing stand/mount angle only

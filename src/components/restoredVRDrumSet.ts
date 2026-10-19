@@ -14,13 +14,70 @@ const original = ORIGINAL_IMPORTED_KIT as {
 };
 
 // Preserve the current 22-inch bass diameter with ONE common world scale.
-// Individual diameter/depth ratios and all placements come from the initial
-// Git model. Existing geometry, textures and materials are never regenerated.
+// Baseline diameter/depth ratios and placements come from the initial Git
+// model. Existing geometry, textures and materials are never regenerated.
 export const RESTORED_VR_SCALE = VR_DRUM_LAYOUT.kick.diameter / original.instruments.kick.diameter;
+
+// Small adjustments on top of the restored kit. Offsets are world metres;
+// +Z is toward the existing seated player. Instrument scales stay untouched.
+export const VR_LAYOUT_ADJUSTMENTS: Record<string, { offset: [number, number, number]; tiltDegrees: number }> = {
+  smallTom: { offset: [0, 0.14, 0], tiltDegrees: 5 },
+  middleTom: { offset: [0, 0.14, 0], tiltDegrees: 5 },
+  snare: { offset: [0, 0, 0.04], tiltDegrees: 0 },
+  floorTom: { offset: [-0.02, 0, 0.04], tiltDegrees: 0 },
+  hihat: { offset: [0, 0, 0], tiltDegrees: 4 },
+  crash: { offset: [0, 0, 0], tiltDegrees: 4 },
+  ride: { offset: [0, 0, 0], tiltDegrees: 4 },
+};
 
 export function createRestoredVRDrumSet(scene: THREE.Scene) {
   const kit = createVirtualDrumSet(scene, { layout: VR_DRUM_LAYOUT });
-  return applyOriginalDrumTransforms(kit);
+  const restored = applyOriginalDrumTransforms(kit);
+  applyCurrentDrumLayout(restored);
+  return restored;
+}
+
+export function applyCurrentDrumLayout(kit: ReturnType<typeof createVirtualDrumSet>) {
+  const before = new THREE.Matrix4(), change = new THREE.Matrix4();
+  for (const [id, adjustment] of Object.entries(VR_LAYOUT_ADJUSTMENTS)) {
+    const part = kit.group.children.find((child: THREE.Object3D) => child.userData.drumType === id)!;
+    part.updateMatrix(); before.copy(part.matrix).invert();
+    part.position.add(new THREE.Vector3(...adjustment.offset).divideScalar(RESTORED_VR_SCALE));
+    part.rotation.x += THREE.MathUtils.degToRad(adjustment.tiltDegrees);
+    part.updateMatrix();
+    // Snare stand and rack mounts follow their drums as rigid assemblies.
+    // Preserve exact support matrices, including any existing shear.
+    if (id === 'snare' || id === 'smallTom' || id === 'middleTom') {
+      change.multiplyMatrices(part.matrix, before);
+      for (const support of kit.layoutSupports.get(id) ?? []) transformSupport(support, change);
+    }
+  }
+  // Keep the centre post between the unchanged left/right tom X positions.
+  // Extend the existing hardware to the raised mounts without moving the kit.
+  const post = kit.layoutSupports.get('rackPost') ?? [];
+  const bottom = VR_DRUM_LAYOUT.kick.position[1] + VR_DRUM_LAYOUT.kick.diameter / 2;
+  const oldTop = Math.min(VR_DRUM_LAYOUT.smallTom.position[1], VR_DRUM_LAYOUT.middleTom.position[1]) - 0.1;
+  const newTop = ((kit.layoutSupports.get('smallTom')![0] as THREE.Object3D).position.y
+    + (kit.layoutSupports.get('middleTom')![0] as THREE.Object3D).position.y) / 2;
+  const centreX = (original.instruments.smallTom.position[0] + original.instruments.middleTom.position[0]) / 2;
+  post.forEach((support: THREE.Object3D, index: number) => {
+    if (index === 0) {
+      const extend = (newTop - bottom) / (oldTop - bottom);
+      change.makeScale(1, extend, 1);
+      change.setPosition(centreX - VR_DRUM_LAYOUT.kick.position[0], bottom * (1 - extend), 0);
+    } else change.makeTranslation(centreX - VR_DRUM_LAYOUT.kick.position[0], index === 2 ? newTop - oldTop : 0, 0);
+    transformSupport(support, change);
+  });
+  // Finalise before assisted-hit/feedback/instancing caches are constructed.
+  kit.group.updateWorldMatrix(true, true);
+}
+
+function transformSupport(object: THREE.Object3D, change: THREE.Matrix4) {
+  if (object.matrixAutoUpdate) object.updateMatrix();
+  object.matrix.premultiply(change);
+  object.matrix.decompose(object.position, object.quaternion, object.scale);
+  object.matrixAutoUpdate = false;
+  object.matrixWorldNeedsUpdate = true;
 }
 
 export function applyOriginalDrumTransforms(kit: ReturnType<typeof createVirtualDrumSet>) {
