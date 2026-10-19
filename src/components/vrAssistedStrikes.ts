@@ -15,7 +15,7 @@ export function createVRAssistedStrikes(surfaces: DrumHitSurface[],
   const zones = surfaces.map(surface => ({ ...surface, world: new THREE.Matrix4(), inverse: new THREE.Matrix4(),
     normal: new THREE.Vector3(), centre: new THREE.Vector3(), normalScale: 1, radialScale: 1 }));
   const makeHand = () => ({ ready: true, lastHit: -Infinity, travel: 0, recovery: 0,
-    target: '', direction: new THREE.Vector3() });
+    target: '', peakApproach: 0, direction: new THREE.Vector3() });
   const hands = { left: makeHand(), right: makeHand() };
   const from = new THREE.Vector3(), to = new THREE.Vector3(), local = new THREE.Vector3();
   const tip = new THREE.Vector3(), target = new THREE.Vector3(), toward = new THREE.Vector3();
@@ -30,6 +30,7 @@ export function createVRAssistedStrikes(surfaces: DrumHitSurface[],
     for (const key of hand ? [hand] : ['left', 'right'] as const) {
       const state = hands[key];
       state.ready = true; state.lastHit = -Infinity; state.travel = state.recovery = 0;
+      state.peakApproach = 0;
       state.target = ''; state.direction.set(0, 0, 0);
     }
   }
@@ -37,6 +38,7 @@ export function createVRAssistedStrikes(surfaces: DrumHitSurface[],
     for (const key of hand ? [hand] : ['left', 'right'] as const) {
       const state = hands[key];
       state.travel = state.recovery = 0; state.target = '';
+      state.peakApproach = 0;
     }
   }
   function refreshSurfaces() {
@@ -79,17 +81,21 @@ export function createVRAssistedStrikes(surfaces: DrumHitSurface[],
         else if (awaySpeed < -ASSISTED_STRIKE.minApproachSpeed) state.recovery = 0;
         if (state.recovery >= ASSISTED_STRIKE.releaseDistance && time - state.lastHit >= ASSISTED_STRIKE.cooldown) {
           state.ready = true; state.travel = 0; state.target = '';
+          state.peakApproach = 0;
         }
         return;
       }
-      if (speed < ASSISTED_STRIKE.minSpeed) { state.travel = 0; state.target = ''; return; }
+      if (speed < ASSISTED_STRIKE.minSpeed) { state.travel = state.peakApproach = 0; state.target = ''; return; }
       direction.copy(motion).divideScalar(speed);
       let selected: typeof zones[number] | null = null;
       let bestScore = Infinity;
       let selectedCore = false;
       let bestEdgeDistance = Infinity;
+      let firstCrossing = Infinity;
+      let selectedApproach = 0;
       for (const zone of zones) {
-        if (-motion.dot(zone.normal) < ASSISTED_STRIKE.minApproachSpeed) continue;
+        const approach = -motion.dot(zone.normal);
+        if (approach < ASSISTED_STRIKE.minApproachSpeed) continue;
         from.copy(sample.previous).applyMatrix4(zone.inverse);
         to.copy(sample.current).applyMatrix4(zone.inverse);
         // Closest approach to the playing plane along this frame's swept tip.
@@ -97,9 +103,27 @@ export function createVRAssistedStrikes(surfaces: DrumHitSurface[],
         // the zone. A small flick ABOVE the surface is equally eligible.
         const planeHeight = height(zone, to.x, to.z);
         const dy = from.y - to.y;
-        const t = dy > 1e-8 ? THREE.MathUtils.clamp((from.y - planeHeight) / dy, 0, 1) : 1;
+        let t = dy > 1e-8 ? THREE.MathUtils.clamp((from.y - planeHeight) / dy, 0, 1) : 1;
         local.lerpVectors(from, to, t);
-        const radial = Math.hypot(local.x, local.z);
+        if (zone.cymbal && dy > 1e-8) {
+          // Refine the crossing against the existing curved cymbal profile.
+          for (let i = 0; i < 2; i++) {
+            t = THREE.MathUtils.clamp((from.y - height(zone, local.x, local.z)) / dy, 0, 1);
+            local.lerpVectors(from, to, t);
+          }
+        }
+        let radial = Math.hypot(local.x, local.z);
+        if (radial > zone.radius + ASSISTED_STRIKE.radialPadding / zone.radialScale) {
+          // A diagonal wrist arc can enter and leave the assistance cylinder
+          // between frames without crossing the drum plane. Test its closest
+          // lateral approach as well, instead of considering only an endpoint.
+          const dx = to.x - from.x, dz = to.z - from.z;
+          const lateral = dx * dx + dz * dz;
+          if (lateral < 1e-12) continue;
+          t = THREE.MathUtils.clamp(-(from.x * dx + from.z * dz) / lateral, 0, 1);
+          local.lerpVectors(from, to, t);
+          radial = Math.hypot(local.x, local.z);
+        }
         if (radial > zone.radius + ASSISTED_STRIKE.radialPadding / zone.radialScale) continue;
         const signedHeight = (local.y - height(zone, local.x, local.z)) * zone.normalScale;
         if (signedHeight > ASSISTED_STRIKE.above || signedHeight < -ASSISTED_STRIKE.below) continue;
@@ -121,6 +145,8 @@ export function createVRAssistedStrikes(surfaces: DrumHitSurface[],
         // Within that class, prefer the nearest surface in the swing cone.
         // This keeps a high cymbal's padded zone from stealing a tom strike.
         const core = radial <= zone.radius + ASSISTED_STRIKE.edgeGrace / zone.radialScale;
+        const crossing = core && Math.abs(signedHeight) < 0.006 && from.y >= height(zone, from.x, from.z)
+          && to.y <= height(zone, to.x, to.z) ? t : Infinity;
         const edgeDistance = Math.max(0, radial - zone.radius) * zone.radialScale;
         const score = distance + (1 - alignment) * 0.08;
         // Outside both discs, prefer the nearest lateral edge in the swing
@@ -128,18 +154,24 @@ export function createVRAssistedStrikes(surfaces: DrumHitSurface[],
         // not win merely because its padding is closer along the stroke.
         const closerEdge = !core && !selectedCore && edgeDistance < bestEdgeDistance - 1e-6;
         const sameFootprint = core === selectedCore && (core || Math.abs(edgeDistance - bestEdgeDistance) <= 1e-6);
-        if (!selected || (core && !selectedCore) || closerEdge || (sameFootprint &&
-          (score < bestScore - 1e-8 || (Math.abs(score - bestScore) < 1e-8 && zone.id < selected.id)))) {
+        const firstContact = crossing < firstCrossing - 1e-6;
+        const sameContact = crossing === firstCrossing || Math.abs(crossing - firstCrossing) <= 1e-6;
+        if (!selected || firstContact || (sameContact && ((core && !selectedCore) || closerEdge || (sameFootprint &&
+          (score < bestScore - 1e-8 || (Math.abs(score - bestScore) < 1e-8 && zone.id < selected.id)))))) {
           selected = zone; bestScore = score; selectedCore = core; bestEdgeDistance = edgeDistance;
+          firstCrossing = crossing; selectedApproach = approach;
         }
       }
-      if (!selected) { state.travel = 0; state.target = ''; return; }
-      if (state.target !== selected.id) { state.target = selected.id; state.travel = 0; }
+      if (!selected) { state.travel = state.peakApproach = 0; state.target = ''; return; }
+      if (state.target !== selected.id) { state.target = selected.id; state.travel = state.peakApproach = 0; }
       state.travel += travel;
+      state.peakApproach = Math.max(state.peakApproach, selectedApproach);
       if (state.travel < ASSISTED_STRIKE.strokeDistance || time - state.lastHit < ASSISTED_STRIKE.cooldown) return;
       state.ready = false; state.lastHit = time; state.recovery = 0; state.travel = 0;
       state.direction.copy(direction);
-      onHit(selected.id, hand, THREE.MathUtils.clamp(0.25 + (speed - ASSISTED_STRIKE.minSpeed) / 3.5, 0.25, 1));
+      // Normal approach speed controls dynamics; a fast sideways brush must
+      // not sound like a full-force hit. Preserve quiet, audible wrist taps.
+      onHit(selected.id, hand, 0.12 + 0.88 * (1 - Math.exp(-state.peakApproach / 1.4)));
     },
   };
 }

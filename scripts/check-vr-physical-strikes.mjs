@@ -154,7 +154,7 @@ for (let i = 0; i < 65; i++) {
 assert.equal(noiseHits, 0, 'Subthreshold drift across the raised plane remains silent');
 
 // Hand identity comes from XRInputSource, not controller array index.
-const rig = new THREE.Group(), grips = [new THREE.Group(), new THREE.Group()];
+const rig = new THREE.Group(), grips = Array.from({ length: 4 }, () => new THREE.Group());
 const controller = createXRDrumstickControllers({ getControllerGrip: i => grips[i], getReferenceSpace: () => ({}) }, rig);
 const pulses = [];
 const input = hand => ({ handedness: hand, targetRayMode: 'tracked-pointer', gripSpace: {}, gamepad: {
@@ -165,7 +165,8 @@ grips[0].dispatchEvent({ type: 'connected', data: input('right') });
 grips[1].dispatchEvent({ type: 'connected', data: input('left') });
 grips[1].position.set(-0.3, 1.2, -0.5); grips[1].rotation.set(0.2, -0.3, 0.1);
 controller.update();
-assert(controller.tipSamples.left.current.distanceTo(new THREE.Vector3(0, 0, -0.31).applyMatrix4(grips[1].matrixWorld)) < 1e-9);
+assert(controller.tipSamples.left.current.distanceTo(new THREE.Vector3(0, 0, -0.31)
+  .applyAxisAngle(new THREE.Vector3(1, 0, 0), 12 * Math.PI / 180).applyMatrix4(grips[1].matrixWorld)) < 1e-9);
 controller.pulse('left', 0.7); controller.pulse('right', 0.8);
 assert.deepEqual(pulses.map(p => p.hand), ['left', 'right']);
 assert(pulses.every(p => p.duration === 18 && p.strength <= 0.3));

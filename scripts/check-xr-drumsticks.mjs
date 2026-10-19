@@ -38,7 +38,7 @@ try {
     const THREE = await import(threeURL);
     const rig = new THREE.Group();
     rig.position.set(0, 0, 1.6);
-    const grips = [new THREE.Group(), new THREE.Group()];
+    const grips = Array.from({ length: 4 }, () => new THREE.Group());
     const mockXR = { getControllerGrip: index => grips[index] };
     const controller = createXRDrumstickControllers(mockXR, rig);
     const source = hand => ({ handedness: hand, targetRayMode: 'tracked-pointer', gripSpace: {} });
@@ -54,7 +54,8 @@ try {
     const point = tip.getWorldPosition(new THREE.Vector3());
     const followsPose = controller.tipSamples.left.current.distanceTo(point) < 1e-10;
     const localTip = grips[1].worldToLocal(point.clone());
-    const gripAligned = localTip.distanceTo(new THREE.Vector3(0, 0, -0.31)) < 1e-10;
+    const gripAligned = localTip.distanceTo(new THREE.Vector3(0, 0, -0.31)
+      .applyAxisAngle(new THREE.Vector3(1, 0, 0), 12 * Math.PI / 180)) < 1e-10;
     const previous = point.clone();
     grips[1].position.x += 0.2;
     controller.update();
@@ -78,10 +79,30 @@ try {
     controller.setActive(false);
     controller.update();
     const sessionEndHides = !controller.tipSamples.left.valid && !controller.tipSamples.right.valid
-      && !grips[0].getObjectByName('right-drumstick');
+      && !grips[0].getObjectByName('right-stick-grip').visible;
+    controller.setActive(true); controller.update();
+    const reactivationRestoresBoth = controller.tipSamples.left.valid && controller.tipSamples.right.valid
+      && grips[1].getObjectByName('left-stick-grip').visible;
+    // Non-controller input sources can occupy the first slots. Both real
+    // controllers must still bind using handedness, with the left one last.
+    grips[0].dispatchEvent({ type: 'connected', data: { targetRayMode: 'gaze', handedness: 'none' } });
+    grips[1].dispatchEvent({ type: 'connected', data: { ...source('left'), hand: {} } });
+    grips[2].dispatchEvent({ type: 'connected', data: source('right') });
+    grips[3].dispatchEvent({ type: 'connected', data: source('left') });
+    const frame = { session: { visibilityState: 'visible' }, getPose: () => ({ emulatedPosition: false }) };
+    mockXR.getReferenceSpace = () => ({});
+    controller.update(frame);
+    const extraInputsDoNotHideLeft = !!grips[3].getObjectByName('left-drumstick') && controller.tipSamples.left.valid
+      && !!grips[2].getObjectByName('right-drumstick') && controller.tipSamples.right.valid;
+    frame.getPose = () => ({ emulatedPosition: true }); controller.update(frame);
+    const emulatedHidden = !grips[3].getObjectByName('left-stick-grip').visible && !controller.tipSamples.left.valid;
+    frame.getPose = () => ({ emulatedPosition: false }); controller.update(frame);
+    const recoverySeeded = grips[3].getObjectByName('left-stick-grip').visible
+      && controller.tipSamples.left.previous.equals(controller.tipSamples.left.current);
     controller.dispose();
     return { handedness, followsPose, gripAligned, realTimeInheritance, offsetWorks,
-      trackingLost, disconnectHides, reconnectWorks, sessionEndHides, disposed: rig.children.length === 0 };
+      trackingLost, disconnectHides, reconnectWorks, sessionEndHides, reactivationRestoresBoth,
+      extraInputsDoNotHideLeft, emulatedHidden, recoverySeeded, disposed: rig.children.length === 0 };
   });
   for (const [name, passed] of Object.entries(results)) assert(passed, name);
   await page.getByRole('link', { name: 'Back to DRUM UP', exact: true }).click();

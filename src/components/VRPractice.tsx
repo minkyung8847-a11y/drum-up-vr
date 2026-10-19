@@ -6,12 +6,13 @@ import { createDrumEnvironments, getSavedDrumEnvironment } from './drumEnvironme
 import type { DrumEnvironmentId } from './drumEnvironments';
 import { EnvironmentSwitcher } from './EnvironmentSwitcher';
 import { createVRDrumInteraction } from './vrDrumInteraction';
+import { createVRHardwareInstances } from './vrHardwareInstances';
 import { createVRAssistedStrikes } from './vrAssistedStrikes';
 import { VR_DRUM_LAYOUT, VR_FREE_DRUMMING } from './vrDrumConfig';
 import { createVRSeating } from './vrSeating';
 import { createVirtualDrumsticks } from './virtualDrumsticks';
 import { createVRNoteHighway } from './vrNoteHighway';
-import { applyStickPose, createXRDrumstickControllers } from './xrDrumstickControllers';
+import { applyStickPose, createXRDrumstickControllers, DEFAULT_GRIP_OFFSETS } from './xrDrumstickControllers';
 import type { StickPose } from './xrDrumstickControllers';
 import type { StickHand } from './virtualDrumsticks';
 import { StickControllerPanel } from './StickControllerPanel';
@@ -78,18 +79,21 @@ export default function VRPractice() {
     // The shared model builder retains its design/materials; this VR-only layout uses metres.
     const kit = createVirtualDrumSet(scene, { layout: VR_DRUM_LAYOUT });
     const interaction = createVRDrumInteraction(kit);
+    const hardware = createVRHardwareInstances(kit.group);
     let disposed = false;
     let audioReady = false;
+    let audioPreparation = 0;
     const prepareAudio = async () => {
+      const preparation = ++audioPreparation;
       audioReady = false;
       setAudioStatus('Loading drum sounds…');
       try {
         const ready = await drumSynth.prepareKit();
-        if (disposed) return;
+        if (disposed || preparation !== audioPreparation) return;
         audioReady = ready;
         setAudioStatus(ready ? 'Click to play · Drag to look around · Shift + drag: look without striking' : 'Sounds unavailable — reload to retry');
       } catch {
-        if (!disposed) setAudioStatus('Sounds unavailable — reload to retry');
+        if (!disposed && preparation === audioPreparation) setAudioStatus('Sounds unavailable — reload to retry');
       }
     };
     void prepareAudio();
@@ -111,6 +115,7 @@ export default function VRPractice() {
     pitch.add(camera);
     scene.add(rig);
     const sticks = createVirtualDrumsticks(camera);
+    for (const hand of ['left', 'right'] as const) applyStickPose(sticks.offsets[hand], DEFAULT_GRIP_OFFSETS[hand]);
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
     const collisions = createVRAssistedStrikes(kit.hitSurfaces, (id, hand, velocity) => {
       if (audioReady && interaction.hit(id, velocity)) controllers.pulse(hand, velocity);
@@ -411,6 +416,7 @@ export default function VRPractice() {
       xrActionRef.current = async () => {};
       unsubscribeKit();
       interaction.dispose();
+      hardware.dispose();
       highway?.dispose();
       demoRef.current = { toggle: () => false, restart: () => {} };
       renderer.setAnimationLoop(null);

@@ -118,6 +118,49 @@ for (const reverse of [false, true]) {
   collision.update('right', { valid: true, previous: new THREE.Vector3(0.32, 1.05, 0.4), current: new THREE.Vector3(0.32, 1.044, 0.4) }, 1 / 90, 1, head);
   assert.deepEqual(selected, ['middleTom', 'ride'], 'Visible core beats assistance padding regardless of zone order');
 }
+for (const hand of ['left', 'right']) {
+  // Both endpoints miss a tom's expanded disc, but the deliberate diagonal
+  // strike passes over its centre during this frame.
+  const mesh = new THREE.Mesh(); mesh.position.set(0, 0.7, 0.5);
+  const surface = { id: 'smallTom', mesh, radius: 0.12, cymbal: false, height: 0 };
+  const arcHits = [], collision = createVRAssistedStrikes([surface], (...args) => arcHits.push(args));
+  collision.update(hand, { valid: true, previous: new THREE.Vector3(-0.26, 0.94, 0.5),
+    current: new THREE.Vector3(0.26, 0.80, 0.5) }, 0.04, 1, head);
+  assert.equal(arcHits.length, 1, 'Swept diagonal non-contact wrist arc cannot tunnel between frames');
+  assert.equal(arcHits[0][0], 'smallTom');
+  // A fast path crossing two reachable heads chooses the first contacted
+  // surface, independent of naming/source order, and emits only one hit.
+  for (const reverse of [false, true]) {
+    const first = { ...surface, id: 'z-first', mesh: new THREE.Mesh() };
+    const last = { ...surface, id: 'a-last', mesh: new THREE.Mesh() };
+    first.mesh.position.set(0, 0.8, 0.5); last.mesh.position.set(0, 0.65, 0.5);
+    const hits = [], detector = createVRAssistedStrikes(reverse ? [last, first] : [first, last], id => hits.push(id));
+    detector.update(hand, { valid: true, previous: new THREE.Vector3(0, 1.15, 0.5), current: new THREE.Vector3(0, 0.6, 0.5) }, 0.04, 1, head);
+    assert.deepEqual(hits, ['z-first'], 'Earliest swept contact wins a fast stroke');
+  }
+  const velocities = [];
+  for (const velocity of [0.08, 0.6, 2.5]) {
+    const hits = [], detector = createVRAssistedStrikes([surface], (...args) => hits.push(args));
+    let y = 0.92;
+    for (let frame = 0; !hits.length && frame < 20; frame++) {
+      detector.update(hand, { valid: true, previous: new THREE.Vector3(0, y, 0.5),
+        current: new THREE.Vector3(0, y - velocity / 90, 0.5) }, 1 / 90, 1 + frame / 90, head);
+      y -= velocity / 90;
+    }
+    assert.equal(hits.length, 1); velocities.push(hits[0][2]);
+  }
+  assert(velocities[0] > 0.1 && velocities[0] < velocities[1] && velocities[1] < velocities[2] && velocities[2] <= 1,
+    'Ghost, medium and strong strokes retain useful dynamic separation');
+  // Light rapid alternating strokes stay independent across repeated cycles.
+  const rolls = [], detector = createVRAssistedStrikes([surface], (id, which) => rolls.push(which));
+  let now = 1;
+  for (let stroke = 0; stroke < 24; stroke++) {
+    const which = stroke % 2 ? 'right' : 'left'; now += 0.045;
+    detector.update(which, { valid: true, previous: new THREE.Vector3(0, 0.90, 0.5), current: new THREE.Vector3(0, 0.911, 0.5) }, 1 / 90, now, head);
+    detector.update(which, { valid: true, previous: new THREE.Vector3(0, 0.911, 0.5), current: new THREE.Vector3(0, 0.905, 0.5) }, 1 / 90, now + 1 / 90, head);
+  }
+  assert.equal(rolls.length, 24, 'Fast alternating wrist rolls retain every deliberate strike');
+}
 const rig = new THREE.Group(), kit = new THREE.Group(); rig.position.set(0, 1.22, 1);
 let refreshed = 0;
 const seating = createVRSeating(rig, kit, () => refreshed++);
