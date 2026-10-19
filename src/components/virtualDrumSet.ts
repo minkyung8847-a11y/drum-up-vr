@@ -28,7 +28,7 @@ const drumColors = {
 
 
 export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
-  diameter: number; depth?: number; position: [number, number, number];
+  diameter: number; depth?: number; position: [number, number, number]; tilt?: [number, number];
 }> } = {}) {
   const layout = options.layout;
   const positions = Object.fromEntries(Object.entries(drumPositions).map(([id, position]) => [id, layout?.[id]?.position ?? position]));
@@ -108,7 +108,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
   function createTom(name, position, radius, depth, options = {}) {
     const drum = new THREE.Group();
     drum.position.set(...position);
-    drum.rotation.set(options.tiltX ?? 0, 0, options.tiltZ ?? 0);
+    drum.rotation.set(layout?.[name]?.tilt?.[0] ?? options.tiltX ?? 0, 0, layout?.[name]?.tilt?.[1] ?? options.tiltZ ?? 0);
 
     const shell = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, depth, 72, 1, true), shellMat);
     shell.position.y = -depth / 2;
@@ -254,7 +254,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
 
     const cymbal = new THREE.Group();
     cymbal.position.set(...position);
-    cymbal.rotation.set(options.tiltX ?? 0.08, 0, options.tiltZ ?? 0);
+    cymbal.rotation.set(layout?.[name]?.tilt?.[0] ?? options.tiltX ?? 0.08, 0, layout?.[name]?.tilt?.[1] ?? options.tiltZ ?? 0);
 
     const profile = [];
     for (let i=0;i<=180;i++) {

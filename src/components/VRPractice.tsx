@@ -389,7 +389,7 @@ export default function VRPractice() {
         for (const hand of ['left', 'right'] as const) {
           collisions.update(hand, controllers.tipSamples[hand], frameDelta, time / 1000, headPosition);
         }
-      } else collisions.reset();
+      } else collisions.suspend();
       interaction.update(delta);
       highway?.update(((demoPauseTime ?? performance.now()) - demoEpoch) / 1000);
       renderer.render(scene, camera);

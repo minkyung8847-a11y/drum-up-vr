@@ -4,7 +4,7 @@ import type { StickHand } from './virtualDrumsticks';
 
 export const ASSISTED_STRIKE = {
   minSpeed: 0.07, minApproachSpeed: 0.035, strokeDistance: 0.004,
-  coneDegrees: 65, above: 0.32, below: 0.08, radialPadding: 0.12,
+  coneDegrees: 65, above: 0.32, below: 0.08, radialPadding: 0.12, edgeGrace: 0.02,
   maxTipDistance: 0.40, maxGripDistance: 0.85, maxHeadDistance: 1.25,
   releaseDistance: 0.008, cooldown: 0.04,
   maxFrame: 0.05, maxSpeed: 25, maxTravel: 0.65,
@@ -33,6 +33,12 @@ export function createVRAssistedStrikes(surfaces: DrumHitSurface[],
       state.target = ''; state.direction.set(0, 0, 0);
     }
   }
+  function suspend(hand?: StickHand) {
+    for (const key of hand ? [hand] : ['left', 'right'] as const) {
+      const state = hands[key];
+      state.travel = state.recovery = 0; state.target = '';
+    }
+  }
   function refreshSurfaces() {
     for (const zone of zones) {
       zone.mesh.updateWorldMatrix(true, false);
@@ -50,14 +56,19 @@ export function createVRAssistedStrikes(surfaces: DrumHitSurface[],
   }
   refreshSurfaces();
   return {
-    reset, refreshSurfaces,
+    reset, suspend, refreshSurfaces,
     update(hand: StickHand, sample: TipSample & { grip?: THREE.Vector3 }, delta: number, time: number,
       head: THREE.Vector3) {
       const state = hands[hand];
       const travel = sample.previous.distanceTo(sample.current);
       if (!sample.valid || !Number.isFinite(travel) || !Number.isFinite(delta) || delta <= 0
         || delta > ASSISTED_STRIKE.maxFrame || travel > ASSISTED_STRIKE.maxTravel
-        || travel / delta > ASSISTED_STRIKE.maxSpeed) { reset(hand); return; }
+        || travel / delta > ASSISTED_STRIKE.maxSpeed) {
+        // Discard discontinuous motion without forgetting a fired stroke.
+        // A frame stall/tracking gap cannot substitute for the recovery lift.
+        suspend(hand);
+        return;
+      }
       motion.subVectors(sample.current, sample.previous).divideScalar(delta);
       const speed = motion.length();
       // A single hand-level latch spans ALL instruments. Holding position,
@@ -75,6 +86,8 @@ export function createVRAssistedStrikes(surfaces: DrumHitSurface[],
       direction.copy(motion).divideScalar(speed);
       let selected: typeof zones[number] | null = null;
       let bestScore = Infinity;
+      let selectedCore = false;
+      let bestEdgeDistance = Infinity;
       for (const zone of zones) {
         if (-motion.dot(zone.normal) < ASSISTED_STRIKE.minApproachSpeed) continue;
         from.copy(sample.previous).applyMatrix4(zone.inverse);
@@ -103,11 +116,21 @@ export function createVRAssistedStrikes(surfaces: DrumHitSurface[],
         const aimDistance = toward.length();
         const alignment = aimDistance > 1e-8 ? toward.dot(direction) / aimDistance : 1;
         if (alignment < coneCos) continue;
-        // Prefer the nearest valid surface in the strike cone, with a small aim
-        // penalty to resolve overlapping assistance zones intentionally.
+        // A playing surface (including a 2 cm rim allowance) outranks a
+        // neighbour's peripheral assistance.
+        // Within that class, prefer the nearest surface in the swing cone.
+        // This keeps a high cymbal's padded zone from stealing a tom strike.
+        const core = radial <= zone.radius + ASSISTED_STRIKE.edgeGrace / zone.radialScale;
+        const edgeDistance = Math.max(0, radial - zone.radius) * zone.radialScale;
         const score = distance + (1 - alignment) * 0.08;
-        if (score < bestScore - 1e-8 || (Math.abs(score - bestScore) < 1e-8 && zone.id < (selected?.id ?? ''))) {
-          selected = zone; bestScore = score;
+        // Outside both discs, prefer the nearest lateral edge in the swing
+        // direction before comparing depth. A raised neighbouring cymbal must
+        // not win merely because its padding is closer along the stroke.
+        const closerEdge = !core && !selectedCore && edgeDistance < bestEdgeDistance - 1e-6;
+        const sameFootprint = core === selectedCore && (core || Math.abs(edgeDistance - bestEdgeDistance) <= 1e-6);
+        if (!selected || (core && !selectedCore) || closerEdge || (sameFootprint &&
+          (score < bestScore - 1e-8 || (Math.abs(score - bestScore) < 1e-8 && zone.id < selected.id)))) {
+          selected = zone; bestScore = score; selectedCore = core; bestEdgeDistance = edgeDistance;
         }
       }
       if (!selected) { state.travel = 0; state.target = ''; return; }

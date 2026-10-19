@@ -17,7 +17,7 @@ function makeSurface(id) {
   const config = VR_DRUM_LAYOUT[id];
   const mesh = new THREE.Mesh(new THREE.RingGeometry(0, config.diameter / 2));
   mesh.position.fromArray(config.position);
-  mesh.rotation.x = id === 'kick' ? Math.PI / 2 : id.includes('Tom') ? 0.4 : 0.08;
+  mesh.rotation.set(id === 'kick' ? Math.PI / 2 : config.tilt?.[0] ?? 0.08, 0, config.tilt?.[1] ?? 0);
   mesh.updateMatrixWorld(true);
   return { id, mesh, radius: config.diameter / 2, cymbal: ['hihat', 'ride', 'crash'].includes(id), height: 0 };
 }
@@ -81,6 +81,42 @@ for (const reverse of [false, true]) {
   const collision = createVRAssistedStrikes(reverse ? [b, a] : [a, b], id => selected.push(id));
   collision.update('left', { valid: true, previous: new THREE.Vector3(0.15, 0.9, 0.5), current: new THREE.Vector3(0.15, 0.894, 0.5), grip: new THREE.Vector3(0.15, 0.9, 0.8) }, 1 / 90, 1, head);
   assert.deepEqual(selected, ['floorTom']);
+}
+// A dropped frame or temporarily invalid tracking must not clear the fired
+// latch. Only a measured recovery lift may arm the next strike.
+for (const hand of ['left', 'right']) for (const invalid of ['frame-gap', 'tracking-gap', 'viewer-gap', 'jump']) {
+  const surface = makeSurface('snare'), selected = [];
+  const collision = createVRAssistedStrikes([surface], id => selected.push(id));
+  let now = 1;
+  const step = (a, b, delta = 1 / 90, valid = true) => {
+    now += delta;
+    collision.update(hand, { valid,
+      previous: new THREE.Vector3(0, a, 0).applyMatrix4(surface.mesh.matrixWorld),
+      current: new THREE.Vector3(0, b, 0).applyMatrix4(surface.mesh.matrixWorld),
+    }, delta, now, head);
+  };
+  step(0.2, 0.194);
+  if (invalid === 'frame-gap') step(0.194, 0.188, 0.06);
+  if (invalid === 'tracking-gap') step(0.194, 0.188, 1 / 90, false);
+  if (invalid === 'viewer-gap') collision.suspend();
+  if (invalid === 'jump') step(1.5, 0.188);
+  step(0.188, 0.182);
+  assert.deepEqual(selected, ['snare'], `${hand}: ${invalid} cannot retrigger the same stroke`);
+  now += 0.05;
+  step(0.182, 0.193);
+  step(0.193, 0.187);
+  assert.deepEqual(selected, ['snare', 'snare'], 'A recovery lift after the gap still permits rolls');
+}
+// Directly over a tom's playable disc must beat a neighbouring high cymbal's
+// forgiving outer padding, while true cymbal strokes remain responsive.
+for (const reverse of [false, true]) {
+  const tomSurface = makeSurface('middleTom'), cymbal = makeSurface('ride');
+  tomSurface.mesh.position.set(0, 0.7, 0.4); tomSurface.mesh.rotation.set(0, 0, 0);
+  cymbal.mesh.position.set(0.32, 0.85, 0.4); cymbal.mesh.rotation.set(0, 0, 0);
+  const selected = [], collision = createVRAssistedStrikes(reverse ? [cymbal, tomSurface] : [tomSurface, cymbal], id => selected.push(id));
+  collision.update('left', { valid: true, previous: new THREE.Vector3(0, 0.96, 0.4), current: new THREE.Vector3(0, 0.954, 0.4) }, 1 / 90, 1, head);
+  collision.update('right', { valid: true, previous: new THREE.Vector3(0.32, 1.05, 0.4), current: new THREE.Vector3(0.32, 1.044, 0.4) }, 1 / 90, 1, head);
+  assert.deepEqual(selected, ['middleTom', 'ride'], 'Visible core beats assistance padding regardless of zone order');
 }
 const rig = new THREE.Group(), kit = new THREE.Group(); rig.position.set(0, 1.22, 1);
 let refreshed = 0;
