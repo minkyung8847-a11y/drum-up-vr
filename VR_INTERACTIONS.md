@@ -48,3 +48,14 @@ autoplay or proof of hardware performance. On a real headset, verify:
 
 Headset reach, controller alignment, measured audio latency, haptic strength and
 collision thresholds still require hardware validation.
+
+## Seated placement
+
+VR entry translates the complete kit 35 cm toward the player and changes the
+player's initial depth from 1.60 m to 1.25 m (70 cm closer overall). All individual
+component transforms, model sizes, materials and background placement stay fixed.
+The first valid headset pose anchors the player horizontally behind the kit;
+subsequent head movement remains free. Physical floor-relative eye height is
+preserved with only an 8 cm lift. No pitch or yaw is imposed during VR gameplay.
+Hit zones refresh after whole-kit movement. Exiting VR restores the prior desktop
+kit/rig placement and collisions; repeated sessions do not accumulate offsets.

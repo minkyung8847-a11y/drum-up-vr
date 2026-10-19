@@ -7,6 +7,7 @@ import type { DrumEnvironmentId } from './drumEnvironments';
 import { EnvironmentSwitcher } from './EnvironmentSwitcher';
 import { createVRDrumInteraction } from './vrDrumInteraction';
 import { createVRStickCollision } from './vrStickCollision';
+import { createVRSeating } from './vrSeating';
 import { createVirtualDrumsticks } from './virtualDrumsticks';
 import { createVRNoteHighway } from './vrNoteHighway';
 import { applyStickPose, createXRDrumstickControllers } from './xrDrumstickControllers';
@@ -143,6 +144,11 @@ export default function VRPractice() {
     const collisions = createVRStickCollision(kit.hitSurfaces, (id, hand, velocity) => {
       if (audioReady && interaction.hit(id, velocity)) controllers.pulse(hand, velocity);
     });
+    const seating = createVRSeating(rig, kit.group, () => {
+      interaction.update(1);
+      collisions.refreshSurfaces();
+      controllers.resetSamples();
+    });
     poseRef.current = (mode, hand, pose) => {
       if (mode === 'preview') applyStickPose(sticks.grips[hand], pose);
       else {
@@ -162,8 +168,9 @@ export default function VRPractice() {
       desktopPose.pitch = pitch.rotation.x;
       targetYaw = desktopPose.yaw;
       targetPitch = desktopPose.pitch;
-      // local-floor already supplies headset height; do not add seated eye height.
-      rig.position.y = 0;
+      // local-floor supplies physical eye height. Seating adds only an 8 cm lift
+      // and places the kit closer; never apply a gameplay head rotation.
+      seating.enter();
       yaw.rotation.y = 0;
       pitch.rotation.x = 0;
       camera.position.set(0, 0, 0);
@@ -177,6 +184,7 @@ export default function VRPractice() {
     const endXR = () => {
       cancelLook();
       controllers.setActive(false);
+      seating.exit();
       collisions.reset();
       rig.position.copy(desktopPose.rig);
       yaw.rotation.y = desktopPose.yaw;
@@ -400,6 +408,7 @@ export default function VRPractice() {
         referenceSpace?.addEventListener('reset', referenceReset);
         referenceReset();
       }
+      if (renderer.xr.isPresenting && frame && reference) seating.update(frame, reference);
       controllers.update(frame);
       if (renderer.xr.isPresenting && frame && audioReady) {
         for (const hand of ['left', 'right'] as const) {

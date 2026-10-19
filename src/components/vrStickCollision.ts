@@ -53,6 +53,16 @@ export function createVRStickCollision(surfaces: DrumHitSurface[],
 
   return {
     reset,
+    refreshSurfaces() {
+      // Called after a whole-kit translation, with hit animations at rest.
+      for (const zone of zones) {
+        zone.mesh.updateWorldMatrix(true, false);
+        zone.inverse.copy(zone.mesh.matrixWorld).invert();
+        zone.normalMatrix.getNormalMatrix(zone.mesh.matrixWorld);
+        zone.normalScale = 1 / normal.set(0, 1, 0).applyMatrix3(zone.normalMatrix).length();
+      }
+      reset();
+    },
     update(hand: StickHand, sample: TipSample, delta: number, time: number) {
       const travel = sample.previous.distanceTo(sample.current);
       if (!sample.valid || !Number.isFinite(travel) || !Number.isFinite(delta)

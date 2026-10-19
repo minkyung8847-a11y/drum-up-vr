@@ -18,6 +18,7 @@ async function load(name, replacements = {}) {
   return import(`data:text/javascript,${encodeURIComponent(source)}`);
 }
 const { createVRStickCollision } = await load('vrStickCollision');
+const { createVRSeating, VR_SEATING } = await load('vrSeating');
 const { createXRDrumstickControllers } = await load('xrDrumstickControllers');
 const { createVRDrumInteraction, VR_SOUND_IDS } = await load('vrDrumInteraction', { '../utils/synth': spyURL });
 
@@ -151,6 +152,48 @@ feedback.dispose();
 assert.equal(mesh.material, originalMaterial); assert.equal(cymbal.material, originalCymbalMaterial);
 assert.deepEqual(VR_SOUND_IDS, { kick: 'kick', snare: 'snare', hihat: 'hihat-closed', smallTom: 'tom-high', middleTom: 'tom-mid', floorTom: 'tom-floor', crash: 'crash', ride: 'ride' });
 assert.deepEqual(synth.calls.map(call => call.id), ['snare', 'crash']);
+
+// Seating translates only roots, recalculates hit zones, and anchors once to the
+// initial tracked head position. It must never cancel subsequent head movement.
+const seatRig = new THREE.Group(); seatRig.position.set(0, 1.55, 1.6);
+const camera = new THREE.PerspectiveCamera(); seatRig.add(camera);
+camera.rotation.set(0.1, -0.2, 0.03);
+const cameraOrientation = camera.quaternion.clone();
+const seatKit = new THREE.Group(), seatHead = mesh.clone();
+seatHead.position.set(0, 0.7, 0.64); seatKit.add(seatHead);
+const localHead = seatHead.matrix.clone();
+seatHead.updateMatrix(); localHead.copy(seatHead.matrix);
+const seatHits = [];
+const seatCollision = createVRStickCollision([{ ...surface, mesh: seatHead }], id => seatHits.push(id));
+const seat = createVRSeating(seatRig, seatKit, () => seatCollision.refreshSurfaces());
+seat.enter(); seat.enter();
+assert.deepEqual(seatKit.position.toArray(), [0, 0, 0.35], 'No cumulative translation');
+assert.deepEqual(seatRig.position.toArray(), [0, 0.08, 1.25]);
+seat.update({ getViewerPose: () => null }, {});
+seat.update({ getViewerPose: () => ({ transform: { position: { x: 0.3, y: 1.48, z: -0.4 } } }) }, {});
+assert.deepEqual(seatRig.position.toArray(), [-0.3, 0.08, 1.65]);
+const anchoredRig = seatRig.position.clone();
+seat.update({ getViewerPose: () => ({ transform: { position: { x: 0.8, y: 1.7, z: 0.1 } } }) }, {});
+assert(seatRig.position.equals(anchoredRig), 'Do not follow/recenter subsequent headset movement');
+assert(camera.quaternion.equals(cameraOrientation), 'No imposed camera rotation');
+assert.equal(1.48 + seatRig.position.y, 1.56, 'Only a small lift, not doubled floor height');
+seatHead.updateMatrix();
+assert(seatHead.matrix.equals(localHead), 'Instrument local arrangement and scale remain unchanged');
+assert.equal(seatHead.material, originalMaterial);
+const movedZ = 0.64 + VR_SEATING.kitForward;
+seatCollision.update('left', { valid: true,
+  previous: new THREE.Vector3(0, 0.78, movedZ), current: new THREE.Vector3(0, 0.66, movedZ) }, 1 / 90, 1);
+assert.deepEqual(seatHits, ['snare'], 'Moved head and collision zone coincide');
+assert(Math.abs((1.6 - 0.64) - (VR_SEATING.playerZ - movedZ) - 0.7) < 1e-9, '70 cm closer without scaling');
+seat.exit();
+assert.deepEqual(seatRig.position.toArray(), [0, 1.55, 1.6]);
+assert.deepEqual(seatKit.position.toArray(), [0, 0, 0]);
+seatCollision.update('right', { valid: true,
+  previous: new THREE.Vector3(0, 0.78, 0.64), current: new THREE.Vector3(0, 0.66, 0.64) }, 1 / 90, 2);
+assert.equal(seatHits.length, 2, 'Desktop hit zone restored');
+seat.enter();
+assert.deepEqual(seatKit.position.toArray(), [0, 0, 0.35], 'Re-entry keeps the same placement');
+seat.exit();
 await new Promise(resolve => setImmediate(resolve));
 delete globalThis.__strikeTestSynth;
-console.log('PASS: physical sweep, velocity/direction, hover/penetration rejection, rapid rolls, both hands, transformed surfaces, cymbal bell, nearest contact, tracking/gap/jump guards, pose inheritance, haptics/fallbacks, instrument mapping and mesh-only feedback restoration. Hardware NOT tested.');
+console.log('PASS: physical strikes, rolls, both hands, tracking guards, haptics, audio mapping and feedback; seated proximity/elevation, initial head anchoring, unrestricted subsequent tracking, unchanged component transforms, moved/restored collision zones and session re-entry. Hardware NOT tested.');
