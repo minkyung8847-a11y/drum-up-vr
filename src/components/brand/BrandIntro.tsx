@@ -13,7 +13,7 @@ export function LandingPage({ onNavigate, onOpenSettings, onHome, onOpenShowroom
   return (
     <main className="brand-landing" aria-label="DRUM UP home">
       <div className="brand-landing-visual">
-        <img src="/brand/landing-main.png" alt="Orange acoustic drum kit with chrome hardware and glowing orange light trails" fetchPriority="high" draggable={false} />
+        <img src={`${import.meta.env.BASE_URL}brand/landing-main.png`} alt="Orange acoustic drum kit with chrome hardware and glowing orange light trails" fetchPriority="high" draggable={false} />
         <svg className="brand-drum-hit-area" viewBox="0 0 1670 942" role="button" tabIndex={0}
           aria-label="Choose a drum kit" onClick={onOpenShowroom}
           onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpenShowroom(); } }}>
