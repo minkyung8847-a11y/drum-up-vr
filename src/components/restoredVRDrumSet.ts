@@ -20,12 +20,12 @@ export const RESTORED_VR_SCALE = VR_DRUM_LAYOUT.kick.diameter / original.instrum
 
 // Small adjustments on top of the restored kit. Offsets are world metres;
 // +Z is toward the existing seated player. Instrument scales stay untouched.
-export const VR_LAYOUT_ADJUSTMENTS: Record<string, { offset: [number, number, number]; tiltDegrees: number }> = {
+export const VR_LAYOUT_ADJUSTMENTS: Record<string, { offset: [number, number, number]; tiltDegrees: number; height?: number }> = {
   smallTom: { offset: [0, 0.14, 0], tiltDegrees: 5 },
   middleTom: { offset: [0, 0.14, 0], tiltDegrees: 5 },
-  snare: { offset: [0, 0, 0.04], tiltDegrees: 0 },
-  floorTom: { offset: [-0.02, 0, 0.04], tiltDegrees: 0 },
-  hihat: { offset: [0, 0, 0], tiltDegrees: 4 },
+  snare: { offset: [0, 0, 0.04], tiltDegrees: 0, height: 0.75 },
+  floorTom: { offset: [-0.02, 0, 0.14], tiltDegrees: 0, height: 0.75 },
+  hihat: { offset: [0, 0, 0], tiltDegrees: 4, height: 0.80 },
   crash: { offset: [0, 0, 0], tiltDegrees: 4 },
   ride: { offset: [0, 0, 0], tiltDegrees: 4 },
 };
@@ -42,15 +42,34 @@ export function applyCurrentDrumLayout(kit: ReturnType<typeof createVirtualDrumS
   for (const [id, adjustment] of Object.entries(VR_LAYOUT_ADJUSTMENTS)) {
     const part = kit.group.children.find((child: THREE.Object3D) => child.userData.drumType === id)!;
     part.updateMatrix(); before.copy(part.matrix).invert();
+    const previousY = part.position.y;
     part.position.add(new THREE.Vector3(...adjustment.offset).divideScalar(RESTORED_VR_SCALE));
+    if (adjustment.height !== undefined) part.position.y = adjustment.height / RESTORED_VR_SCALE;
     part.rotation.x += THREE.MathUtils.degToRad(adjustment.tiltDegrees);
     part.updateMatrix();
-    // Snare stand and rack mounts follow their drums as rigid assemblies.
+    const lift = part.position.y - previousY;
+    // Rack mounts follow their drums as rigid assemblies.
     // Preserve exact support matrices, including any existing shear.
-    if (id === 'snare' || id === 'smallTom' || id === 'middleTom') {
+    if (id === 'smallTom' || id === 'middleTom') {
       change.multiplyMatrices(part.matrix, before);
       for (const support of kit.layoutSupports.get(id) ?? []) transformSupport(support, change);
     }
+    if (id === 'snare' || id === 'hihat') {
+      // Extend only the upright. Tripod feet remain on the floor; the snare
+      // basket follows the drum and the hi-hat sleeve follows its height.
+      const baseY = original.supports[id][0].position[1];
+      const topY = id === 'snare' ? original.instruments.snare.position[1] - original.instruments.snare.depth!
+        : baseY + original.supports.hihat[0].bounds![2];
+      (kit.layoutSupports.get(id) ?? []).forEach((support: THREE.Object3D, index: number) => {
+        change.makeTranslation(adjustment.offset[0] / RESTORED_VR_SCALE, 0, adjustment.offset[2] / RESTORED_VR_SCALE);
+        if (index === 0) {
+          const extend = (topY - baseY + lift) / (topY - baseY);
+          change.elements[5] = extend; change.elements[13] = baseY * (1 - extend);
+        } else if (index >= 7) change.elements[13] = lift * (id === 'snare' ? 1 : 0.55);
+        transformSupport(support, change);
+      });
+    }
+    if (id === 'floorTom') extendFloorLegs(part, lift);
   }
   // Keep the centre post between the unchanged left/right tom X positions.
   // Extend the existing hardware to the raised mounts without moving the kit.
@@ -70,6 +89,33 @@ export function applyCurrentDrumLayout(kit: ReturnType<typeof createVirtualDrumS
   });
   // Finalise before assisted-hit/feedback/instancing caches are constructed.
   kit.group.updateWorldMatrix(true, true);
+}
+
+function extendFloorLegs(part: THREE.Object3D, lift: number) {
+  const inverse = part.matrix.clone().invert(), local = new THREE.Matrix4();
+  const start = new THREE.Vector3(), end = new THREE.Vector3(), direction = new THREE.Vector3();
+  const scale = new THREE.Vector3(), rotation = new THREE.Quaternion(), turn = new THREE.Quaternion();
+  for (const child of part.children) {
+    if (!(child instanceof THREE.Mesh)) continue;
+    const geometry = child.geometry;
+    const leg = geometry instanceof THREE.CylinderGeometry && geometry.parameters.radiusTop === 0.007;
+    const foot = geometry instanceof THREE.SphereGeometry && geometry.parameters.radius === 0.028;
+    if (!leg && !foot) continue;
+    local.multiplyMatrices(part.matrix, child.matrix);
+    if (leg) {
+      start.set(0, 0, 0).applyMatrix4(local);
+      end.set(0, 0, (geometry as THREE.CylinderGeometry).parameters.height).applyMatrix4(local);
+      direction.subVectors(end, start); const oldLength = direction.length(); direction.normalize();
+      end.y -= lift; end.sub(start);
+      turn.setFromUnitVectors(direction, end.clone().normalize());
+      local.decompose(start, rotation, scale);
+      rotation.premultiply(turn); scale.z *= end.length() / oldLength;
+      local.compose(start, rotation, scale);
+    } else local.elements[13] -= lift;
+    child.matrix.multiplyMatrices(inverse, local);
+    child.matrix.decompose(child.position, child.quaternion, child.scale);
+    child.matrixAutoUpdate = false; child.matrixWorldNeedsUpdate = true;
+  }
 }
 
 function transformSupport(object: THREE.Object3D, change: THREE.Matrix4) {

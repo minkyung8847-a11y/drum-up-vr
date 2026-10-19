@@ -33,6 +33,7 @@ try {
       const expected = { diameter: original.diameter * RESTORED_VR_SCALE,
         depth: original.depth && original.depth * RESTORED_VR_SCALE,
         position: original.position.map((value, axis) => value * RESTORED_VR_SCALE + (VR_LAYOUT_ADJUSTMENTS[id]?.offset[axis] ?? 0)) };
+      if (VR_LAYOUT_ADJUSTMENTS[id]?.height !== undefined) expected.position[1] = VR_LAYOUT_ADJUSTMENTS[id].height;
       const part = kit.children.find(child => child.userData.drumType === id);
       const shell = part.children.find(child => child.geometry?.type === 'CylinderGeometry' && child.geometry.parameters.openEnded);
       const body = part.children.find(child => child.geometry?.type === 'LatheGeometry');

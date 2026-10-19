@@ -51,9 +51,10 @@ try {
     // Independent expected deltas: metres and degrees, relative to initial Git.
     const adjustments = {
       smallTom: [0, 0.14, 0, 5], middleTom: [0, 0.14, 0, 5],
-      snare: [0, 0, 0.04, 0], floorTom: [-0.02, 0, 0.04, 0],
+      snare: [0, 0, 0.04, 0], floorTom: [-0.02, 0, 0.14, 0],
       hihat: [0, 0, 0, 4], crash: [0, 0, 0, 4], ride: [0, 0, 0, 4], kick: [0, 0, 0, 0],
     };
+    const targetHeights = { snare: 0.75, floorTom: 0.75, hihat: 0.80 };
     for (const [id, recorded] of Object.entries(history.instruments)) {
       const old = partFor(original.group, id), now = partFor(fixture.group, id), live = partFor(actual, id);
       const shell = old.children.find(child => child.geometry?.parameters.openEnded);
@@ -64,6 +65,7 @@ try {
       const worldScale = live.getWorldScale(new THREE.Vector3());
       const [dx, dy, dz, tilt] = adjustments[id];
       const expectedPosition = old.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(dx, dy, dz));
+      if (id in targetHeights) expectedPosition.y = targetHeights[id];
       const expectedRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(recorded.rotation[0] + tilt * Math.PI / 180, 0, recorded.rotation[2]));
       measurements.push({ id, positionError: now.position.distanceTo(old.position), rotationError: now.quaternion.angleTo(old.quaternion),
         livePositionError: live.getWorldPosition(new THREE.Vector3()).distanceTo(expectedPosition),
@@ -99,15 +101,24 @@ try {
     oldLegs.forEach((old, index) => checkSupport(newLegs[index], old));
     // The historical restoration stays exact; the active factory adds only the
     // requested layout adjustments before collision/feedback caches are built.
-    const supportBefore = [...fixture.layoutSupports.get('snare')].map(o => o.matrix.clone());
+    const footPosition = o => new THREE.Vector3().applyMatrix4(o.matrixWorld);
+    const groundSupports = ['snare', 'hihat'].flatMap(id => fixture.layoutSupports.get(id).slice(1, 7));
+    groundSupports.push(...floorLegs(partFor(fixture.group, 'floorTom')).filter(o => o.geometry.type === 'SphereGeometry'));
+    const groundHeights = groundSupports.map(o => footPosition(o).y);
+    const poleEnds = ['snare', 'hihat'].map(id => {
+      const o = fixture.layoutSupports.get(id)[0];
+      return { id, object: o, base: footPosition(o).y,
+        top: new THREE.Vector3(0, 0, o.geometry.parameters.height).applyMatrix4(o.matrixWorld).y,
+        lift: targetHeights[id] - partFor(fixture.group, id).getWorldPosition(new THREE.Vector3()).y };
+    });
     const scalesBefore = fixture.group.children.filter(o => o.userData.drumType).map(o => o.scale.toArray());
     applyCurrentDrumLayout(fixture);
     const unchangedGeometryAndMaterials = geometryAndMaterialsPreserved();
     const scalesUnchanged = fixture.group.children.filter(o => o.userData.drumType).every((o, i) => o.scale.toArray().every((v, j) => v === scalesBefore[i][j]));
-    const snareStandAligned = fixture.layoutSupports.get('snare').every((o, i) => {
-      const expected = supportBefore[i].clone().premultiply(new THREE.Matrix4().makeTranslation(0, 0, 0.04 / factor));
-      return expected.elements.every((v, j) => Math.abs(v - o.matrix.elements[j]) < 1e-10);
-    });
+    const groundHeightError = Math.max(...groundSupports.map((o, i) => Math.abs(footPosition(o).y - groundHeights[i])));
+    const poleErrors = poleEnds.map(({ object, base, top, lift, id }) => ({ id,
+      base: Math.abs(footPosition(object).y - base),
+      top: Math.abs(new THREE.Vector3(0, 0, object.geometry.parameters.height).applyMatrix4(object.matrixWorld).y - top - lift) }));
     const bounds = id => new THREE.Box3().setFromObject(partFor(actual, id));
     const kickBox = bounds('kick'), beaterBox = new THREE.Box3().setFromObject(actual.getObjectByName('kick-beater'));
     // A global AABB incorrectly treats the curved bass shell as a solid square.
@@ -124,10 +135,10 @@ try {
       });
       return points;
     };
-    const project = (points, x, y) => {
+    const project = (points, x, y, z = 0) => {
       let min = Infinity, max = -Infinity;
       for (let i = 0; i < points.length; i += 3) {
-        const dot = points[i] * x + points[i + 1] * y;
+        const dot = points[i] * x + points[i + 1] * y + points[i + 2] * z;
         min = Math.min(min, dot); max = Math.max(max, dot);
       }
       return { min, max };
@@ -143,6 +154,17 @@ try {
       }
       return { id, aabbVerticalGap: box.min.y - kickBox.max.y, bassSeparatingGap, aboveBeater: box.min.y - beaterBox.max.y };
     });
+    // Floor legs are allowed to span lower than the bass; compare the actual
+    // playable body/hardware, excluding only its three legs and rubber feet.
+    const floorBody = partFor(actual, 'floorTom').clone();
+    floorLegs(floorBody).forEach(o => floorBody.remove(o));
+    const floorVertices = vertices(floorBody);
+    let floorBassGap = -Infinity;
+    for (let azimuth = 0; azimuth <= 90; azimuth += 5) for (let elevation = 0; elevation <= 90; elevation += 5) {
+      const a = azimuth * Math.PI / 180, e = elevation * Math.PI / 180;
+      const x = Math.cos(a) * Math.cos(e), y = Math.sin(e), z = Math.sin(a) * Math.cos(e);
+      floorBassGap = Math.max(floorBassGap, project(floorVertices, x, y, z).min - project(bassVertices, x, y, z).max);
+    }
     const cymbalTomIntersections = [];
     for (const cymbal of ['hihat', 'crash', 'ride']) for (const tom of ['smallTom', 'middleTom']) {
       if (bounds(cymbal).intersectsBox(bounds(tom))) cymbalTomIntersections.push([cymbal, tom]);
@@ -152,8 +174,12 @@ try {
     const hits = [], failures = [], head = new THREE.Vector3(0, 1.22, 1);
     for (const fps of [60, 72, 90, 120]) for (const hand of ['left', 'right']) for (const height of [0.08, 0.15, 0.2]) for (const surface of fixture.hitSurfaces) {
       const found = [], detector = createVRAssistedStrikes(fixture.hitSurfaces, id => found.push(id));
-      const previous = new THREE.Vector3(0, height, 0).applyMatrix4(surface.mesh.matrixWorld);
-      const current = new THREE.Vector3(0, height - 0.008, 0).applyMatrix4(surface.mesh.matrixWorld);
+      // The raised hi-hat sits under the crash. A high approach to its centre
+      // would physically cross the crash's area; use its unobstructed front
+      // playing edge for those approaches, and also test low centre flicks.
+      const front = surface.id === 'hihat' && height > 0.1 ? surface.radius * 0.9 : 0;
+      const previous = new THREE.Vector3(0, height, front).applyMatrix4(surface.mesh.matrixWorld);
+      const current = new THREE.Vector3(0, height - 0.008, front).applyMatrix4(surface.mesh.matrixWorld);
       detector.update(hand, { valid: true, previous, current, grip: current.clone().add(new THREE.Vector3(0, 0, 0.31)) }, 1 / fps, 1, head);
       hits.push(found);
       if (found.length !== 1 || found[0] !== surface.id) failures.push({ fps, hand, intended: surface.id, height, found });
@@ -166,8 +192,8 @@ try {
     camera.rotation.x = -Math.atan2(0.83, 1.45); camera.updateMatrixWorld(true); renderer.render(actualScene, camera);
     const image = renderer.domElement.toDataURL('image/png'); renderer.dispose();
     return { sourceCommit: history.sourceCommit, sourceBlobMatchesGit: history.sourceBlob === blob, factor, measurements,
-      unchangedGeometryAndMaterials, maximumSupportError, supportCount, scalesUnchanged, snareStandAligned,
-      clearance, cymbalTomIntersections, postCentred, cases: hits.length, failures,
+      unchangedGeometryAndMaterials, maximumSupportError, supportCount, scalesUnchanged, groundHeightError, poleErrors,
+      floorBassGap, clearance, cymbalTomIntersections, postCentred, cases: hits.length, failures,
       rig: rig.position.toArray(), rootPosition: actual.position.toArray(), rootScale: actual.scale.toArray(),
       notes, fallingNotes: VR_FREE_DRUMMING.fallingNotes, image };
   }, { legacyJS, blob });
@@ -183,7 +209,10 @@ try {
   }
   assert(Math.abs(result.measurements.find(item => item.id === 'kick').diameter - 0.5588) < 1e-8, 'Current overall bass size preserved');
   assert(result.maximumSupportError < 1e-7); assert.equal(result.supportCount, 48);
-  assert(result.scalesUnchanged && result.snareStandAligned && result.postCentred);
+  assert(result.scalesUnchanged && result.postCentred);
+  assert(result.groundHeightError < 1e-8, 'Raised drums keep all tripod and floor feet grounded');
+  assert(result.poleErrors.every(e => e.base < 1e-8 && e.top < 1e-6), 'Stand tops extend with raised instruments while bases stay fixed');
+  assert(result.floorBassGap > 0.005, 'Floor tom body and all its hardware have a separating plane from the bass drum');
   assert(result.clearance.every(c => c.bassSeparatingGap > 0.002 && c.aboveBeater > 0.002), 'Raised tom geometry clears bass and beater geometry');
   assert.deepEqual(result.cymbalTomIntersections, [], 'Cymbals do not intersect rack tom bounds');
   assert.deepEqual(result.failures, []); assert.deepEqual(result.rig, [0, 1.22, 1]); assert.deepEqual(result.rootPosition, [0, 0, 0]);
