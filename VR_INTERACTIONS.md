@@ -13,8 +13,13 @@ hardware is not integrated. Cymbal collision follows the radial bell/bow
 profile. Collision surfaces remain at rest so visual feedback cannot cause hits.
 
 `vrStickCollision.ts` sweeps each tip between valid frames. Contact requires at
-least 0.25 m/s toward the surface and a new crossing from its playing side.
-A 5.5 mm tip radius, 12 mm release clearance and 25 ms per-hand/per-instrument
+least 0.10 m/s toward the surface and a new crossing from its playing side.
+Invisible hit planes sit 2.5 cm above drumheads and 3.5 cm above cymbal profiles,
+along their playing normal; the forward-facing kick plane is not raised.
+All radii expand by 15% plus a 2 cm world-space edge margin, without scaling
+models. Overlapping eligible contacts choose the visible instrument closest to
+the current tip, using centre proximity to break equal surface-distance ties.
+A 5.5 mm tip radius, 8 mm release clearance and 25 ms per-hand/per-instrument
 cooldown suppress resting contact while permitting rolls and simultaneous hands.
 Long frame gaps, pose jumps, tracking loss, calibration changes and reference
 space resets discard strike history. Thresholds live in STRIKE_LIMITS.

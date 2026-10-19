@@ -17,7 +17,7 @@ async function load(name, replacements = {}) {
   });
   return import(`data:text/javascript,${encodeURIComponent(source)}`);
 }
-const { createVRStickCollision } = await load('vrStickCollision');
+const { createVRStickCollision, STRIKE_LIMITS } = await load('vrStickCollision');
 const { createVRSeating, VR_SEATING } = await load('vrSeating');
 const { createXRDrumstickControllers } = await load('xrDrumstickControllers');
 const { createVRDrumInteraction, VR_SOUND_IDS } = await load('vrDrumInteraction', { '../utils/synth': spyURL });
@@ -87,7 +87,71 @@ let nearest = '';
 const below = mesh.clone(); below.position.y = -0.03;
 createVRStickCollision([surface, { ...surface, id: 'floorTom', mesh: below }], id => { nearest += id; }).update('left',
   { valid: true, previous: new THREE.Vector3(0, 0.07, 0), current: new THREE.Vector3(0, -0.06, 0) }, 1 / 90, 1);
-assert.equal(nearest, 'snare', 'One sweep chooses the first surface');
+assert.equal(nearest, 'floorTom', 'Overlapping contacts choose the visible surface nearest the current tip');
+
+// Forgiving zones are invisible and shared by both controllers: above-surface,
+// near-edge strokes, light taps, recovery, overlap resolution and fast sweeps.
+for (const hand of ['left', 'right']) for (const id of ['snare', 'smallTom', 'middleTom', 'floorTom', 'hihat', 'ride', 'crash']) {
+  const isCymbal = ['hihat', 'ride', 'crash'].includes(id);
+  const target = new THREE.Mesh(new THREE.RingGeometry(0, 0.25), new THREE.MeshStandardMaterial());
+  target.position.set(0.3, 0.7, 0.2); target.rotation.x = 0.18;
+  target.scale.setScalar(id === 'floorTom' ? 0.8 : 1);
+  target.updateWorldMatrix(true, false);
+  const transform = target.matrixWorld.clone(), material = target.material;
+  const scale = target.scale.y;
+  const x = 0.28; // Outside the visible 25 cm radius, inside its forgiving margin.
+  const lift = isCymbal ? STRIKE_LIMITS.cymbalLift : STRIKE_LIMITS.headLift;
+  const contact = (lift + STRIKE_LIMITS.tipRadius) / scale;
+  let clock = 0, registered = 0;
+  const d = createVRStickCollision([{ id, mesh: target, radius: 0.25, cymbal: isCymbal, height: 0 }], () => registered++);
+  const step = (from, to, dt = 1 / 90) => {
+    clock += dt;
+    d.update(hand, { valid: true,
+      previous: new THREE.Vector3(x, from, 0).applyMatrix4(transform),
+      current: new THREE.Vector3(x, to, 0).applyMatrix4(transform) }, dt, clock);
+  };
+  // Start armed, then tap at 0.135 m/s: lighter than the old 0.25 m/s gate.
+  step(contact + 0.02 / scale, contact + 0.02 / scale);
+  let y = contact + 0.02 / scale;
+  for (let i = 0; i < 16; i++) { step(y, y - 0.0015 / scale); y -= 0.0015 / scale; }
+  assert.equal(registered, 1, `${hand} ${id}: light tap outside visible rim, before entering model`);
+  assert(y > 0, 'Strike triggers above the visible surface');
+  for (let i = 0; i < 30; i++) step(y, y);
+  // Small jitter in the zone cannot re-arm a stroke.
+  for (let i = 0; i < 6; i++) { step(y, contact + 0.002 / scale); step(contact + 0.002 / scale, y); }
+  assert.equal(registered, 1, `${hand} ${id}: resting contact/jitter stays silent`);
+  step(y, contact + 0.02 / scale);
+  assert.equal(registered, 1, 'Recovery does not strike');
+  step(contact + 0.02 / scale, contact - 0.01 / scale);
+  assert.equal(registered, 2, `${hand} ${id}: lift and restrike`);
+  assert(target.matrixWorld.equals(transform) && target.material === material, 'Collider tuning never modifies visible models');
+}
+
+// Both raised zones cross in this sweep. The nearer actual instrument must win
+// even if its forgiving plane is crossed later or its entry is last in the list.
+for (const reverse of [false, true]) for (const hand of ['left', 'right']) {
+  const far = mesh.clone(), near = mesh.clone();
+  far.position.x = -0.25; near.position.x = 0.25;
+  const entries = [{ ...surface, id: 'snare', mesh: far }, { ...surface, id: 'middleTom', mesh: near }];
+  if (reverse) entries.reverse();
+  const selected = [];
+  const d = createVRStickCollision(entries, (id, hitHand) => selected.push([id, hitHand]));
+  d.update(hand, { valid: true, previous: new THREE.Vector3(0.04, 0.08, 0), current: new THREE.Vector3(0.04, 0.02, 0) }, 1 / 90, 1);
+  assert.deepEqual(selected, [['middleTom', hand]], 'Overlap priority independent of hand and zone enumeration');
+}
+let fastHits = 0;
+createVRStickCollision([surface], () => fastHits++).update('right',
+  { valid: true, previous: new THREE.Vector3(0, 0.14, 0), current: new THREE.Vector3(0, -0.08, 0) }, 1 / 90, 1);
+assert.equal(fastHits, 1, 'Fast 19.8 m/s sweep still crosses the zone');
+let noiseHits = 0;
+const noiseDetector = createVRStickCollision([surface], () => noiseHits++);
+noiseDetector.update('left', { valid: true, previous: new THREE.Vector3(0, 0.06, 0), current: new THREE.Vector3(0, 0.06, 0) }, 1 / 90, 1);
+let noiseY = 0.06;
+for (let i = 0; i < 65; i++) {
+  noiseDetector.update('left', { valid: true, previous: new THREE.Vector3(0, noiseY, 0), current: new THREE.Vector3(0, noiseY - 0.0005, 0) }, 1 / 90, 1 + (i + 1) / 90);
+  noiseY -= 0.0005;
+}
+assert.equal(noiseHits, 0, 'Subthreshold drift across the raised plane remains silent');
 
 // Hand identity comes from XRInputSource, not controller array index.
 const rig = new THREE.Group(), grips = [new THREE.Group(), new THREE.Group()];
