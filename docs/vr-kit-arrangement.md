@@ -6,29 +6,33 @@ changed. Positive X is the drummer's right; negative Z is forward. Coordinates
 and diameters below are metres. Drum coordinates are their top pivot, cymbal
 coordinates are their mounting pivot, and kick coordinates are its shell centre.
 
-| Instrument | Diameter (unchanged) | Position X, Y, Z | Tilt X / Z, degrees |
+| Instrument | Diameter | Position X, Y, Z | Tilt X / Z, degrees |
 | --- | --- | --- | --- |
-| Snare | 0.3556 (14 in) | -0.05, 0.67, 0.56 | 3.4 / -1.1 |
+| Snare | 0.3302 (13 in) | -0.05, 0.64, 0.56 | 3.4 / -1.1 |
 | Kick | 0.5588 (22 in) | 0.18, 0.30, -0.12 | 90 / 0 (existing orientation) |
-| Small rack tom | 0.2540 (10 in) | -0.20, 0.91, 0.12 | 16.0 / 2.3 |
-| Middle rack tom | 0.3048 (12 in) | 0.15, 0.93, 0.10 | 16.0 / -2.3 |
-| Floor tom | 0.4064 (16 in) | 0.43, 0.66, 0.58 | 2.3 / -2.3 (existing tilt) |
+| Small rack tom | 0.2540 (10 in) | -0.175, 0.91, 0.12 | 21.8 / 2.3 |
+| Middle rack tom | 0.3048 (12 in) | 0.175, 0.93, 0.10 | 21.8 / -2.3 |
+| Floor tom | 0.4064 (16 in) | 0.43, 0.63, 0.58 | 2.3 / -2.3 (existing tilt) |
 | Hi-hat | 0.3556 (14 in) | -0.44, 0.83, 0.54 | 3.4 / -1.1 |
 | Crash | 0.4572 (18 in) | -0.62, 1.04, 0.14 | 8.6 / -6.9 |
 | Ride | 0.5080 (20 in) | 0.64, 0.94, 0.24 | 6.9 / 8.0 |
 
 All shell depths are unchanged: snare 0.1397 m, kick 0.4064 m, small tom
-0.2032 m, middle tom 0.2286 m and floor tom 0.3556 m. No instrument is scaled.
-The same meshes, materials, colours, heads, hoops, cymbal profiles and hardware
-are retained. Existing procedural stands and mounts follow their instruments.
+0.2032 m, middle tom 0.2286 m and floor tom 0.3556 m. Only the snare diameter
+is reduced (14 to 13 inches, about 7%). The kick beater mechanism is scaled to
+80%; its striking face retains its X/Z alignment with the unchanged bass head.
+The bass shell, pedal board and pedal base retain their original sizes.
+The same designs, materials, colours and cymbal profiles are retained.
+Existing procedural stands and mounts follow their instruments; lower floor-tom
+legs remain grounded.
 The shared non-VR layout retains its original defaults.
 
-The snare moves slightly left and toward the seat. The kick shifts right and
-slightly forward. Rack toms move toward the seat, with a gentler inward tilt.
-The floor tom moves back beside the snare. The hi-hat moves slightly left and
-back. Crash and ride move outward from the toms, with the crash also brought
-toward the seat. Heights stay unchanged. The existing single crash is retained;
-no second cymbal or other component is added.
+The latest local adjustment keeps the snare's X/Z position and lowers it 3 cm.
+The floor tom is also lowered 3 cm. Both rack toms shift 2.5 cm right and tilt
+from 16.0 to 21.8 degrees toward the drummer. Their heights and front/back
+positions stay fixed. The kick, cymbals, pedals, camera and seat stay in place.
+The exposed bass head is clearer between the smaller snare and the rack toms.
+No components are added or removed.
 
 Placement references were inspected before editing:
 
@@ -66,9 +70,13 @@ stroke's latch; they cannot rearm a stroke without a measured recovery lift.
 `scripts/check-vr-layout.mjs` tests the actual rendered kit and a separate
 fixture built with all eight production instruments and hit zones:
 
-- Original versus current instrument vertex/index buffers, materials and local
-  mesh transforms match within floating-point tolerance (1e-7). All diameters,
-  depths and unit scales match the original kit.
+- Instrument materials match the previous kit. Body geometry remains unchanged
+  except the requested snare diameter reduction; grounded floor support lengths
+  follow its lower height. Other diameters, all depths and drum unit scales are
+  unchanged. The beater alone is scaled to 80%, with unchanged geometry and
+  materials, preserved face alignment, and an unchanged pedal board/base.
+- Explicit checks cover the 3 cm snare/floor height reductions, 2.5 cm rack-tom
+  right shifts and 0.38 radian inward tilt, with other instrument positions fixed.
 - Conservative oriented envelopes around shells, heads, rims and cymbal discs
   have no pairwise intersections. Intentional support hardware is excluded
   from this body-clearance test.

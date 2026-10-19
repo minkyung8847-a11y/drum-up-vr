@@ -28,7 +28,7 @@ const drumColors = {
 
 
 export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
-  diameter: number; depth?: number; position: [number, number, number]; tilt?: [number, number];
+  diameter: number; depth?: number; position: [number, number, number]; tilt?: [number, number]; beaterScale?: number;
 }> } = {}) {
   const layout = options.layout;
   const positions = Object.fromEntries(Object.entries(drumPositions).map(([id, position]) => [id, layout?.[id]?.position ?? position]));
@@ -498,6 +498,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
   // Detailed single-pedal kick mechanism, aligned to the bass drum center.
   function createKickPedal() {
     const pedal = new THREE.Group();
+    pedal.name = 'kick-pedal';
     pedal.position.set(layout ? positions.kick[0] : 0, 0.04, layout ? positions.kick[2] + depthFor('kick', 0.38) / 2 + 0.23 : 0.50);
 
     const base = new THREE.Mesh(new RoundedBoxGeometry(0.19, 0.025, 0.50, 4, 0.008), rubberMat);
@@ -611,7 +612,12 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
     }
 
     const beaterGroup = new THREE.Group();
-    beaterGroup.position.set(0, 0.08, -0.16);
+    beaterGroup.name = 'kick-beater';
+    const beaterScale = layout?.kick?.beaterScale ?? 1;
+    beaterGroup.scale.setScalar(beaterScale);
+    // Preserve the felt face's alignment with the existing bass drum head.
+    // The pedal board, base, axle and bass shell remain at their original scale.
+    beaterGroup.position.set(0, 0.08, -0.16 - 0.0658 * (1 - beaterScale));
     const beaterStem = createPipeBetweenPoints(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.33, -0.04), 0.006, chromeMat);
     beaterGroup.add(beaterStem);
 

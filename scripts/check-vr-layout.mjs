@@ -30,17 +30,17 @@ try {
     const { createVirtualDrumSet } = await import('/src/components/virtualDrumSet.ts');
     const { VR_DRUM_LAYOUT, VR_FREE_DRUMMING } = await import('/src/components/vrDrumConfig.ts');
     const { createVRAssistedStrikes } = await import('/src/components/vrAssistedStrikes.ts');
-    // Snapshot of the approved instrument dimensions, prior to rearrangement.
+    // Snapshot of the current kit before the requested local adjustments.
     const inch = 0.0254;
     const prior = {
-      snare: { diameter: 14 * inch, depth: 5.5 * inch, position: [0, 0.67, 0.53] },
-      kick: { diameter: 22 * inch, depth: 16 * inch, position: [0.12, 0.30, -0.10] },
-      smallTom: { diameter: 10 * inch, depth: 8 * inch, position: [-0.18, 0.91, 0.02] },
-      middleTom: { diameter: 12 * inch, depth: 9 * inch, position: [0.16, 0.93, 0] },
-      floorTom: { diameter: 16 * inch, depth: 14 * inch, position: [0.43, 0.66, 0.48] },
-      hihat: { diameter: 14 * inch, position: [-0.40, 0.83, 0.51] },
-      crash: { diameter: 18 * inch, position: [-0.43, 1.04, 0.09] },
-      ride: { diameter: 20 * inch, position: [0.49, 0.94, 0.23] },
+      snare: { diameter: 14 * inch, depth: 5.5 * inch, position: [-0.05, 0.67, 0.56], tilt: [0.06, -0.02] },
+      kick: { diameter: 22 * inch, depth: 16 * inch, position: [0.18, 0.30, -0.12] },
+      smallTom: { diameter: 10 * inch, depth: 8 * inch, position: [-0.20, 0.91, 0.12], tilt: [0.28, 0.04] },
+      middleTom: { diameter: 12 * inch, depth: 9 * inch, position: [0.15, 0.93, 0.10], tilt: [0.28, -0.04] },
+      floorTom: { diameter: 16 * inch, depth: 14 * inch, position: [0.43, 0.66, 0.58], tilt: [0.04, -0.04] },
+      hihat: { diameter: 14 * inch, position: [-0.44, 0.83, 0.54], tilt: [0.06, -0.02] },
+      crash: { diameter: 18 * inch, position: [-0.62, 1.04, 0.14], tilt: [0.15, -0.12] },
+      ride: { diameter: 20 * inch, position: [0.64, 0.94, 0.24], tilt: [0.12, 0.14] },
     };
     const scene = window.layoutScene;
     const actual = scene.children.find(child => child.children.some(part => part.userData.drumType === 'snare'));
@@ -55,10 +55,12 @@ try {
     let cases = 0;
     // Compare instrument vertex/index buffers, local mesh transforms and material
     // properties against the original kit. Mounts/stands follow placement.
-    const signature = part => {
+    const signature = (part, excludeFloorSupports = false) => {
       const values = [];
       part.traverse(object => {
         if (!object.isMesh) return;
+        if (excludeFloorSupports && part.userData.drumType === 'floorTom' && object.parent === part
+          && (object.geometry.type === 'SphereGeometry' || (object.geometry.type === 'CylinderGeometry' && !object.userData.drumType))) return;
         const geometry = object.geometry;
         values.push({ type: geometry.type, attributes: Object.fromEntries(Object.entries(geometry.attributes)
           .map(([key, attribute]) => [key, Array.from(attribute.array)])), index: geometry.index && Array.from(geometry.index.array),
@@ -91,15 +93,37 @@ try {
       );
       const obb = new OBB().fromBox3(localBox).applyMatrix4(part.matrixWorld);
       const live = getPart(actual, id), old = getPart(baseline.group, id);
-      measurements.push({ id, diameter: radius * 2, depth, expected: prior[id], position: live.position.toArray(),
+      const expected = { ...prior[id], diameter: id === 'snare' ? 13 * inch : prior[id].diameter };
+      measurements.push({ id, diameter: radius * 2, depth, expected, position: live.position.toArray(),
         rotation: live.rotation.toArray().slice(0, 3), scale: live.scale.toArray(),
-        geometryAndMaterialsUnchanged: compare(signature(part), signature(old)),
+        geometryPreservedExceptRequestedSnare: id === 'snare' || compare(signature(part, true), signature(old, true)),
+        materialsUnchanged: compare(signature(part).map(mesh => mesh.material), signature(old).map(mesh => mesh.material)),
         renderedMatchesFixture: compare(signature(live), signature(part)) });
       return { id, obb };
     });
     for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
       if (bodies[i].obb.intersectsOBB(bodies[j].obb)) intersections.push([bodies[i].id, bodies[j].id]);
     }
+    const oldPedal = baseline.group.getObjectByName('kick-pedal');
+    const pedal = actual.getObjectByName('kick-pedal'), beater = actual.getObjectByName('kick-beater');
+    const oldBeater = oldPedal.getObjectByName('kick-beater');
+    const pedalSignature = signature(pedal), oldPedalSignature = signature(oldPedal);
+    const beaterSignature = signature(beater), oldBeaterSignature = signature(oldBeater);
+    const unchangedPedal = compare(pedalSignature.slice(0, -beaterSignature.length),
+      oldPedalSignature.slice(0, -oldBeaterSignature.length));
+    const beforeFace = new THREE.Vector3(0, 0.33, -0.0658).applyMatrix4(oldBeater.matrixWorld);
+    const afterFace = new THREE.Vector3(0, 0.33, -0.0658).applyMatrix4(beater.matrixWorld);
+    const localAdjustments = {
+      beaterScale: beater.scale.toArray(), beaterGeometryAndMaterialsUnchanged: compare(beaterSignature, oldBeaterSignature),
+      pedalGeometryAndMaterialsUnchanged: unchangedPedal, pedalPositionUnchanged: compare(pedal.position.toArray(), oldPedal.position.toArray()),
+      beaterFaceAligned: Math.abs(beforeFace.x - afterFace.x) < 1e-8 && Math.abs(beforeFace.z - afterFace.z) < 1e-8,
+      snarePlanarPositionUnchanged: compare(getPart(actual, 'snare').position.toArray().filter((_, i) => i !== 1), [-0.05, 0.56]),
+      snareLoweredBy: prior.snare.position[1] - getPart(actual, 'snare').position.y,
+      floorLoweredBy: prior.floorTom.position[1] - getPart(actual, 'floorTom').position.y,
+      tomRightOffsets: ['smallTom', 'middleTom'].map(id => getPart(actual, id).position.x - prior[id].position[0]),
+      tomTilts: ['smallTom', 'middleTom'].map(id => getPart(actual, id).rotation.x),
+      otherPositionsUnchanged: ['kick', 'hihat', 'crash', 'ride'].every(id => compare(getPart(actual, id).position.toArray(), prior[id].position)),
+    };
     // The central 70% of each playable surface should have a clear line of
     // sight from the unchanged seat. Include cymbal bodies, shells and heads.
     const ray = new THREE.Raycaster();
@@ -163,7 +187,7 @@ try {
     renderer.render(scene, overhead);
     const overheadImage = renderer.domElement.toDataURL('image/png');
     renderer.dispose();
-    return { measurements, intersections, sightLines, mismatches, cases, notes, notesEnabled: VR_FREE_DRUMMING.fallingNotes,
+    return { measurements, localAdjustments, intersections, sightLines, mismatches, cases, notes, notesEnabled: VR_FREE_DRUMMING.fallingNotes,
       seatedImage, overheadImage };
   });
   for (const [name, data] of [['vr-arrangement-seated', result.seatedImage], ['vr-arrangement-overhead', result.overheadImage]]) {
@@ -171,19 +195,27 @@ try {
   }
   delete result.seatedImage; delete result.overheadImage;
   await writeFile(`${artifactDir}/vr-arrangement-validation.json`, JSON.stringify(result, null, 2));
-  console.log(JSON.stringify({ measurements: result.measurements.map(({ id, geometryAndMaterialsUnchanged, renderedMatchesFixture }) =>
-    ({ id, geometryAndMaterialsUnchanged, renderedMatchesFixture })), intersections: result.intersections,
+  console.log(JSON.stringify({ measurements: result.measurements.map(({ id, geometryPreservedExceptRequestedSnare, materialsUnchanged, renderedMatchesFixture }) =>
+    ({ id, geometryPreservedExceptRequestedSnare, materialsUnchanged, renderedMatchesFixture })), localAdjustments: result.localAdjustments, intersections: result.intersections,
     sightLines: result.sightLines, mismatches: result.mismatches, cases: result.cases }, null, 2));
   for (const measured of result.measurements) {
-    assert.equal(measured.diameter, measured.expected.diameter, `${measured.id} diameter unchanged`);
+    assert.equal(measured.diameter, measured.expected.diameter, `${measured.id} requested diameter`);
     assert.equal(measured.depth, measured.expected.depth, `${measured.id} depth unchanged`);
-    assert(measured.geometryAndMaterialsUnchanged, `${measured.id} geometry, materials and local transforms unchanged`);
+    assert(measured.geometryPreservedExceptRequestedSnare, `${measured.id} body geometry preserved except requested snare reduction`);
+    assert(measured.materialsUnchanged, `${measured.id} materials unchanged`);
     assert(measured.renderedMatchesFixture, `${measured.id} actual scene matches the tested fixture`);
     assert.deepEqual(measured.scale, [1, 1, 1]);
   }
+  const adjustment = result.localAdjustments;
+  assert.deepEqual(adjustment.beaterScale, [0.8, 0.8, 0.8]);
+  assert(adjustment.beaterGeometryAndMaterialsUnchanged && adjustment.pedalGeometryAndMaterialsUnchanged
+    && adjustment.pedalPositionUnchanged && adjustment.beaterFaceAligned && adjustment.snarePlanarPositionUnchanged && adjustment.otherPositionsUnchanged);
+  assert(Math.abs(adjustment.snareLoweredBy - 0.03) < 1e-8 && Math.abs(adjustment.floorLoweredBy - 0.03) < 1e-8);
+  assert(adjustment.tomRightOffsets.every(value => Math.abs(value - 0.025) < 1e-8));
+  assert(adjustment.tomTilts.every(value => Math.abs(value - 0.38) < 1e-8));
   assert.deepEqual(result.intersections, [], 'No shell/head/cymbal envelope intersections');
   for (const view of result.sightLines) assert.equal(view.clear, view.total, `${view.id} main playing area unobstructed from the seat`);
   assert.deepEqual(result.mismatches, [], 'Both hands choose the intended instrument with all production zones active');
   assert.equal(result.notesEnabled, false); assert.deepEqual(result.notes, []); assert.deepEqual(errors, []);
-  console.log(`PASS: ${result.cases} all-zone assisted strikes; unchanged instrument geometry/materials/dimensions; body clearance; seated sight lines; notes disabled. Hardware NOT tested.`);
+  console.log(`PASS: requested snare/tom/beater adjustments, preserved other dimensions/materials/pedals; ${result.cases} all-zone assisted strikes; body clearance; seated sight lines; notes disabled. Hardware NOT tested.`);
 } finally { await browser.close(); }

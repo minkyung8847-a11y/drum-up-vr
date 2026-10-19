@@ -79,8 +79,7 @@ try {
             && object.material.emissiveIntensity > 0) window.feedbackSeen = true;
         if (object.parent?.userData.drumType === 'snare'
             && object.geometry.type === 'RingGeometry'
-            && Math.abs(object.position.y - 0.006) > 0.00001
-            && object.parent.position.y === 0.67) window.motionSeen = true;
+            && Math.abs(object.position.y - 0.006) > 0.00001) window.motionSeen = true;
       }
       requestAnimationFrame(observeFeedback);
     };
