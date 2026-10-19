@@ -77,7 +77,7 @@ export const DrumKit: React.FC<DrumKitProps> = ({ activePads, onPadHit }) => {
           {/* Stand */}
           <line x1="50" y1="50" x2="50" y2="150" stroke="#8e8e93" strokeWidth="3" />
           {/* Cymbal Outer */}
-          <ellipse cx="50" cy="50" rx="48" ry="14" fill="#ffcc00" stroke="#d4af37" strokeWidth="2" />
+          <ellipse cx="50" cy="50" rx="48" ry="14" fill="#FF6D2D" stroke="#d4af37" strokeWidth="2" />
           <ellipse cx="50" cy="50" rx="46" ry="12" fill="url(#goldGrad)" />
           {/* Cymbal Bell */}
           <ellipse cx="50" cy="50" rx="14" ry="6" fill="#d4af37" />

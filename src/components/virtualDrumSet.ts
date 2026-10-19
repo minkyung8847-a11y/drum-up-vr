@@ -2,26 +2,26 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-export const drumPositions = {
+export const drumPositions: Record<string, [number, number, number]> = {
   crash: [-0.88, 1.32, 0.02],
   hihat: [-0.82, 0.94, 0.28],
-  kick: [0.0, 0.36, 0.06],
+  kick: [0.0, 0.45, 0.08],
   openHihat: [-0.82, 0.94, 0.28],
-  ride: [0.86, 1.18, 0.1],
-  snare: [-0.50, 0.72, 0.36],
-  smallTom: [-0.26, 0.98, 0.02],
-  middleTom: [0.26, 0.98, 0.02],
-  floorTom: [0.60, 0.7, 0.32],
+  ride: [0.86, 1.48, 0.1],
+  snare: [-0.54, 0.70, 0.64],
+  smallTom: [-0.30, 1.26, -0.12],
+  middleTom: [0.30, 1.26, -0.12],
+  floorTom: [0.76, 0.70, 0.54],
 };
 
 const drumColors = {
-  blackShell: 0xffffff,
+  blackShell: 0x686b6e,
   blackShellDark: 0x1a0800,
   chrome: 0xeff3f6,
   chromeDark: 0x34383c,
   cymbal: 0xd8e0e8, // Sleek silver/platinum cymbal alloy
   cymbalDark: 0x7c858d,
-  drumHead: 0xd8d5cc,
+  drumHead: 0xf0e9dc,
   rubber: 0x161616,
   highlight: 0xf2f6fa,
 };
@@ -44,10 +44,10 @@ export function createVirtualDrumSet(scene) {
   const shellMat = new THREE.MeshPhysicalMaterial({
     color: drumColors.blackShell,
     map: shellTexture,
-    metalness: 0.05,
-    roughness: 0.29,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.12,
+    metalness: 0.58,
+    roughness: 0.34,
+    clearcoat: 0.7,
+    clearcoatRoughness: 0.22,
     side: THREE.DoubleSide,
   });
   const headMat = new THREE.MeshStandardMaterial({
@@ -85,14 +85,15 @@ export function createVirtualDrumSet(scene) {
     side: THREE.DoubleSide,
   });
 
-  createBassDrum('kick', [0, 0.39, 0.08]);
-  createTom('snare', drumPositions.snare, 0.29, 0.16, { tiltX: 0.08, tiltZ: -0.06, legStyle: 'stand' });
-  createTom('smallTom', drumPositions.smallTom, 0.225, 0.26, { tiltX: 0.46, tiltZ: 0.12, mountToBass: true });
-  createTom('middleTom', drumPositions.middleTom, 0.245, 0.28, { tiltX: 0.43, tiltZ: -0.1, mountToBass: true });
-  createTom('floorTom', drumPositions.floorTom, 0.32, 0.38, { tiltX: 0.04, tiltZ: -0.04, legStyle: 'floor' });
+  createBassDrum('kick', drumPositions.kick);
+  createTom('snare', drumPositions.snare, 0.23, 0.16, { tiltX: 0.08, tiltZ: -0.06, legStyle: 'stand' });
+  createTom('smallTom', drumPositions.smallTom, 0.24, 0.26, { tiltX: 0.40, tiltZ: 0.08, mountToBass: true });
+  createTom('middleTom', drumPositions.middleTom, 0.24, 0.26, { tiltX: 0.40, tiltZ: -0.08, mountToBass: true });
+  addCentralTomPost();
+  createTom('floorTom', drumPositions.floorTom, 0.38, 0.38, { tiltX: 0.04, tiltZ: -0.04, legStyle: 'floor' });
   createCymbal('hihat', drumPositions.hihat, 0.25, { stacked: true, standHeight: 0.95 });
   createCymbal('crash', drumPositions.crash, 0.39, { standHeight: 1.33, tiltX: 0.18, tiltZ: -0.1 });
-  createCymbal('ride', drumPositions.ride, 0.43, { standHeight: 1.18, tiltX: 0.16, tiltZ: 0.1 });
+  createCymbal('ride', drumPositions.ride, 0.43, { standHeight: 1.48, tiltX: 0.16, tiltZ: 0.1 });
   createKickPedal();
   createHihatPedal();
 
@@ -119,6 +120,7 @@ export function createVirtualDrumSet(scene) {
     drumHeadMat.opacity = 1.0;
     drumHeadMat.depthWrite = true;
     drumHeadMat.roughness = 0.52;
+    if (name === 'snare') drumHeadMat.map = createHeadTexture(true);
 
     const topHead = new THREE.Mesh(headGeometry, drumHeadMat);
     if (isTom) topHead.userData.deformRadius = radius * 0.968;
@@ -178,7 +180,7 @@ export function createVirtualDrumSet(scene) {
     drum.position.set(...position);
     drum.rotation.x = Math.PI / 2;
 
-    const radius = 0.38;
+    const radius = 0.44;
     const depth = 0.38;
     const shell = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, depth, 96, 1, true), shellMat);
     shell.castShadow = true;
@@ -188,15 +190,21 @@ export function createVirtualDrumSet(scene) {
 
     const frontHead = new THREE.Mesh(
       new THREE.CylinderGeometry(radius * 0.93, radius * 0.93, 0.018, 96),
-      new THREE.MeshStandardMaterial({ color: 0x999b97, roughness: 0.5, map: createHeadTexture() }),
+      new THREE.MeshStandardMaterial({ color: 0xf0e9dc, roughness: 0.54, map: createHeadTexture() }),
     );
     frontHead.position.y = depth / 2 + 0.012;
     frontHead.userData.drumType = name;
+    for (const ringRadius of [radius * 0.77, radius * 0.80]) {
+      const headRing = new THREE.Mesh(new THREE.TorusGeometry(ringRadius, 0.0018, 6, 128), darkChromeMat);
+      headRing.rotation.x = Math.PI / 2;
+      headRing.position.y = 0.012;
+      frontHead.add(headRing);
+    }
     drum.add(frontHead);
 
     const rearHead = new THREE.Mesh(
       new THREE.CylinderGeometry(radius * 0.93, radius * 0.93, 0.016, 96),
-      new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.65 }),
+      new THREE.MeshStandardMaterial({ color: 0xe9e2d7, roughness: 0.58, map: createHeadTexture() }),
     );
     rearHead.position.y = -depth / 2 - 0.012;
     rearHead.userData.drumType = name;
@@ -376,7 +384,7 @@ export function createVirtualDrumSet(scene) {
   }
 
   function addTomMount(position, radius) {
-    const base = new THREE.Vector3(position[0] * 0.55, 0.78, -0.24);
+    const base = new THREE.Vector3(0, 1.16, -0.06);
     const target = new THREE.Vector3(position[0], position[1] - 0.20, position[2] - radius - 0.024);
     group.add(createPipeBetweenPoints(base, target, 0.015, chromeMat));
     const clamp = new THREE.Mesh(new RoundedBoxGeometry(0.06, 0.05, 0.05, 3, 0.008), chromeMat);
@@ -385,11 +393,23 @@ export function createVirtualDrumSet(scene) {
     group.add(clamp);
   }
 
+  function addCentralTomPost() {
+    const bottom = new THREE.Vector3(0, 0.84, -0.06);
+    const top = new THREE.Vector3(0, 1.18, -0.06);
+    group.add(createPipeBetweenPoints(bottom, top, 0.018, chromeMat));
+    for (const y of [0.88, 1.16]) {
+      const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.029, 0.029, 0.045, 24), darkChromeMat);
+      collar.position.set(0, y, -0.06);
+      collar.castShadow = true;
+      group.add(collar);
+    }
+  }
+
   function addSnareStand(position, radius) {
     const top = new THREE.Vector3(position[0], position[1] - 0.16, position[2]);
     const bottom = new THREE.Vector3(position[0], 0.08, position[2]);
     group.add(createPipeBetweenPoints(bottom, top, 0.014, chromeMat));
-    addTripodFeet(new THREE.Vector3(position[0], 0.08, position[2]), 0.3);
+    addTripodFeet(new THREE.Vector3(position[0], 0.08, position[2]), 0.27, 0);
 
     for (let i = 0; i < 3; i += 1) {
       const angle = (i / 3) * Math.PI * 2 + 0.3;
@@ -441,9 +461,9 @@ export function createVirtualDrumSet(scene) {
     group.add(sleeve);
   }
 
-  function addTripodFeet(center, radius) {
+  function addTripodFeet(center, radius, angleOffset = Math.PI / 6) {
     for (let i = 0; i < 3; i += 1) {
-      const angle = (i / 3) * Math.PI * 2 + Math.PI / 6;
+      const angle = (i / 3) * Math.PI * 2 + angleOffset;
       const end = new THREE.Vector3(
         center.x + Math.cos(angle) * radius,
         0.025,
@@ -459,39 +479,162 @@ export function createVirtualDrumSet(scene) {
     }
   }
 
-  // Create kick pedal board and beater stem
+  // Detailed single-pedal kick mechanism, aligned to the bass drum center.
   function createKickPedal() {
     const pedal = new THREE.Group();
     pedal.position.set(0, 0.04, 0.50);
 
-    const base = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.035, 0.42), rubberMat);
+    const base = new THREE.Mesh(new RoundedBoxGeometry(0.19, 0.025, 0.50, 4, 0.008), rubberMat);
+    base.position.y = 0.006;
     base.castShadow = true;
+    base.receiveShadow = true;
     pedal.add(base);
 
-    const board = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.018, 0.34), darkChromeMat);
-    board.position.set(0, 0.03, 0.02);
-    board.rotation.x = -0.18;
-    pedal.add(board);
-    kickPedalBoard = board;
+    // Matte black rectangular frame and raised side rails.
+    for (const side of [-1, 1]) {
+      const rail = new THREE.Mesh(new RoundedBoxGeometry(0.018, 0.026, 0.47, 3, 0.004), rubberMat);
+      rail.position.set(side * 0.082, 0.041, 0);
+      rail.castShadow = true;
+      pedal.add(rail);
+    }
+    for (const z of [-0.22, 0.22]) {
+      const crossbar = new THREE.Mesh(new RoundedBoxGeometry(0.17, 0.025, 0.025, 3, 0.004), rubberMat);
+      crossbar.position.set(0, 0.041, z);
+      crossbar.castShadow = true;
+      pedal.add(crossbar);
+    }
+
+    const pedalSilverMat = new THREE.MeshPhysicalMaterial({
+      color: 0xc2c7c9,
+      metalness: 0.98,
+      roughness: 0.24,
+      anisotropy: 0.38,
+      anisotropyRotation: 0,
+      envMapIntensity: 1.1,
+    });
+    const boardPivot = new THREE.Group();
+    boardPivot.position.set(0, 0.066, -0.20);
+    boardPivot.rotation.x = -0.18;
+
+    // Tapered outline with a shallow formed bend at the toe end.
+    const boardSections = [
+      { z: 0, width: 0.104, top: -0.012 },
+      { z: 0.23, width: 0.132, top: -0.012 },
+      { z: 0.29, width: 0.142, top: -0.012 },
+      { z: 0.315, width: 0.142, top: -0.026 },
+      { z: 0.405, width: 0.136, top: -0.026 },
+    ];
+    const boardGeometry = new THREE.BufferGeometry();
+    const boardPositions: number[] = [];
+    const boardUvs: number[] = [];
+    const boardIndices: number[] = [];
+    const sectionCount = boardSections.length;
+    boardSections.forEach(({ z, width, top }) => {
+      boardPositions.push(-width / 2, top, z, width / 2, top, z);
+      boardUvs.push(z / 0.405, 0, z / 0.405, 1);
+    });
+    boardSections.forEach(({ z, width, top }) => {
+      boardPositions.push(-width / 2, top - 0.012, z, width / 2, top - 0.012, z);
+      boardUvs.push(z / 0.405, 0, z / 0.405, 1);
+    });
+    const bottomOffset = sectionCount * 2;
+    for (let i = 0; i < sectionCount - 1; i += 1) {
+      const left = i * 2;
+      const right = left + 1;
+      const nextLeft = left + 2;
+      const nextRight = left + 3;
+      const bottomLeft = bottomOffset + left;
+      const bottomRight = bottomOffset + right;
+      const bottomNextLeft = bottomOffset + nextLeft;
+      const bottomNextRight = bottomOffset + nextRight;
+      boardIndices.push(left, nextLeft, right, right, nextLeft, nextRight);
+      boardIndices.push(bottomLeft, bottomRight, bottomNextLeft, bottomRight, bottomNextRight, bottomNextLeft);
+      boardIndices.push(left, bottomLeft, nextLeft, nextLeft, bottomLeft, bottomNextLeft);
+      boardIndices.push(right, nextRight, bottomRight, nextRight, bottomNextRight, bottomRight);
+    }
+    boardIndices.push(0, 1, bottomOffset, 1, bottomOffset + 1, bottomOffset);
+    const endLeft = (sectionCount - 1) * 2;
+    const endRight = endLeft + 1;
+    boardIndices.push(endLeft, bottomOffset + endLeft, endRight, endRight, bottomOffset + endLeft, bottomOffset + endRight);
+    boardGeometry.setAttribute("position", new THREE.Float32BufferAttribute(boardPositions, 3));
+    boardGeometry.setAttribute("uv", new THREE.Float32BufferAttribute(boardUvs, 2));
+    boardGeometry.setIndex(boardIndices);
+    boardGeometry.computeVertexNormals();
+    const board = new THREE.Mesh(boardGeometry, pedalSilverMat);
+    board.castShadow = true;
+    board.receiveShadow = true;
+    board.userData.drumType = "kick";
+    boardPivot.add(board);
+    pedal.add(boardPivot);
+    kickPedalBoard = boardPivot;
+    raycastTargets.push(board);
+
+    // Hinge axle, bearings, and the small linkage from the board to the beater shaft.
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.20, 24), chromeMat);
+    axle.rotation.z = Math.PI / 2;
+    axle.position.set(0, 0.066, -0.20);
+    pedal.add(axle);
+    for (const side of [-1, 1]) {
+      const bearing = new THREE.Mesh(new THREE.CylinderGeometry(0.023, 0.023, 0.022, 24), darkChromeMat);
+      bearing.rotation.z = Math.PI / 2;
+      bearing.position.set(side * 0.092, 0.066, -0.20);
+      pedal.add(bearing);
+
+      const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.026, 12), chromeMat);
+      bolt.rotation.z = Math.PI / 2;
+      bolt.position.set(side * 0.105, 0.066, -0.20);
+      pedal.add(bolt);
+
+      const link = createPipeBetweenPoints(
+        new THREE.Vector3(side * 0.065, 0.045, 0.025),
+        new THREE.Vector3(side * 0.065, 0.083, -0.155),
+        0.006,
+        chromeMat,
+      );
+      pedal.add(link);
+    }
 
     const beaterGroup = new THREE.Group();
-    beaterGroup.position.set(0, 0.05, -0.14);
-
-    const beaterStem = createPipeBetweenPoints(
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 0.30, -0.06),
-      0.006,
-      chromeMat
-    );
+    beaterGroup.position.set(0, 0.08, -0.16);
+    const beaterStem = createPipeBetweenPoints(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.33, -0.04), 0.006, chromeMat);
     beaterGroup.add(beaterStem);
 
-    const beater = new THREE.Mesh(
-      new THREE.SphereGeometry(0.035, 16, 12),
-      new THREE.MeshStandardMaterial({ color: 0xe7e0cf, roughness: 0.5 })
+    const beaterClamp = new THREE.Mesh(new RoundedBoxGeometry(0.035, 0.035, 0.025, 3, 0.006), darkChromeMat);
+    beaterClamp.position.set(0, 0.075, -0.009);
+    beaterGroup.add(beaterClamp);
+    const clampBolt = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.038, 12), chromeMat);
+    clampBolt.rotation.z = Math.PI / 2;
+    clampBolt.position.set(0, 0.075, -0.009);
+    beaterGroup.add(clampBolt);
+
+    const feltMat = new THREE.MeshStandardMaterial({ color: 0xc9c9c5, roughness: 0.86 });
+    const feltProfile = [
+      new THREE.Vector2(0, -0.022),
+      new THREE.Vector2(0.026, -0.022),
+      new THREE.Vector2(0.039, -0.016),
+      new THREE.Vector2(0.043, -0.006),
+      new THREE.Vector2(0.043, 0.006),
+      new THREE.Vector2(0.038, 0.015),
+      new THREE.Vector2(0.028, 0.020),
+      new THREE.Vector2(0.020, 0.022),
+      new THREE.Vector2(0, 0.022),
+    ];
+    const feltHead = new THREE.Mesh(new THREE.LatheGeometry(feltProfile, 32), feltMat);
+    feltHead.rotation.x = Math.PI / 2;
+    feltHead.position.set(0, 0.33, -0.04);
+    feltHead.castShadow = true;
+    beaterGroup.add(feltHead);
+    const feltFace = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.021, 0.021, 0.003, 24),
+      new THREE.MeshStandardMaterial({ color: 0x55585a, roughness: 0.82 }),
     );
-    beater.scale.set(1, 1.25, 0.75);
-    beater.position.set(0, 0.31, -0.07);
-    beaterGroup.add(beater);
+    feltFace.rotation.x = Math.PI / 2;
+    feltFace.position.set(0, 0.33, -0.0635);
+    beaterGroup.add(feltFace);
+    const feltScrew = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.0015, 16), chromeMat);
+    feltScrew.rotation.x = Math.PI / 2;
+    feltScrew.position.set(0, 0.33, -0.0658);
+    beaterGroup.add(feltScrew);
 
     pedal.add(beaterGroup);
     kickBeaterGroup = beaterGroup;
@@ -568,7 +711,7 @@ export function createVirtualDrumSet(scene) {
         kickPedalBoard.rotation.x = -0.18 - Math.abs(amount) * (0.15 + kickPedalPower * 0.25);
       }
       if (kickBeaterGroup) {
-        kickBeaterGroup.rotation.x = Math.abs(amount) * (0.4 + kickPedalPower * 0.4);
+        kickBeaterGroup.rotation.x = -Math.abs(amount) * (0.4 + kickPedalPower * 0.4);
       }
     } else {
       if (kickPedalBoard) {
@@ -720,11 +863,10 @@ function createWoodTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 1024; canvas.height = 512;
   const ctx = canvas.getContext('2d');
-  // DRUM UP signature vibrant orange (#ff5500)
-  ctx.fillStyle = '#ff5500'; ctx.fillRect(0,0,1024,512);
+  ctx.fillStyle = '#65676a'; ctx.fillRect(0,0,1024,512);
   for (let y = 0; y < 512; y++) {
     const light = 0.5 + 0.5*Math.sin(y*1.71)*Math.sin(y*0.37);
-    ctx.strokeStyle = y%4 === 0 ? 'rgba(70,18,0,0.42)' : 'rgba(255,155,60,'+(light*0.42)+')';
+    ctx.strokeStyle = y%4 === 0 ? 'rgba(22,24,27,0.22)' : 'rgba(185,190,196,'+(light*0.13)+')';
     ctx.beginPath();
     for(let x=0;x<=1024;x+=8) {
       const yy=y+2.1*Math.sin(x*0.016+y*0.09)+0.8*Math.sin(x*0.035+y*0.12);
@@ -737,16 +879,23 @@ function createWoodTexture() {
   texture.wrapS = THREE.RepeatWrapping;
   return texture;
 }
-function createHeadTexture() {
+function createHeadTexture(cymbalShadow = false) {
   const canvas = document.createElement('canvas'); canvas.width=256;canvas.height=256;
   const ctx=canvas.getContext('2d');
   const light=ctx.createRadialGradient(94,84,6,128,128,170);
-  light.addColorStop(0,'#deddd5');light.addColorStop(0.65,'#c9c9c3');light.addColorStop(1,'#969b9b');
+  light.addColorStop(0,'#faf7ee');light.addColorStop(0.65,'#eae5da');light.addColorStop(1,'#d4d0c7');
   ctx.fillStyle=light;ctx.fillRect(0,0,256,256);
   for(let i=0;i<12000;i++) {
     const hashX=Math.sin(i*127.1)*43758.5453,hashY=Math.sin(i*311.7)*19234.135;
     const x=(hashX-Math.floor(hashX))*256,y=(hashY-Math.floor(hashY))*256;
     ctx.fillStyle='rgba(90,85,74,0.045)';ctx.fillRect(x,y,1,1);
+  }
+  if (cymbalShadow) {
+    const shadow = ctx.createRadialGradient(35, 50, 10, 60, 80, 190);
+    shadow.addColorStop(0, 'rgba(39,42,46,0.16)');
+    shadow.addColorStop(1, 'rgba(39,42,46,0)');
+    ctx.fillStyle = shadow;
+    ctx.fillRect(0, 0, 256, 256);
   }
   const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;return tex;
 }

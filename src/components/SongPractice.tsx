@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { SongChart, NoteEvent, DrumPadId, GameScore } from "../types";
 import { GameCanvas } from "./GameCanvas";
+import { createTimingTrack, drumChart, toNoteEvents } from "./songPracticeTiming";
 import { 
   Play, 
   Plus, 
@@ -53,95 +54,9 @@ const generateDemoSong = (
   difficulty: "Easy" | "Medium" | "Hard",
   duration: number
 ): SavedSong => {
-  const notes: NoteEvent[] = [];
-  const beatSec = 60 / bpm;
-
-  if (difficulty === "Easy") {
-    // Basic Rock Groove: 8th note hi-hats, kick on 1 & 3, snare on 2 & 4
-    for (let time = 0; time < duration; time += beatSec / 2) {
-      const beat = time / beatSec;
-      const measureBeat = beat % 4;
-
-      notes.push({ time: parseFloat(time.toFixed(3)), padId: "hihat-closed" });
-
-      if (measureBeat === 0 || measureBeat === 2) {
-        notes.push({ time: parseFloat(time.toFixed(3)), padId: "kick" });
-      }
-      if (measureBeat === 1 || measureBeat === 3) {
-        notes.push({ time: parseFloat(time.toFixed(3)), padId: "snare" });
-      }
-      if (beat % 16 === 0 && measureBeat === 0) {
-        notes.push({ time: parseFloat(time.toFixed(3)), padId: "crash" });
-      }
-    }
-  } else if (difficulty === "Medium") {
-    // Funk Beat: Syncopated kick and snare ghost notes
-    for (let time = 0; time < duration; time += beatSec / 4) {
-      const beat = time / beatSec;
-      const measureBeat = beat % 4;
-
-      if ((measureBeat * 2) % 1 === 0) {
-        const isOpen = measureBeat === 3.5;
-        notes.push({
-          time: parseFloat(time.toFixed(3)),
-          padId: isOpen ? "hihat-open" : "hihat-closed"
-        });
-      }
-
-      if (measureBeat === 0 || measureBeat === 1.5 || measureBeat === 2.5) {
-        notes.push({ time: parseFloat(time.toFixed(3)), padId: "kick" });
-      }
-
-      if (measureBeat === 1 || measureBeat === 3) {
-        notes.push({ time: parseFloat(time.toFixed(3)), padId: "snare" });
-      }
-
-      // Add a tom roll every 8 measures
-      if (Math.floor(beat / 4) % 8 === 7 && measureBeat >= 2) {
-        notes.pop(); // remove hihat closed
-        const tomId = measureBeat < 2.5 ? "tom-high" : measureBeat < 3.0 ? "tom-mid" : "tom-floor";
-        notes.push({ time: parseFloat(time.toFixed(3)), padId: tomId });
-      }
-    }
-  } else {
-    // Hard: Double Bass Metal Loop (16th kick drums, 8th cymbals, fast snare)
-    for (let time = 0; time < duration; time += beatSec / 4) {
-      const beat = time / beatSec;
-      const measureBeat = beat % 4;
-
-      notes.push({ time: parseFloat(time.toFixed(3)), padId: "kick" });
-
-      if ((measureBeat * 2) % 1 === 0) {
-        notes.push({ time: parseFloat(time.toFixed(3)), padId: "ride" });
-      }
-
-      if (measureBeat === 1 || measureBeat === 3) {
-        notes.push({ time: parseFloat(time.toFixed(3)), padId: "snare" });
-      }
-
-      if (measureBeat === 0 && beat % 8 === 0) {
-        notes.push({ time: parseFloat(time.toFixed(3)), padId: "crash" });
-      }
-    }
-  }
-
-  // Deduplicate and sort
-  const seen = new Set<string>();
-  const uniqueNotes = notes.filter(n => {
-    const key = `${n.time}-${n.padId}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).sort((a, b) => a.time - b.time);
-
   return {
-    id,
-    title,
-    artist,
-    bpm,
-    difficulty,
-    duration,
-    notes: uniqueNotes,
+    id, title, artist, bpm, difficulty, duration,
+    notes: toNoteEvents(drumChart),
     originalFileName: "Demo Groove",
     createdAt: new Date().toISOString()
   };
@@ -340,7 +255,6 @@ const parseMusicXML = (
 export const SongPractice: React.FC<SongPracticeProps> = ({
   isPlaying,
   setIsPlaying,
-  lastHitEvent,
   currentSong,
   setCurrentSong
 }) => {
@@ -365,9 +279,9 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
   const [parsedNotes, setParsedNotes] = useState<NoteEvent[]>([]);
   const [parsedDuration, setParsedDuration] = useState(0);
 
-  // Playback Score State
+  // Media time for the existing progress UI; canvas reads audio.currentTime directly.
   const [songTime, setSongTime] = useState<number>(0);
-  const [score, setScore] = useState<GameScore>({
+  const [score] = useState<GameScore>({
     score: 0,
     combo: 0,
     maxCombo: 0,
@@ -378,28 +292,20 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
     accuracy: 0
   });
 
-  // Audio Context references for backing track loop
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const gameLoopRef = useRef<number | null>(null);
-  const lastBassPlayTimeRef = useRef<number>(-1);
-
-  // Synchronize dynamic refs to prevent closure stales
-  const isPlayingRef = useRef(isPlaying);
-  useEffect(() => {
-    isPlayingRef.current = isPlaying;
-  }, [isPlaying]);
-
-  const currentSongRef = useRef(currentSong);
-  useEffect(() => {
-    currentSongRef.current = currentSong;
-  }, [currentSong]);
+  // Score labels remain in the designed UI, but scoring is inactive in this step.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const updateSongTime = useCallback((time: number) => setSongTime(time), []);
 
   // Load and seed songs list from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("drumup_song_playlist");
     if (saved) {
-      setSongs(JSON.parse(saved));
+      // Refresh only the built-in demo charts; preserve saved user charts.
+      setSongs((JSON.parse(saved) as SavedSong[]).map(song =>
+        ["demo-1", "demo-2", "demo-3"].includes(song.id)
+          ? { ...song, notes: toNoteEvents(drumChart) }
+          : song
+      ));
     } else {
       const demoList = [
         generateDemoSong("demo-1", "Basic Rock Groove", "DrumUp Studio", 120, "Easy", 30),
@@ -417,96 +323,46 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
     setSongs(updated);
   };
 
-  // Playback: Backing Track Synth Bass Line Generator
-  const playBackingBass = (time: number, freq: number) => {
-    const ctx = audioCtxRef.current;
-    if (!ctx) return;
-
-    const osc = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-
-    osc.connect(gainNode);
-    gainNode.connect(ctx.destination);
-
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(freq, time);
-
-    gainNode.gain.setValueAtTime(0.08, time);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
-
-    osc.start(time);
-    osc.stop(time + 0.4);
-  };
-
-  // Main playback timer loop
+  // Prepare the media source only on song selection, never on pause/resume.
   useEffect(() => {
+    const audio = audioRef.current;
+    if (view !== "playing" || !currentSong || !audio) return;
+    const url = URL.createObjectURL(createTimingTrack(currentSong.notes, currentSong.duration));
+    audio.src = url;
+    audio.load();
+    setSongTime(0);
+    return () => {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      URL.revokeObjectURL(url);
+    };
+  }, [currentSong, view]);
+
+  // The media element owns elapsed time. React's flag only requests play/pause.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || view !== "playing" || !currentSong) return;
     if (!isPlaying) {
-      if (gameLoopRef.current) {
-        cancelAnimationFrame(gameLoopRef.current);
-        gameLoopRef.current = null;
-      }
+      audio.pause();
       return;
     }
+    let cancelled = false;
+    void audio.play().catch((error: unknown) => {
+      if (cancelled) return; // Source changed or playback was deliberately stopped.
+      console.error("Song Practice audio playback failed:", error);
+      setIsPlaying(false);
+    });
+    return () => { cancelled = true; };
+  }, [isPlaying, currentSong, view, setIsPlaying]);
 
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!audioCtxRef.current && AudioContextClass) {
-      audioCtxRef.current = new AudioContextClass();
-    }
-
-    const ctx = audioCtxRef.current;
-    if (ctx) {
-      if (ctx.state === "suspended") {
-        ctx.resume();
-      }
-      startTimeRef.current = ctx.currentTime;
-      lastBassPlayTimeRef.current = -1;
-      setSongTime(0);
-    }
-
-    const updatePlayFrame = () => {
-      const activeCtx = audioCtxRef.current;
-      const song = currentSongRef.current;
-      if (!activeCtx || !isPlayingRef.current || !song) return;
-
-      const elapsed = activeCtx.currentTime - startTimeRef.current;
-      setSongTime(elapsed);
-
-      // Backing bass generator loop (starts with 1.2s delay to prepare)
-      const beatDuration = 60.0 / song.bpm;
-      const currentBeatIdx = Math.floor((elapsed - 1.2) / beatDuration);
-      const currentBeatProgress = (elapsed - 1.2) % beatDuration;
-
-      if (elapsed >= 1.2 && currentBeatProgress < 0.05 && currentBeatIdx !== lastBassPlayTimeRef.current) {
-        lastBassPlayTimeRef.current = currentBeatIdx;
-
-        // Am (55Hz) -> F (43.6Hz) -> C (65.4Hz) -> G (49.0Hz) chord rotation
-        const chordIndex = Math.floor(currentBeatIdx / 4) % 4;
-        let baseFreq = 55;
-        if (chordIndex === 1) baseFreq = 43.65;
-        if (chordIndex === 2) baseFreq = 65.4;
-        if (chordIndex === 3) baseFreq = 49.0;
-
-        if (currentBeatIdx % 2 === 0) {
-          playBackingBass(activeCtx.currentTime, baseFreq);
-        }
-      }
-
-      // End of song condition
-      if (elapsed > song.duration) {
-        setIsPlaying(false);
-        setViewState("summary");
-        return;
-      }
-
-      gameLoopRef.current = requestAnimationFrame(updatePlayFrame);
-    };
-
-    gameLoopRef.current = requestAnimationFrame(updatePlayFrame);
-
-    return () => {
-      if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-    };
-  }, [isPlaying, setIsPlaying]);
+  const restartSong = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = 0;
+    setSongTime(audio.currentTime);
+    setIsPlaying(true);
+  };
 
   // Handle file analysis trigger
   const handleAnalyzeFile = () => {
@@ -550,36 +406,15 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
       };
       reader.readAsText(selectedFile);
     } else {
-      // Simulated image scanner (PNG/JPG)
-      let progress = 10;
-      const interval = setInterval(() => {
-        progress += 25;
-        setAnalysisProgress(Math.min(progress, 90));
-        if (progress >= 100) {
-          clearInterval(interval);
-          
-          // Generate a representative playable chart based on form input difficulty
-          const mockSong = generateDemoSong(
-            "temp",
-            formTitle,
-            formArtist || "Unknown",
-            formBpm,
-            formDifficulty,
-            30
-          );
-
-          setParsedNotes(mockSong.notes);
-          setParsedDuration(mockSong.duration);
-          setDetectedParts(["Kick (베이스)", "Snare (스네어)", "Hi-Hat (하이햇)", "Crash Cymbal (크래쉬)"]);
-          setAnalysisWarning("⚠️ 이미지 파일 분석은 예측 기반입니다. 악보 선 및 빈도 분석을 활용해 노트를 구성했습니다. 정확한 학습을 원하시면 MusicXML 업로드를 권장합니다.");
-          
-          setAnalysisProgress(100);
-          setTimeout(() => {
-            setIsAnalyzing(false);
-            setViewState("preview");
-          }, 500);
-        }
-      }, 300);
+      // Image/PDF transcription is not part of the synchronization step.
+      const testNotes = toNoteEvents(drumChart);
+      setParsedNotes(testNotes);
+      setParsedDuration(30);
+      setDetectedParts([...new Set(testNotes.map(note => DRUM_PAD_LABELS[note.padId]))]);
+      setAnalysisWarning("현재는 자동 분석을 실행하지 않습니다. 수동 테스트 차트와 동기화 확인용 음원을 사용합니다.");
+      setAnalysisProgress(100);
+      setIsAnalyzing(false);
+      setViewState("preview");
     }
   };
 
@@ -621,58 +456,11 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
 
   // Select and trigger playing song
   const handlePlaySong = (song: SongChart) => {
-    // Reset scores
-    setScore({
-      score: 0,
-      combo: 0,
-      maxCombo: 0,
-      perfect: 0,
-      great: 0,
-      good: 0,
-      miss: 0,
-      accuracy: 0
-    });
-
     setCurrentSong(song);
     setIsPlaying(true);
     setViewState("playing");
   };
 
-  // Handle note scoring judgement from GameCanvas
-  const handleNoteJudgement = (judgement: "perfect" | "great" | "good" | "miss") => {
-    setScore((prev) => {
-      const isMiss = judgement === "miss";
-      const nextPerfect = prev.perfect + (judgement === "perfect" ? 1 : 0);
-      const nextGreat = prev.great + (judgement === "great" ? 1 : 0);
-      const nextGood = prev.good + (judgement === "good" ? 1 : 0);
-      const nextMiss = prev.miss + (judgement === "miss" ? 1 : 0);
-
-      const nextCombo = isMiss ? 0 : prev.combo + 1;
-      const nextMaxCombo = Math.max(prev.maxCombo, nextCombo);
-
-      let points = 0;
-      if (judgement === "perfect") points = 1000;
-      else if (judgement === "great") points = 750;
-      else if (judgement === "good") points = 400;
-
-      const nextScore = prev.score + points + nextCombo * 45;
-
-      const totalNotes = nextPerfect + nextGreat + nextGood + nextMiss;
-      const weightedSum = nextPerfect * 1.0 + nextGreat * 0.75 + nextGood * 0.45;
-      const nextAccuracy = totalNotes > 0 ? Math.round((weightedSum / totalNotes) * 100) : 0;
-
-      return {
-        score: nextScore,
-        combo: nextCombo,
-        maxCombo: nextMaxCombo,
-        perfect: nextPerfect,
-        great: nextGreat,
-        good: nextGood,
-        miss: nextMiss,
-        accuracy: nextAccuracy
-      };
-    });
-  };
 
   const filteredSongs = songs.filter(
     (s) =>
@@ -710,8 +498,8 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
               width: "100%",
               padding: "10px 12px 10px 38px",
               borderRadius: "var(--radius-sm)",
-              border: "1px solid rgba(0, 0, 0, 0.08)",
-              background: "#ffffff",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+              background: "var(--bg-card)",
               fontSize: "13px",
               outline: "none"
             }}
@@ -736,15 +524,15 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
                   justifyContent: "space-between",
                   alignItems: "center",
                   padding: "16px 20px",
-                  background: "#ffffff",
+                  background: "var(--bg-card)",
                   borderRadius: "var(--radius-md)",
-                  border: "1px solid rgba(0, 0, 0, 0.05)",
+                  border: "1px solid rgba(255, 255, 255, 0.05)",
                   cursor: "pointer",
                   transition: "all 0.2s ease"
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                  <div style={{ width: "40px", height: "40px", borderRadius: "8px", background: "rgba(0, 199, 129, 0.08)", display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "center", color: "var(--accent-color)" }}>
+                  <div style={{ width: "40px", height: "40px", borderRadius: "8px", background: "rgba(255, 109, 45, 0.08)", display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "center", color: "var(--accent-color)" }}>
                     <Music size={18} />
                   </div>
                   <div>
@@ -770,8 +558,8 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
                   >
                     <Trash2 size={15} />
                   </button>
-                  <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--text-primary)", display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff" }}>
-                    <Play size={12} fill="#ffffff" style={{ marginLeft: "2px" }} />
+                  <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--accent-color)", display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff" }}>
+                    <Play size={12} fill="#000000" style={{ marginLeft: "2px" }} />
                   </div>
                 </div>
               </div>
@@ -805,7 +593,7 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
                 placeholder="곡 제목 입력"
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
-                style={{ width: "100%", padding: "10px 12px", border: "1px solid rgba(0,0,0,0.08)", borderRadius: "var(--radius-sm)", fontSize: "13px" }}
+                style={{ width: "100%", padding: "10px 12px", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "var(--radius-sm)", fontSize: "13px" }}
               />
             </div>
             
@@ -816,7 +604,7 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
                 placeholder="아티스트명 입력"
                 value={formArtist}
                 onChange={(e) => setFormArtist(e.target.value)}
-                style={{ width: "100%", padding: "10px 12px", border: "1px solid rgba(0,0,0,0.08)", borderRadius: "var(--radius-sm)", fontSize: "13px" }}
+                style={{ width: "100%", padding: "10px 12px", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "var(--radius-sm)", fontSize: "13px" }}
               />
             </div>
 
@@ -829,7 +617,7 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
                   max="280"
                   value={formBpm}
                   onChange={(e) => setFormBpm(parseInt(e.target.value) || 120)}
-                  style={{ width: "100%", padding: "10px 12px", border: "1px solid rgba(0,0,0,0.08)", borderRadius: "var(--radius-sm)", fontSize: "13px" }}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "var(--radius-sm)", fontSize: "13px" }}
                 />
               </div>
 
@@ -874,7 +662,7 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
                 alignItems: "center",
                 justifyContent: "center",
                 padding: "20px",
-                background: "rgba(0,0,0,0.01)",
+                background: "rgba(255, 255, 255, 0.01)",
                 textAlign: "center",
                 gap: "12px",
                 cursor: "pointer",
@@ -901,7 +689,7 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
             </div>
 
             {selectedFile && (
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(0,199,129,0.06)", border: "1px solid rgba(0,199,129,0.15)", borderRadius: "var(--radius-sm)", padding: "10px 12px", fontSize: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(255, 109, 45, 0.06)", border: "1px solid rgba(255, 109, 45, 0.15)", borderRadius: "var(--radius-sm)", padding: "10px 12px", fontSize: "12px" }}>
                 <Check size={14} color="var(--accent-color)" />
                 <span style={{ color: "var(--text-primary)", fontWeight: "500" }}>{selectedFile.name} 파일 준비 완료</span>
               </div>
@@ -909,7 +697,7 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: "12px", borderTop: "1px solid rgba(0,0,0,0.04)", paddingTop: "16px" }}>
+        <div style={{ display: "flex", gap: "12px", borderTop: "1px solid rgba(255, 255, 255, 0.04)", paddingTop: "16px" }}>
           <button className="action-btn secondary" onClick={() => setViewState("playlist")} style={{ flex: 1 }}>
             취소
           </button>
@@ -917,7 +705,7 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
             className="action-btn" 
             onClick={handleAnalyzeFile} 
             disabled={!selectedFile || !formTitle}
-            style={{ flex: 1, background: (!selectedFile || !formTitle) ? "var(--text-tertiary)" : "var(--text-primary)" }}
+            style={{ flex: 1, background: (!selectedFile || !formTitle) ? "var(--text-tertiary)" : "var(--accent-color)" }}
           >
             악보 분석 & 변환 시작
           </button>
@@ -957,7 +745,7 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "16px", overflowY: "auto", paddingRight: "4px" }}>
           {/* Metadata Card */}
-          <div style={{ background: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.04)", borderRadius: "var(--radius-md)", padding: "16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "13px" }}>
+          <div style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: "var(--radius-md)", padding: "16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "13px" }}>
             <div><span style={{ color: "var(--text-secondary)" }}>Song Title:</span> <strong style={{ color: "var(--text-primary)" }}>{formTitle}</strong></div>
             <div><span style={{ color: "var(--text-secondary)" }}>BPM / Time:</span> <strong>{formBpm} BPM / {formTimeSignature}</strong></div>
             <div><span style={{ color: "var(--text-secondary)" }}>Artist:</span> <strong>{formArtist || "Unknown"}</strong></div>
@@ -966,7 +754,7 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
 
           {/* Warning Message */}
           {analysisWarning && (
-            <div style={{ background: isImage ? "rgba(255, 149, 0, 0.06)" : "rgba(255, 59, 48, 0.05)", border: isImage ? "1px solid rgba(255, 149, 0, 0.2)" : "1px solid rgba(255, 59, 48, 0.15)", borderRadius: "var(--radius-sm)", padding: "12px 14px", fontSize: "11px", color: isImage ? "#b25900" : "#ff3b30", display: "flex", gap: "8px", alignItems: "flex-start", lineHeight: "1.5" }}>
+            <div style={{ background: isImage ? "rgba(255, 109, 45, 0.06)" : "rgba(255, 109, 45, 0.05)", border: isImage ? "1px solid rgba(255, 109, 45, 0.2)" : "1px solid rgba(255, 109, 45, 0.15)", borderRadius: "var(--radius-sm)", padding: "12px 14px", fontSize: "11px", color: isImage ? "#FF6D2D" : "#FF6D2D", display: "flex", gap: "8px", alignItems: "flex-start", lineHeight: "1.5" }}>
               <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: "1px" }} />
               <div>
                 <strong>악보 분석 알림:</strong>
@@ -980,8 +768,8 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
             <span className="control-label">Detected Drum Parts ({detectedParts.length})</span>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
               {detectedParts.map((part, index) => (
-                <div key={index} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: "#ffffff", border: "1px solid rgba(0,0,0,0.04)", borderRadius: "var(--radius-sm)", fontSize: "12px" }}>
-                  <Check size={14} color="#00c781" strokeWidth={3} />
+                <div key={index} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: "var(--bg-card)", border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: "var(--radius-sm)", fontSize: "12px" }}>
+                  <Check size={14} color="#FF6D2D" strokeWidth={3} />
                   <span>{part}</span>
                 </div>
               ))}
@@ -989,7 +777,7 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: "12px", borderTop: "1px solid rgba(0,0,0,0.04)", paddingTop: "16px" }}>
+        <div style={{ display: "flex", gap: "12px", borderTop: "1px solid rgba(255, 255, 255, 0.04)", paddingTop: "16px" }}>
           <button className="action-btn secondary" onClick={() => setViewState("add_song")} style={{ flex: 1 }}>
             다시 업로드
           </button>
@@ -1005,6 +793,21 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
   if (view === "playing" && currentSong) {
     return (
       <div className="rudiment-practice">
+        <audio
+          ref={audioRef}
+          data-song-practice-audio
+          hidden
+          preload="auto"
+          onPlay={event => { if (!event.currentTarget.paused) setIsPlaying(true); }}
+          onPause={event => { if (event.currentTarget.paused) setIsPlaying(false); }}
+          onEnded={() => { setIsPlaying(false); setViewState("summary"); }}
+          onError={event => {
+            if (event.currentTarget.error) {
+              console.error("Song Practice audio could not load:", event.currentTarget.error);
+              setIsPlaying(false);
+            }
+          }}
+        />
         {/* Topbar matching Rudiment Practice */}
         <div className="rudiment-topbar">
           <div className="rudiment-title-block">
@@ -1027,22 +830,7 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
           <div className="rudiment-actions">
             <button
               className="action-btn secondary"
-              onClick={() => {
-                setIsPlaying(false);
-                setTimeout(() => {
-                  setScore({
-                    score: 0,
-                    combo: 0,
-                    maxCombo: 0,
-                    perfect: 0,
-                    great: 0,
-                    good: 0,
-                    miss: 0,
-                    accuracy: 0
-                  });
-                  setIsPlaying(true);
-                }, 150);
-              }}
+              onClick={restartSong}
               title="다시 시작"
             >
               <RotateCcw size={14} />
@@ -1060,9 +848,9 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
         </div>
 
         {/* Pattern progress visual bar */}
-        <div className="rudiment-pattern-strip" style={{ background: "rgba(0,199,129,0.05)", color: "var(--accent-color)", display: "flex", justifyContent: "space-between", padding: "8px 16px" }}>
+        <div className="rudiment-pattern-strip" style={{ background: "rgba(255, 109, 45, 0.05)", color: "var(--accent-color)", display: "flex", justifyContent: "space-between", padding: "8px 16px" }}>
           <span>BPM: <strong>{currentSong.bpm}</strong></span>
-          <span style={{ width: "60%", background: "rgba(0,0,0,0.05)", height: "6px", borderRadius: "3px", alignSelf: "center", overflow: "hidden", display: "inline-block" }}>
+          <span style={{ width: "60%", background: "rgba(255, 255, 255, 0.05)", height: "6px", borderRadius: "3px", alignSelf: "center", overflow: "hidden", display: "inline-block" }}>
             <div style={{ background: "var(--accent-color)", height: "100%", width: `${Math.min(100, (songTime / currentSong.duration) * 100)}%` }} />
           </span>
           <span>진행률: <strong>{Math.min(100, Math.round((songTime / currentSong.duration) * 100))}%</strong></span>
@@ -1070,15 +858,11 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
 
         {/* Scrolling notes game canvas */}
         <div className="rhythm-game-container">
-          {isPlaying && (
-            <GameCanvas
-              isPlaying={isPlaying}
-              songTime={songTime}
-              notes={currentSong.notes}
-              onNoteJudgement={handleNoteJudgement}
-              lastHitEvent={lastHitEvent}
-            />
-          )}
+          <GameCanvas
+            audioRef={audioRef}
+            notes={currentSong.notes}
+            onTimeUpdate={updateSongTime}
+          />
         </div>
       </div>
     );
@@ -1102,7 +886,7 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
         }}
       >
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "12px", width: "100%", maxWidth: "420px" }}>
-          <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(0,199,129,0.08)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent-color)" }}>
+          <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(255, 109, 45, 0.08)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent-color)" }}>
             <Award size={36} />
           </div>
           
@@ -1118,10 +902,10 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
               gap: "14px",
               width: "100%",
               margin: "18px 0",
-              background: "rgba(0, 0, 0, 0.015)",
+              background: "rgba(255, 255, 255, 0.015)",
               padding: "20px",
               borderRadius: "var(--radius-md)",
-              border: "1px solid rgba(0,0,0,0.04)"
+              border: "1px solid rgba(255, 255, 255, 0.04)"
             }}
           >
             <div style={{ textAlign: "left", fontSize: "13px", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -1137,10 +921,10 @@ export const SongPractice: React.FC<SongPracticeProps> = ({
               <div style={{ color: "var(--accent-color)", fontSize: "15px" }}>{score.score} 점</div>
               <div>{score.accuracy}%</div>
               <div>{score.maxCombo} Combo</div>
-              <div style={{ color: "#00c781" }}>{score.perfect}</div>
-              <div style={{ color: "#30d158" }}>{score.great}</div>
-              <div style={{ color: "#007aff" }}>{score.good}</div>
-              <div style={{ color: "#ff3b30" }}>{score.miss}</div>
+              <div style={{ color: "#FF6D2D" }}>{score.perfect}</div>
+              <div style={{ color: "#FF6D2D" }}>{score.great}</div>
+              <div style={{ color: "#FF6D2D" }}>{score.good}</div>
+              <div style={{ color: "#FF6D2D" }}>{score.miss}</div>
             </div>
           </div>
 

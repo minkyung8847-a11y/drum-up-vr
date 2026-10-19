@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { ChevronUp, Store } from "lucide-react";
 import {
   DRUM_KITS,
   DRUM_KITS_MAP,
@@ -12,6 +13,7 @@ interface DrumKitSelectorProps {
   onSelectKit: (kitId: string) => void;
   disabled?: boolean;
   onOpenShowroom?: () => void;
+  variant?: "card" | "bottom";
 }
 
 export const DrumKitSelector: React.FC<DrumKitSelectorProps> = ({
@@ -19,9 +21,12 @@ export const DrumKitSelector: React.FC<DrumKitSelectorProps> = ({
   onSelectKit,
   disabled = false,
   onOpenShowroom,
+  variant = "card",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<DrumKitCategory>("All");
+  const [selectedCategory, setSelectedCategory] = useState<DrumKitCategory>(
+    (DRUM_KITS_MAP[currentKitId] || DRUM_KITS[0]).category as DrumKitCategory,
+  );
   const containerRef = useRef<HTMLDivElement>(null);
 
   const currentKit = DRUM_KITS_MAP[currentKitId] || DRUM_KITS[0];
@@ -40,10 +45,11 @@ export const DrumKitSelector: React.FC<DrumKitSelectorProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  const filteredKits =
-    selectedCategory === "All"
-      ? DRUM_KITS
-      : DRUM_KITS.filter((kit) => kit.category === selectedCategory);
+  // No "All" tab, and only primary kits: names with a parenthesised variant are hidden from the list.
+  const categories = DRUM_KIT_CATEGORIES.filter((cat) => cat !== "All");
+  const filteredKits = DRUM_KITS.filter(
+    (kit) => kit.category === selectedCategory && !kit.name.includes("("),
+  );
 
   const handleSelect = (kitId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -65,63 +71,16 @@ export const DrumKitSelector: React.FC<DrumKitSelectorProps> = ({
     }
   };
 
-  return (
-    <div
-      ref={containerRef}
-      className={`glass-panel drum-kit-card ${isOpen ? "dropdown-active" : ""} ${
-        disabled ? "disabled" : ""
-      }`}
-      onClick={() => {
-        if (!disabled) setIsOpen(!isOpen);
-      }}
-      title="드럼 사운드 프리셋 변경"
-    >
-      <div className="drum-kit-card-header">
-        <span className="control-label">DRUM KIT / SOUND PRESET</span>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          {onOpenShowroom && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenShowroom();
-              }}
-              style={{
-                background: "rgba(255,85,0,0.12)",
-                border: "1px solid rgba(255,85,0,0.35)",
-                color: "#ff5500",
-                fontSize: "10px",
-                fontWeight: 700,
-                padding: "2px 7px",
-                borderRadius: "4px",
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
-              title="3D 악기 쇼룸 열기"
-            >
-              쇼룸 ↗
-            </button>
-          )}
-          <span className="drum-kit-toggle-btn">
-            {isOpen ? "▲" : "▼"}
-          </span>
-        </div>
-      </div>
-
-      <div className="drum-kit-current-info">
-        <span className="drum-kit-id-pill">{currentKit.id}</span>
-        <h2 className="drum-kit-title">{currentKit.name}</h2>
-        <span className="drum-kit-category-tag">{currentKit.category}</span>
-      </div>
-
-      {isOpen && !disabled && (
+  const isBottom = variant === "bottom";
+  // One dropdown shared by the sidebar card and the bottom-left control (the latter opens upward via CSS).
+  const dropdown = isOpen && !disabled && (
         <div
-          className="drum-kit-dropdown"
+          className={`drum-kit-dropdown${isBottom ? " drum-kit-dropdown-up" : ""}`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* CATEGORY FILTER CHIPS */}
           <div className="drum-kit-cat-bar">
-            {DRUM_KIT_CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <button
                 key={cat}
                 type="button"
@@ -167,7 +126,74 @@ export const DrumKitSelector: React.FC<DrumKitSelectorProps> = ({
             })}
           </div>
         </div>
-      )}
+  );
+
+  if (isBottom) {
+    return (
+      <div ref={containerRef} className="glass-panel drum-kit-bottom">
+        <button type="button" className="drum-kit-bottom-icon" onClick={onOpenShowroom} aria-label="Open drum kit selection" title="드럼 키트 선택 페이지 열기"><Store size={22} strokeWidth={1.5} /></button>
+        <div className="drum-kit-bottom-text">
+          <span className="drum-kit-bottom-label">DRUM KIT</span>
+          <button type="button" className="drum-kit-bottom-current" onClick={() => { if (!disabled) setIsOpen(!isOpen); }} aria-expanded={isOpen} title="드럼 사운드 프리셋 변경">
+            {currentKit.name.toUpperCase()}
+            <ChevronUp size={16} strokeWidth={2} />
+          </button>
+        </div>
+        {dropdown}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className={`glass-panel drum-kit-card ${isOpen ? "dropdown-active" : ""} ${
+        disabled ? "disabled" : ""
+      }`}
+      onClick={() => {
+        if (!disabled) setIsOpen(!isOpen);
+      }}
+      title="드럼 사운드 프리셋 변경"
+    >
+      <div className="drum-kit-card-header">
+        <span className="control-label">DRUM KIT / SOUND PRESET</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {onOpenShowroom && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenShowroom();
+              }}
+              style={{
+                background: "rgba(255, 109, 45, 0.12)",
+                border: "1px solid rgba(255, 109, 45, 0.35)",
+                color: "#FF6D2D",
+                fontSize: "10px",
+                fontWeight: 700,
+                padding: "2px 7px",
+                borderRadius: "4px",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+              title="3D 악기 쇼룸 열기"
+            >
+              쇼룸 ↗
+            </button>
+          )}
+          <span className="drum-kit-toggle-btn">
+            {isOpen ? "▲" : "▼"}
+          </span>
+        </div>
+      </div>
+
+      <div className="drum-kit-current-info">
+        <span className="drum-kit-id-pill">{currentKit.id}</span>
+        <h2 className="drum-kit-title">{currentKit.name}</h2>
+        <span className="drum-kit-category-tag">{currentKit.category}</span>
+      </div>
+
+      {dropdown}
     </div>
   );
 };

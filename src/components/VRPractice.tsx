@@ -1,0 +1,447 @@
+import { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+import { createVirtualDrumSet } from './virtualDrumSet';
+import { createStudioEnvironment } from './studioEnvironment';
+import { createDrumEnvironments, getSavedDrumEnvironment } from './drumEnvironments';
+import type { DrumEnvironmentId } from './drumEnvironments';
+import { EnvironmentSwitcher } from './EnvironmentSwitcher';
+import { createVRDrumInteraction } from './vrDrumInteraction';
+import { createVirtualDrumsticks } from './virtualDrumsticks';
+import { createVRNoteHighway } from './vrNoteHighway';
+import { applyStickPose, createXRDrumstickControllers } from './xrDrumstickControllers';
+import type { StickPose } from './xrDrumstickControllers';
+import type { StickHand } from './virtualDrumsticks';
+import { StickControllerPanel } from './StickControllerPanel';
+import { drumSynth } from '../utils/synth';
+import './vrPractice.css';
+
+export default function VRPractice() {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const resetRef = useRef<() => void>(() => {});
+  const [audioStatus, setAudioStatus] = useState('Loading drum sounds…');
+  const [demoPaused, setDemoPaused] = useState(false);
+  const demoRef = useRef<{ toggle: () => boolean; restart: () => void }>({ toggle: () => false, restart: () => {} });
+  const [xrSupported, setXRSupported] = useState(false);
+  const [immersive, setImmersive] = useState(false);
+  const [xrBusy, setXRBusy] = useState(false);
+  const [xrMessage, setXRMessage] = useState('Checking VR availability…');
+  const xrActionRef = useRef<() => Promise<void>>(async () => {});
+  const poseRef = useRef<(mode: 'preview' | 'offset', hand: StickHand, pose: StickPose) => void>(() => {});
+  const [background, setBackground] = useState<DrumEnvironmentId>(getSavedDrumEnvironment);
+  const initialBackground = useRef(background);
+  const backgroundRef = useRef<(id: DrumEnvironmentId) => void>(() => {});
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x101114);
+    const backgrounds = createDrumEnvironments(scene, initialBackground.current);
+    backgroundRef.current = backgrounds.select;
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.95;
+    renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType('local-floor');
+    host.appendChild(renderer.domElement);
+
+    // Reflection source only: no room objects are added to the visible scene.
+    const studio = createStudioEnvironment();
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const environment = pmrem.fromScene(studio, 0.015);
+    scene.environment = environment.texture;
+    scene.environmentIntensity = 0.95;
+    studio.traverse(object => {
+      if (object instanceof THREE.Mesh) {
+        object.geometry.dispose();
+        (object.material as THREE.Material).dispose();
+      }
+    });
+    pmrem.dispose();
+
+    scene.add(new THREE.AmbientLight(0xe8eaf0, 0.28));
+    const key = new THREE.DirectionalLight(0xfff4e5, 2.8);
+    key.position.set(-3, 6, 4);
+    scene.add(key);
+    const fill = new THREE.SpotLight(0xffffff, 1.2, 10, Math.PI / 6, 0.5, 1);
+    fill.position.set(0, 5, 2);
+    scene.add(fill);
+    const rim = new THREE.DirectionalLight(0xc6d6ef, 1.6);
+    rim.position.set(2, 3, -2);
+    scene.add(rim);
+
+    // Reuse the original kit; these placement adjustments apply only to this view.
+    const kit = createVirtualDrumSet(scene);
+    for (const part of kit.group.children) {
+      if (part.userData.drumType === 'floorTom') {
+        const originalFloor = new THREE.Box3().setFromObject(part).min.y;
+        part.scale.setScalar(0.8);
+        // Keep the legs grounded while scaling the complete instrument uniformly.
+        part.position.y += originalFloor - new THREE.Box3().setFromObject(part).min.y;
+        part.position.x -= 0.24;
+        // Put the complete floor tom just ahead of the kick's rear hoop in +Z.
+        // Normal depth testing handles overlap; its size and materials stay intact.
+        part.position.z += 0.18;
+      }
+      if (part.userData.drumType === 'crash' || part.userData.drumType === 'ride') {
+        // Positive X tilt points the playing surface toward the seated player (+Z).
+        part.rotation.x += THREE.MathUtils.degToRad(8);
+      }
+    }
+    const crash = kit.group.children.find((part: THREE.Object3D) => part.userData.drumType === 'crash');
+    const ride = kit.group.children.find((part: THREE.Object3D) => part.userData.drumType === 'ride');
+    if (crash && ride) {
+      // The factory adds the ride's stand pieces between the two cymbal groups.
+      const standPieces = kit.group.children.slice(kit.group.children.indexOf(crash) + 1, kit.group.children.indexOf(ride));
+      const stand = new THREE.Group();
+      stand.position.set(ride.position.x, 0.05, ride.position.z);
+      kit.group.add(stand);
+      kit.group.updateMatrixWorld(true);
+      for (const piece of standPieces) stand.attach(piece);
+      stand.scale.y = (crash.position.y - 0.09) / (ride.position.y - 0.09);
+      stand.position.set(-crash.position.x, 0.05, crash.position.z);
+      ride.position.set(-crash.position.x, crash.position.y, crash.position.z);
+    }
+    const interaction = createVRDrumInteraction(kit);
+    let disposed = false;
+    let audioReady = false;
+    const prepareAudio = async () => {
+      audioReady = false;
+      setAudioStatus('Loading drum sounds…');
+      try {
+        const ready = await drumSynth.prepareKit();
+        if (disposed) return;
+        audioReady = ready;
+        setAudioStatus(ready ? 'Click to play · Drag to look around · Shift + drag: look without striking' : 'Sounds unavailable — reload to retry');
+      } catch {
+        if (!disposed) setAudioStatus('Sounds unavailable — reload to retry');
+      }
+    };
+    void prepareAudio();
+    const unsubscribeKit = drumSynth.onKitChange(() => { void prepareAudio(); });
+
+    // World seating offset belongs to the rig. The camera's local transform is
+    // reserved for future headset poses; desktop look lives on separate parents.
+    const rig = new THREE.Group();
+    rig.name = 'player-rig';
+    rig.position.set(0, 1.55, 1.6);
+    const yaw = new THREE.Group();
+    const pitch = new THREE.Group();
+    const camera = new THREE.PerspectiveCamera(85, 1, 0.03, 30);
+    camera.name = 'player-camera';
+    const seatedPitch = -Math.atan2(0.83, 1.45);
+    pitch.rotation.x = seatedPitch;
+    rig.add(yaw);
+    yaw.add(pitch);
+    pitch.add(camera);
+    scene.add(rig);
+    const sticks = createVirtualDrumsticks(camera);
+    const controllers = createXRDrumstickControllers(renderer.xr, rig);
+    poseRef.current = (mode, hand, pose) => {
+      if (mode === 'preview') applyStickPose(sticks.grips[hand], pose);
+      else {
+        controllers.setOffset(hand, pose);
+        applyStickPose(sticks.offsets[hand], pose);
+      }
+    };
+    const desktopPose = { rig: rig.position.clone(), cameraPosition: camera.position.clone(),
+      cameraQuaternion: camera.quaternion.clone(), yaw: 0, pitch: seatedPitch };
+    const startXR = () => {
+      cancelLook();
+      desktopPose.rig.copy(rig.position);
+      desktopPose.cameraPosition.copy(camera.position);
+      desktopPose.cameraQuaternion.copy(camera.quaternion);
+      desktopPose.yaw = yaw.rotation.y;
+      desktopPose.pitch = pitch.rotation.x;
+      targetYaw = desktopPose.yaw;
+      targetPitch = desktopPose.pitch;
+      // local-floor already supplies headset height; do not add seated eye height.
+      rig.position.y = 0;
+      yaw.rotation.y = 0;
+      pitch.rotation.x = 0;
+      camera.position.set(0, 0, 0);
+      camera.quaternion.identity();
+      sticks.grips.left.visible = sticks.grips.right.visible = false;
+      controllers.setActive(true);
+      setImmersive(true);
+      setXRMessage('VR active — controller drumsticks only; collisions are not enabled.');
+    };
+    const endXR = () => {
+      cancelLook();
+      controllers.setActive(false);
+      rig.position.copy(desktopPose.rig);
+      yaw.rotation.y = desktopPose.yaw;
+      pitch.rotation.x = desktopPose.pitch;
+      targetYaw = desktopPose.yaw;
+      targetPitch = desktopPose.pitch;
+      camera.position.copy(desktopPose.cameraPosition);
+      camera.quaternion.copy(desktopPose.cameraQuaternion);
+      sticks.grips.left.visible = sticks.grips.right.visible = true;
+      if (!disposed) {
+        setImmersive(false);
+        setXRMessage('Desktop preview — real tracking has not been verified on hardware.');
+        resize();
+      }
+    };
+    renderer.xr.addEventListener('sessionstart', startXR);
+    renderer.xr.addEventListener('sessionend', endXR);
+    void (async () => {
+      try {
+        const supported = window.isSecureContext && !!navigator.xr && await navigator.xr.isSessionSupported('immersive-vr');
+        if (!disposed) {
+          setXRSupported(supported);
+          setXRMessage(supported ? 'VR available · Desktop preview is separate from tracking.' : 'VR unavailable here · Desktop preview only. Headset tracking is unverified.');
+        }
+      } catch {
+        if (!disposed) setXRMessage('VR availability check failed · Desktop preview remains available.');
+      }
+    })();
+    xrActionRef.current = async () => {
+      setXRBusy(true);
+      let requested: XRSession | null = null;
+      try {
+        const current = renderer.xr.getSession();
+        if (current) await current.end();
+        else if (navigator.xr) {
+          requested = await navigator.xr.requestSession('immersive-vr', { requiredFeatures: ['local-floor'] });
+          if (disposed) await requested.end();
+          else await renderer.xr.setSession(requested);
+        }
+      } catch (error) {
+        if (requested) await requested.end().catch(() => {});
+        if (!disposed) setXRMessage(`Could not enter VR: ${error instanceof Error ? error.message : 'Session unavailable'}`);
+      } finally {
+        if (!disposed) setXRBusy(false);
+      }
+    };
+    const highway = createVRNoteHighway(scene);
+    const seatedOrientation = new THREE.Quaternion().setFromEuler(new THREE.Euler(seatedPitch, 0, 0));
+    let demoEpoch = performance.now();
+    let demoPauseTime: number | null = null;
+    demoRef.current = {
+      toggle() {
+        const now = performance.now();
+        if (demoPauseTime === null) demoPauseTime = now;
+        else { demoEpoch += now - demoPauseTime; demoPauseTime = null; }
+        return demoPauseTime !== null;
+      },
+      restart() { demoEpoch = performance.now(); demoPauseTime = null; },
+    };
+
+    const corners: THREE.Vector3[] = [];
+    kit.group.updateMatrixWorld(true);
+    // Per-mesh bounds avoid framing the empty corners of one large kit box.
+    kit.group.traverse((object: THREE.Object3D) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.geometry.computeBoundingBox();
+      const bounds = object.geometry.boundingBox;
+      if (!bounds) return;
+      for (const x of [bounds.min.x, bounds.max.x])
+        for (const y of [bounds.min.y, bounds.max.y])
+          for (const z of [bounds.min.z, bounds.max.z])
+            corners.push(new THREE.Vector3(x, y, z).applyMatrix4(object.matrixWorld));
+    });
+    // Framing margins retain the original initial view; they do not limit looking.
+    const frameYaw = THREE.MathUtils.degToRad(5);
+    const framePitch = THREE.MathUtils.degToRad(3);
+    const pitchLimit = THREE.MathUtils.degToRad(80);
+    let targetYaw = 0;
+    let targetPitch = seatedPitch;
+
+    const resize = () => {
+      if (renderer.xr.isPresenting) return;
+      const width = Math.max(1, host.clientWidth);
+      const height = Math.max(1, host.clientHeight);
+      camera.aspect = width / height;
+      // Fit the original playing view, independently of the current look direction.
+      let tangent = 0;
+      const savedYaw = yaw.rotation.y;
+      const savedPitch = pitch.rotation.x;
+      for (const y of [-frameYaw, frameYaw]) {
+        for (const p of [-framePitch, framePitch]) {
+          yaw.rotation.y = y;
+          pitch.rotation.x = seatedPitch + p;
+          scene.updateMatrixWorld(true);
+          camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+          for (const corner of corners) {
+            const local = corner.clone().applyMatrix4(camera.matrixWorldInverse);
+            tangent = Math.max(tangent, Math.abs(local.y / local.z),
+              Math.abs(local.x / local.z) / camera.aspect);
+          }
+        }
+      }
+      yaw.rotation.y = savedYaw;
+      pitch.rotation.x = savedPitch;
+      camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(tangent / 0.9));
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+      highway.layout(camera, rig.position, seatedOrientation);
+    };
+
+    let pointerId: number | null = null;
+    let lastX = 0;
+    let lastY = 0;
+    let startX = 0;
+    let startY = 0;
+    let looking = false;
+    const canvas = renderer.domElement;
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const hitAtPointer = (event: PointerEvent) => {
+      if (!audioReady) return;
+      const rect = canvas.getBoundingClientRect();
+      pointer.set((event.clientX - rect.left) / rect.width * 2 - 1,
+        -(event.clientY - rect.top) / rect.height * 2 + 1);
+      scene.updateMatrixWorld(true);
+      raycaster.setFromCamera(pointer, camera);
+      const intersection = raycaster.intersectObjects(kit.raycastTargets, true)[0];
+      const target = intersection?.object;
+      let object: THREE.Object3D | null = target ?? null;
+      while (object) {
+        if (object.userData.drumType) {
+          if (interaction.hit(object.userData.drumType)) sticks.strikeAlternating(intersection.point);
+          break;
+        }
+        object = object.parent;
+      }
+    };
+    const down = (event: PointerEvent) => {
+      if (renderer.xr.isPresenting) return;
+      if (event.button !== 0 && event.button !== 2) return;
+      if (!event.shiftKey) {
+        hitAtPointer(event);
+      }
+      if (pointerId !== null || event.buttons === 0) return;
+      pointerId = event.pointerId;
+      lastX = startX = event.clientX;
+      lastY = startY = event.clientY;
+      looking = false;
+      canvas.setPointerCapture(event.pointerId);
+    };
+    const move = (event: PointerEvent) => {
+      if (renderer.xr.isPresenting || event.pointerId !== pointerId) return;
+      if (!looking && Math.hypot(event.clientX - startX, event.clientY - startY) < 4) return;
+      looking = true;
+      canvas.classList.add('is-looking');
+      // Only eye-centred yaw/pitch parents rotate. No world object or camera
+      // translation is touched, and yaw is free to turn through the whole venue.
+      targetYaw -= (event.clientX - lastX) * 0.003;
+      targetPitch = THREE.MathUtils.clamp(targetPitch - (event.clientY - lastY) * 0.003, -pitchLimit, pitchLimit);
+      lastX = event.clientX;
+      lastY = event.clientY;
+    };
+    function cancelLook() {
+      const captured = pointerId;
+      pointerId = null;
+      looking = false;
+      if (captured !== null && canvas.hasPointerCapture(captured)) canvas.releasePointerCapture(captured);
+      canvas.classList.remove('is-looking');
+    }
+    const up = (event: PointerEvent) => {
+      if (event.pointerId === pointerId) cancelLook();
+    };
+    resetRef.current = () => {
+      if (renderer.xr.isPresenting) return;
+      cancelLook();
+      targetYaw = 0;
+      targetPitch = seatedPitch;
+    };
+    const preventContextMenu = (event: Event) => event.preventDefault();
+    canvas.addEventListener('contextmenu', preventContextMenu);
+    canvas.addEventListener('pointerdown', down);
+    canvas.addEventListener('pointermove', move);
+    canvas.addEventListener('pointerup', up);
+    canvas.addEventListener('pointercancel', up);
+    canvas.addEventListener('lostpointercapture', up);
+    window.addEventListener('blur', cancelLook);
+    const observer = new ResizeObserver(resize);
+    observer.observe(host);
+    resize();
+
+    let previousTime: number | null = null;
+    renderer.setAnimationLoop(time => {
+      const delta = previousTime === null ? 0 : Math.min((time - previousTime) / 1000, 0.05);
+      previousTime = time;
+      backgrounds.update(time / 1000);
+      if (!renderer.xr.isPresenting) {
+        yaw.rotation.y = THREE.MathUtils.damp(yaw.rotation.y, targetYaw, 14, delta);
+        pitch.rotation.x = THREE.MathUtils.damp(pitch.rotation.x, targetPitch, 14, delta);
+        sticks.update(delta);
+      }
+      controllers.update();
+      interaction.update(delta);
+      highway.update(((demoPauseTime ?? performance.now()) - demoEpoch) / 1000);
+      renderer.render(scene, camera);
+    });
+
+    return () => {
+      disposed = true;
+      backgrounds.dispose();
+      backgroundRef.current = () => {};
+      renderer.xr.removeEventListener('sessionstart', startXR);
+      renderer.xr.removeEventListener('sessionend', endXR);
+      const session = renderer.xr.getSession();
+      if (session) void session.end().catch(() => {});
+      controllers.dispose();
+      poseRef.current = () => {};
+      xrActionRef.current = async () => {};
+      unsubscribeKit();
+      interaction.dispose();
+      highway.dispose();
+      demoRef.current = { toggle: () => false, restart: () => {} };
+      renderer.setAnimationLoop(null);
+      observer.disconnect();
+      resetRef.current = () => {};
+      cancelLook();
+      window.removeEventListener('blur', cancelLook);
+      canvas.removeEventListener('contextmenu', preventContextMenu);
+      canvas.removeEventListener('pointerdown', down);
+      canvas.removeEventListener('pointermove', move);
+      canvas.removeEventListener('pointerup', up);
+      canvas.removeEventListener('pointercancel', up);
+      canvas.removeEventListener('lostpointercapture', up);
+      const geometries = new Set<THREE.BufferGeometry>();
+      const materials = new Set<THREE.Material>();
+      const textures = new Set<THREE.Texture>();
+      scene.traverse(object => {
+        if (!(object instanceof THREE.Mesh)) return;
+        geometries.add(object.geometry);
+        for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+          materials.add(material);
+          for (const value of Object.values(material))
+            if (value instanceof THREE.Texture) textures.add(value);
+        }
+      });
+      geometries.forEach(geometry => geometry.dispose());
+      materials.forEach(material => material.dispose());
+      textures.forEach(texture => texture.dispose());
+      environment.dispose();
+      renderer.dispose();
+      canvas.remove();
+      scene.clear();
+    };
+  }, []);
+
+  return (
+    <main className="vr-practice" aria-label="First-person drum practice">
+      <div className="vr-practice-stage" ref={hostRef} aria-label="Drum kit — click to strike, drag to look around; hold Shift to look without striking" />
+      <header className="vr-practice-toolbar">
+        <a href="#/">Back to DRUM UP</a>
+        <span>VR PRACTICE · {immersive ? 'HEADSET VIEW' : 'DESKTOP VIEW'}</span>
+        <div className="vr-practice-actions">
+          <span className="vr-demo-label">120 BPM · VISUAL DEMO</span>
+          <button onClick={() => setDemoPaused(demoRef.current.toggle())}>{demoPaused ? 'Resume demo' : 'Pause demo'}</button>
+          <button onClick={() => { demoRef.current.restart(); setDemoPaused(false); }}>Restart demo</button>
+          <button onClick={() => resetRef.current()}>Reset view</button>
+          <button disabled={!xrSupported || xrBusy} title={xrMessage} onClick={() => { void xrActionRef.current(); }}>{xrBusy ? 'Connecting…' : immersive ? 'Exit VR' : xrSupported ? 'Enter VR' : 'VR unavailable'}</button>
+          <EnvironmentSwitcher selected={background} onSelect={id => { backgroundRef.current(id); setBackground(id); }} />
+        </div>
+      </header>
+      <StickControllerPanel immersive={immersive} onChange={(mode, hand, pose) => poseRef.current(mode, hand, pose)} />
+      <p className="vr-xr-status">{xrMessage}</p>
+      <p className="vr-practice-hint" role="status">{audioStatus}</p>
+    </main>
+  );
+}

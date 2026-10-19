@@ -36,7 +36,7 @@ export const MidiSettingsModal: React.FC<MidiSettingsModalProps> = ({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxHeight: "85vh", overflowY: "auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(0,0,0,0.08)", paddingBottom: "12px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", paddingBottom: "12px" }}>
           <h2 style={{ fontFamily: "var(--font-display)", fontSize: "20px", fontWeight: "800" }}>MIDI & 드럼 설정</h2>
           <button className="icon-button" onClick={onClose}>
             <X size={20} />
@@ -50,7 +50,7 @@ export const MidiSettingsModal: React.FC<MidiSettingsModalProps> = ({
             연결된 기기 ({inputs.length}개)
           </div>
           {inputs.length === 0 ? (
-            <div style={{ fontSize: "13px", color: "var(--text-tertiary)", background: "rgba(0,0,0,0.02)", padding: "12px", borderRadius: "var(--radius-sm)", border: "1px solid rgba(0,0,0,0.04)" }}>
+            <div style={{ fontSize: "13px", color: "var(--text-tertiary)", background: "rgba(255, 255, 255, 0.02)", padding: "12px", borderRadius: "var(--radius-sm)", border: "1px solid rgba(255, 255, 255, 0.04)" }}>
               컴퓨터에 전자 드럼을 연결한 뒤 전원을 켜주세요.
               <br />
               <span style={{ fontSize: "11px", opacity: 0.8 }}>(MIDI 연결은 크롬, 엣지, 오페라 등 Chromium 계열 브라우저에서만 공식 지원됩니다.)</span>
@@ -58,7 +58,7 @@ export const MidiSettingsModal: React.FC<MidiSettingsModalProps> = ({
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
               {inputs.map((input) => (
-                <div key={input.id} style={{ fontSize: "13px", fontWeight: "500", background: "rgba(0,199,129,0.05)", border: "1px solid rgba(0,199,129,0.15)", color: "var(--accent-color)", padding: "10px 14px", borderRadius: "var(--radius-sm)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={input.id} style={{ fontSize: "13px", fontWeight: "500", background: "rgba(255, 109, 45, 0.05)", border: "1px solid rgba(255, 109, 45, 0.15)", color: "var(--accent-color)", padding: "10px 14px", borderRadius: "var(--radius-sm)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span>{input.name || "알 수 없는 MIDI 장치"}</span>
                   <span style={{ fontSize: "10px", padding: "2px 6px", background: "var(--accent-color)", color: "#fff", borderRadius: "4px" }}>ACTIVE</span>
                 </div>
@@ -128,7 +128,7 @@ export const MidiSettingsModal: React.FC<MidiSettingsModalProps> = ({
           </div>
         </div>
 
-        <div style={{ fontSize: "11px", color: "var(--text-secondary)", lineHeight: "1.4", background: "rgba(0,0,0,0.02)", padding: "12px", borderRadius: "var(--radius-sm)", border: "1px solid rgba(0,0,0,0.04)" }}>
+        <div style={{ fontSize: "11px", color: "var(--text-secondary)", lineHeight: "1.4", background: "rgba(255, 255, 255, 0.02)", padding: "12px", borderRadius: "var(--radius-sm)", border: "1px solid rgba(255, 255, 255, 0.04)" }}>
           💡 <strong>매핑 방법:</strong> [타격 입력] 버튼을 누른 후, 전자 드럼의 해당 패드를 세게 한 번 치면 입력 신호가 자동으로 인식되어 매핑됩니다.
         </div>
       </div>

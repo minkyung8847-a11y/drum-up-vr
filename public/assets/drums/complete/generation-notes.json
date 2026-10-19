@@ -1,0 +1,37 @@
+[
+  {
+    "id": "standard",
+    "source": "C:/Users/rntmf/Searches/Downloads/ChatGPT Image 2026년 9월 14일 오전 10_50_14.png",
+    "method": "User supplied original, unchanged PNG; web derivatives only."
+  },
+  {
+    "id": "room",
+    "source": "C:\\Users\\rntmf\\.codex\\generated_images\\01a09986-8e23-7690-9753-48159e2580da\\exec-fe923659-9ec1-4c3a-8394-23cb8fc44840.png",
+    "method": "Built-in image_gen",
+    "prompt": "Create ONE photorealistic complete drum kit product photograph for a premium music app, based on attached acoustic kit reference composition and photographic detail. ROOM: light natural honey birch wood shells, open studio acoustic kit. Keep front slightly elevated camera, centered full kit, immaculate chrome rims/lugs/stands, believable materials and sharp specular lighting. Acoustic kits have Drum Up on bass head. Keep all cymbals, wingnuts, feet, pedals visible with 6% safe margin around entire instrument. Match reference quality and full standing configuration, not pads as icons. Background MUST be smooth solid near-black #09090b with subtle black floor contact shadow, absolutely NO checkerboard, NO transparency pattern, no room scenery. Landscape 1376x1144 approximate. Do not make collage, interface, labels or extra lettering."
+  },
+  {
+    "id": "rock",
+    "source": "C:\\Users\\rntmf\\.codex\\generated_images\\01a09986-8e23-7690-9753-48159e2580da\\exec-df1dba32-e1ce-4c37-a380-7dc96b616bf6.png",
+    "method": "Built-in image_gen",
+    "prompt": "Create ONE photorealistic complete drum kit product photograph for a premium music app, based on attached acoustic kit reference composition and photographic detail. ROCK: deep glossy onyx black oak shells, larger powerful bass drum, heavy hammered bright bronze cymbals. Keep front slightly elevated camera, centered full kit, immaculate chrome rims/lugs/stands, believable materials and sharp specular lighting. Acoustic kits have Drum Up on bass head. Keep all cymbals, wingnuts, feet, pedals visible with 6% safe margin around entire instrument. Match reference quality and full standing configuration, not pads as icons. Background MUST be smooth solid near-black #09090b with subtle black floor contact shadow, absolutely NO checkerboard, NO transparency pattern, no room scenery. Landscape 1376x1144 approximate. Do not make collage, interface, labels or extra lettering."
+  },
+  {
+    "id": "jazz",
+    "source": "C:\\Users\\rntmf\\.codex\\generated_images\\01a09986-8e23-7690-9753-48159e2580da\\exec-6e7b0ff6-ded1-47c5-b211-7620ae4e1825.png",
+    "method": "Built-in image_gen",
+    "prompt": "Create ONE photorealistic complete drum kit product photograph for a premium music app, based on attached acoustic kit reference composition and photographic detail. JAZZ: vintage satin dark walnut wood shells, compact bop bass drum and tom proportions, beautiful hand hammered bronze ride. Keep front slightly elevated camera, centered full kit, immaculate chrome rims/lugs/stands, believable materials and sharp specular lighting. Acoustic kits have Drum Up on bass head. Keep all cymbals, wingnuts, feet, pedals visible with 6% safe margin around entire instrument. Match reference quality and full standing configuration, not pads as icons. Background MUST be smooth solid near-black #09090b with subtle black floor contact shadow, absolutely NO checkerboard, NO transparency pattern, no room scenery. Landscape 1376x1144 approximate. Do not make collage, interface, labels or extra lettering."
+  },
+  {
+    "id": "brush",
+    "source": "C:\\Users\\rntmf\\.codex\\generated_images\\01a09986-8e23-7690-9753-48159e2580da\\exec-7ce4222d-5364-437e-8102-3bf37540b282.png",
+    "method": "Built-in image_gen",
+    "prompt": "Create ONE photorealistic complete drum kit product photograph for a premium music app, based on attached acoustic kit reference composition and photographic detail. BRUSH: aged pale champagne sparkle shells, textured warm white coated drum heads, thin delicate bronze cymbals. Keep front slightly elevated camera, centered full kit, immaculate chrome rims/lugs/stands, believable materials and sharp specular lighting. Acoustic kits have Drum Up on bass head. Keep all cymbals, wingnuts, feet, pedals visible with 6% safe margin around entire instrument. Match reference quality and full standing configuration, not pads as icons. Background MUST be smooth solid near-black #09090b with subtle black floor contact shadow, absolutely NO checkerboard, NO transparency pattern, no room scenery. Landscape 1376x1144 approximate. Do not make collage, interface, labels or extra lettering."
+  },
+  {
+    "id": "electronic",
+    "source": "C:\\Users\\rntmf\\.codex\\generated_images\\01a09986-8e23-7690-9753-48159e2580da\\exec-1e72258e-9381-4bce-8e4b-771579bf0bf8.png",
+    "method": "Built-in image_gen",
+    "prompt": "Create ONE photorealistic complete drum kit product photograph for a premium music app, based on attached acoustic kit reference composition and photographic detail. ELECTRONIC: professional realistic electronic kit, black mesh trigger heads with restrained orange accent rings, matte black aluminum rack, rubber black low profile cymbal trigger discs, electronic bass trigger and pedal. Keep comparable natural drum placement but electronic hardware instead of acoustic wood shells. Keep front slightly elevated camera, centered full kit, immaculate chrome rims/lugs/stands, believable materials and sharp specular lighting. Acoustic kits have Drum Up on bass head. Keep all cymbals, wingnuts, feet, pedals visible with 6% safe margin around entire instrument. Match reference quality and full standing configuration, not pads as icons. Background MUST be smooth solid near-black #09090b with subtle black floor contact shadow, absolutely NO checkerboard, NO transparency pattern, no room scenery. Landscape 1376x1144 approximate. Do not make collage, interface, labels or extra lettering."
+  }
+]

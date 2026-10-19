@@ -5,36 +5,37 @@
   --font-display: 'Outfit', var(--font-sans);
 
   /* Colors */
-  --bg-app: #f4f5f7;
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --border-card: rgba(255, 255, 255, 0.4);
-  --text-primary: #1c1c1e;
-  --text-secondary: #6e6e73;
-  --text-tertiary: #aeaeb2;
+  --bg-app: #0A0A0A;
+  color-scheme: dark;
+  --bg-card: #111111;
+  --border-card: #292929;
+  --text-primary: #FFFFFF;
+  --text-secondary: #999999;
+  --text-tertiary: #777777;
   
-  --accent-color: #00c781;
-  --accent-color-hover: #00b372;
-  --danger-color: #ff3b30;
+  --accent-color: #FF6D2D;
+  --accent-color-hover: #FF6D2D;
+  --danger-color: #FF6D2D;
   
   /* Drum Specific Colors */
-  --color-kick: #00c781;
-  --color-snare: #34c759;
-  --color-hihat: #ff2d55;
-  --color-tom-high: #af52de;
-  --color-tom-mid: #5856d6;
-  --color-tom-floor: #007aff;
-  --color-crash: #ff9500;
-  --color-ride: #ffcc00;
+  --color-kick: #FF6D2D;
+  --color-snare: #FF6D2D;
+  --color-hihat: #FF6D2D;
+  --color-tom-high: #FF6D2D;
+  --color-tom-mid: #FF6D2D;
+  --color-tom-floor: #FF6D2D;
+  --color-crash: #FF6D2D;
+  --color-ride: #FF6D2D;
 
   /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 2px 8px rgba(255, 255, 255, 0.04);
+  --shadow-md: 0 8px 24px rgba(255, 255, 255, 0.06);
+  --shadow-lg: 0 16px 40px rgba(255, 255, 255, 0.08);
 
   /* Layout */
   --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 }
 
 * {
@@ -63,81 +64,9 @@ button, input, select {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 30%, #ffffff 0%, #f4f5f7 100%);
+  background: var(--bg-app);
 }
 
-/* Header */
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 32px;
-  height: 72px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  z-index: 10;
-}
-
-.header-left, .header-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.menu-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
-  border-radius: var(--radius-sm);
-  transition: background-color 0.2s;
-}
-
-.menu-button:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-.logo {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 22px;
-  letter-spacing: -0.5px;
-  background: linear-gradient(135deg, #1c1c1e 0%, #444446 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* Nav Tabs */
-.nav-tabs {
-  display: flex;
-  background: rgba(0, 0, 0, 0.04);
-  padding: 4px;
-  border-radius: 30px;
-  gap: 4px;
-}
-
-.tab-button {
-  border: none;
-  background: none;
-  padding: 8px 24px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  border-radius: 20px;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.tab-button.active {
-  background: #ffffff;
-  color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
-}
 
 .icon-button {
   background: none;
@@ -153,25 +82,8 @@ button, input, select {
 }
 
 .icon-button:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
-}
-
-.midi-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 6px 12px;
-  border-radius: 16px;
-  background-color: rgba(0, 0, 0, 0.04);
-  color: var(--text-secondary);
-}
-
-.midi-status.connected {
-  background-color: rgba(0, 199, 129, 0.1);
-  color: var(--accent-color);
 }
 
 /* Main Layout */
@@ -240,7 +152,7 @@ button, input, select {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   padding-bottom: 8px;
 }
 
@@ -280,8 +192,8 @@ button, input, select {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
   font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
@@ -303,8 +215,8 @@ button, input, select {
   width: 100%;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background-color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
   font-size: 14px;
   font-weight: 500;
   color: var(--text-primary);
@@ -325,7 +237,7 @@ button, input, select {
   appearance: none;
   height: 6px;
   border-radius: 3px;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.08);
   outline: none;
 }
 
@@ -373,7 +285,7 @@ button, input, select {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.08);
+  background-color: rgba(255, 255, 255, 0.08);
   transition: .3s;
   border-radius: 24px;
 }
@@ -432,7 +344,7 @@ input:checked + .switch-slider:before {
 .progress-bar {
   width: 100%;
   height: 6px;
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -532,8 +444,8 @@ input:checked + .switch-slider:before {
 
 .selection-card {
   padding: 12px 16px;
-  background: #ffffff;
-  border: 1px solid rgba(0,0,0,0.06);
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-md);
   cursor: pointer;
   display: flex;
@@ -578,18 +490,18 @@ input:checked + .switch-slider:before {
 }
 
 .badge.easy {
-  background: rgba(52, 199, 89, 0.1);
-  color: #34c759;
+  background: rgba(255, 109, 45, 0.1);
+  color: #FF6D2D;
 }
 
 .badge.medium {
-  background: rgba(255, 149, 0, 0.1);
-  color: #ff9500;
+  background: rgba(255, 109, 45, 0.1);
+  color: #FF6D2D;
 }
 
 .badge.hard {
-  background: rgba(255, 59, 48, 0.1);
-  color: #ff3b30;
+  background: rgba(255, 109, 45, 0.1);
+  color: #FF6D2D;
 }
 
 /* Rudiments practice flow */
@@ -626,7 +538,7 @@ input:checked + .switch-slider:before {
 .rudiment-difficulty-card {
   min-height: 176px;
   padding: 20px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.88);
   box-shadow: var(--shadow-md);
@@ -646,15 +558,15 @@ input:checked + .switch-slider:before {
 }
 
 .rudiment-difficulty-card.easy {
-  border-top: 4px solid #34c759;
+  border-top: 4px solid #FF6D2D;
 }
 
 .rudiment-difficulty-card.normal {
-  border-top: 4px solid #ff9500;
+  border-top: 4px solid #FF6D2D;
 }
 
 .rudiment-difficulty-card.hard {
-  border-top: 4px solid #ff3b30;
+  border-top: 4px solid #FF6D2D;
 }
 
 .difficulty-name {
@@ -743,7 +655,7 @@ input:checked + .switch-slider:before {
 .rudiment-stats span {
   padding: 7px 9px;
   border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.035);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .rudiment-stats strong {
@@ -772,7 +684,7 @@ input:checked + .switch-slider:before {
   margin: 0 auto 4px;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.035);
+  background: rgba(255, 255, 255, 0.035);
   color: var(--text-secondary);
   font-family: var(--font-display);
   font-size: 11px;
@@ -919,8 +831,8 @@ input:checked + .switch-slider:before {
   gap: 8px;
   width: 100%;
   padding: 12px;
-  background: var(--text-primary);
-  color: #ffffff;
+  background: var(--accent-color);
+  color: #000000;
   border: none;
   border-radius: var(--radius-md);
   font-weight: 600;
@@ -936,11 +848,11 @@ input:checked + .switch-slider:before {
 .action-btn.secondary {
   background: transparent;
   color: var(--text-primary);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .action-btn.secondary:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* Modal Dialogs */
@@ -959,7 +871,7 @@ input:checked + .switch-slider:before {
 }
 
 .modal-content {
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: var(--radius-lg);
   padding: 32px;
   width: 100%;
@@ -976,8 +888,8 @@ input:checked + .switch-slider:before {
   justify-content: space-between;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.02);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .midi-key-badge {
@@ -994,7 +906,7 @@ input:checked + .switch-slider:before {
   padding: 6px 12px;
   font-size: 11px;
   font-weight: 600;
-  background: rgba(0,0,0,0.06);
+  background: rgba(255, 255, 255, 0.06);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -1027,10 +939,10 @@ input:checked + .switch-slider:before {
   z-index: 10;
 }
 
-.judgement-perfect { color: #00c781; }
-.judgement-great { color: #34c759; }
-.judgement-good { color: #007aff; }
-.judgement-miss { color: #ff3b30; }
+.judgement-perfect { color: #FF6D2D; }
+.judgement-great { color: #FF6D2D; }
+.judgement-good { color: #FF6D2D; }
+.judgement-miss { color: #FF6D2D; }
 
 @keyframes scale-up-fade {
   0% {
@@ -1056,7 +968,7 @@ input:checked + .switch-slider:before {
   font-size: 130px;
   font-weight: 900;
   color: var(--accent-color);
-  text-shadow: 0 8px 30px rgba(0, 199, 129, 0.4);
+  text-shadow: 0 8px 30px rgba(255, 109, 45, 0.4);
   pointer-events: none;
   z-index: 20;
   animation: countdown-pulse 1.0s ease-in-out forwards;
@@ -1099,7 +1011,7 @@ input:checked + .switch-slider:before {
 .rudiment-progress-bar-bg {
   width: 100%;
   height: 6px;
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -1132,7 +1044,7 @@ input:checked + .switch-slider:before {
 }
 
 .rudiment-result-card {
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: 20px;
   width: 380px;
   padding: 36px;
@@ -1141,7 +1053,7 @@ input:checked + .switch-slider:before {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .rudiment-result-card h2 {
@@ -1178,7 +1090,7 @@ input:checked + .switch-slider:before {
 .result-divider {
   width: 100%;
   height: 1px;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.08);
   margin-bottom: 20px;
 }
 
@@ -1237,12 +1149,12 @@ input:checked + .switch-slider:before {
 }
 
 .result-btn.secondary-btn {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.05);
   color: rgba(28, 28, 30, 0.8);
 }
 
 .result-btn.secondary-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.08);
   transform: translateY(-1px);
 }
 
@@ -1268,10 +1180,10 @@ input:checked + .switch-slider:before {
   backdrop-filter: blur(8px);
   padding: 14px 18px;
   border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   z-index: 10;
   width: 140px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.04);
 }
 
 .live-stat-item {
@@ -1285,15 +1197,15 @@ input:checked + .switch-slider:before {
 }
 
 .live-stat-item.perfect strong {
-  color: #00c781;
+  color: #FF6D2D;
 }
 
 .live-stat-item.good strong {
-  color: #007aff;
+  color: #FF6D2D;
 }
 
 .live-stat-item.miss strong {
-  color: #ff3b30;
+  color: #FF6D2D;
 }
 
 .live-stat-item strong {
@@ -1306,7 +1218,7 @@ input:checked + .switch-slider:before {
   font-weight: 800;
   margin-top: 6px;
   color: rgba(28, 28, 30, 0.82);
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  text-shadow: 0 2px 8px rgba(255, 255, 255, 0.08);
 }
 
 /* ==========================================================================
@@ -1327,8 +1239,8 @@ input:checked + .switch-slider:before {
 
 .drum-kit-card.dropdown-active {
   z-index: 99999 !important;
-  border-color: rgba(0, 199, 129, 0.6);
-  box-shadow: 0 0 24px rgba(0, 199, 129, 0.25);
+  border-color: rgba(255, 109, 45, 0.6);
+  box-shadow: 0 0 24px rgba(255, 109, 45, 0.25);
 }
 
 .drum-kit-card-header {
@@ -1339,11 +1251,11 @@ input:checked + .switch-slider:before {
 
 .drum-kit-toggle-btn {
   font-size: 10px;
-  color: #00c781;
+  color: #FF6D2D;
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(0, 199, 129, 0.1);
+  background: rgba(255, 109, 45, 0.1);
 }
 
 .drum-kit-current-info {
@@ -1358,8 +1270,8 @@ input:checked + .switch-slider:before {
   font-weight: 800;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(0, 199, 129, 0.15);
-  color: #00c781;
+  background: rgba(255, 109, 45, 0.15);
+  color: #FF6D2D;
   letter-spacing: 0.5px;
 }
 
@@ -1444,9 +1356,9 @@ input:checked + .switch-slider:before {
 }
 
 .drum-kit-cat-chip.active {
-  background: #00c781;
+  background: #FF6D2D;
   color: #050508;
-  border-color: #00c781;
+  border-color: #FF6D2D;
 }
 
 .drum-kit-list-scroll {
@@ -1485,8 +1397,8 @@ input:checked + .switch-slider:before {
 }
 
 .drum-kit-item.selected {
-  background: rgba(0, 199, 129, 0.12);
-  border-color: rgba(0, 199, 129, 0.4);
+  background: rgba(255, 109, 45, 0.12);
+  border-color: rgba(255, 109, 45, 0.4);
 }
 
 .drum-kit-item-left {
@@ -1506,7 +1418,7 @@ input:checked + .switch-slider:before {
 }
 
 .drum-kit-item.selected .drum-kit-item-id {
-  color: #00c781;
+  color: #FF6D2D;
 }
 
 .drum-kit-item-text {
@@ -1550,30 +1462,48 @@ input:checked + .switch-slider:before {
 }
 
 .drum-kit-audition-btn:hover {
-  background: #00c781;
+  background: #FF6D2D;
   color: #050508;
 }
 
 .drum-kit-check-icon {
-  color: #00c781;
+  color: #FF6D2D;
   font-weight: 900;
   font-size: 14px;
 }
 
 /* Unified Tempo / Metronome Card Controls */
+.free-play-tempo { height: 141px; display: grid; grid-template-rows: 24px 1fr 33px; gap: 8px; }
+.tempo-power { display: flex; justify-content: flex-end; align-items: center; gap: 8px; font-size: 10px; font-weight: 400; color: #bdbdbd; }
+.tempo-power .is-on { color: #FF6D2D; }
+.tempo-value-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: start; }
+.tempo-value { display: flex; flex-direction: column; align-items: center; }
+.tempo-number { font-family: var(--font-sans); font-size: 42px; font-weight: 300; line-height: 1; font-variant-numeric: tabular-nums; color: #f5f5f5; }
+.tempo-unit { margin-top: 4px; font-size: 10px; font-weight: 300; letter-spacing: 2px; color: #bdbdbd; }
+.tempo-step { width: 34px; height: 34px; margin-top: 4px; display: flex; align-items: center; justify-content: center; border: 1px solid #3b3b3b; border-radius: 50%; background: transparent; color: #eee; cursor: pointer; }
+.tempo-step:last-child { justify-self: end; }
+.tempo-step:hover { border-color: #777; background: #ffffff08; }
+.tempo-options { display: grid; grid-template-columns: 1fr 1fr; align-items: end; border-top: 1px solid #333; padding-top: 8px; }
+.tempo-option { position: relative; display: flex; align-items: center; justify-content: center; height: 24px; }
+.tempo-option + .tempo-option { border-left: 1px solid #333; }
+.tempo-option select { appearance: none; width: 68px; padding: 0 20px 0 8px; border: 0; border-radius: 3px; background: transparent; color: #ccc; font-family: var(--font-sans); font-size: 17px; font-weight: 300; text-align: center; cursor: pointer; }
+.tempo-note select { font-size: 24px; line-height: 1; }
+.tempo-option svg { position: absolute; right: calc(50% - 27px); pointer-events: none; color: #aaa; }
+.tempo-option option { background: #171717; color: #eee; font-size: 16px; }
+.free-play-tempo button:focus-visible, .tempo-option select:focus-visible { outline: 1px solid #FF6D2D; outline-offset: 3px; }
 .time-sig-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding-top: 10px;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
   margin-top: 2px;
 }
 
 .time-sig-buttons {
   display: flex;
   gap: 4px;
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.04);
   padding: 3px;
   border-radius: 8px;
 }
@@ -1596,9 +1526,9 @@ input:checked + .switch-slider:before {
 }
 
 .time-sig-btn.active {
-  background: #ffffff;
+  background: var(--bg-card);
   color: var(--text-primary);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 4px rgba(255, 255, 255, 0.08);
 }
 
 /* Metronome Sequential Visual Beat Indicator */
@@ -1617,7 +1547,7 @@ input:checked + .switch-slider:before {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 6px 24px rgba(255, 255, 255, 0.06), 0 1px 3px rgba(255, 255, 255, 0.04);
   z-index: 25;
   pointer-events: none;
   opacity: 0;
@@ -1635,7 +1565,7 @@ input:checked + .switch-slider:before {
   height: 18px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.1);
-  border: 2px solid rgba(0, 0, 0, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1663,73 +1593,155 @@ input:checked + .switch-slider:before {
 
 /* Regular active beat */
 .beat-dot.active {
-  background: #00c781;
-  border-color: #00c781;
+  background: #FF6D2D;
+  border-color: #FF6D2D;
   transform: scale(1.35);
-  box-shadow: 0 0 16px rgba(0, 199, 129, 0.75), 0 0 6px rgba(0, 199, 129, 0.9);
+  box-shadow: 0 0 16px rgba(255, 109, 45, 0.75), 0 0 6px rgba(255, 109, 45, 0.9);
 }
 
 .beat-dot.active .beat-dot-inner {
-  background: #ffffff;
+  background: var(--bg-card);
 }
 
 /* Downbeat (Beat 1) Accent: larger, brighter neon glow */
 .beat-dot.downbeat.active {
-  background: #00e599;
+  background: #FF6D2D;
   border-color: #ffffff;
   transform: scale(1.55);
-  box-shadow: 0 0 24px rgba(0, 229, 153, 0.95), 0 0 10px rgba(0, 229, 153, 1);
+  box-shadow: 0 0 24px rgba(255, 109, 45, 0.95), 0 0 10px rgba(255, 109, 45, 1);
 }
 
 .beat-dot.downbeat.active .beat-dot-inner {
-  background: #ffffff;
+  background: var(--bg-card);
   box-shadow: 0 0 4px rgba(255, 255, 255, 0.9);
 }
 
 
-/* Acoustic instrument stage. Scoped to Free Play; all existing controls remain available. */
-.acoustic-studio {
-  --text-primary: #e9e5de; --text-secondary: #a4a3a0; --text-tertiary: #777978;
-  --bg-card: #17191b; --border-card: #2c2e30;
-  --accent-color: #cc8652; --accent-color-hover: #dfa477;
-  background: radial-gradient(ellipse at 50% 64%, #282a2e 0%, #111315 48%, #090a0c 85%);
+/* Shared Black / White / Orange system across play, practice and settings. */
+.app-container { height: 100dvh; }
+.icon-button:hover { color: var(--accent-color); background: transparent; }
+.icon-button { padding: 9px 0; border-radius: 0; background: none; }
+.sidebar-left, .sidebar-right { flex: 0 0 252px; width: 252px !important; padding: 24px 16px; gap: 16px; }
+.sidebar-right { flex-basis: 280px; width: 280px !important; }
+.play-area { min-width: 0; }
+.glass-panel { background: var(--bg-card); border-color: var(--border-card); box-shadow: none; backdrop-filter: none; gap: 14px; }
+.panel-title, .control-label { letter-spacing: .09em; }
+.panel-header { border-color: var(--border-card); }
+.bpm-btn, .custom-select { background: #1A1A1A; color: var(--text-primary); border-color: #333333; }
+.bpm-btn:hover { background: var(--accent-color); color: #000000; }
+.bpm-btn:disabled:hover { transform: none; background: #1A1A1A; color: var(--text-secondary); }
+.custom-slider, .switch-slider, .progress-bar { background: #333333; }
+.custom-slider { accent-color: var(--accent-color); }
+.custom-slider::-moz-range-thumb { background: var(--accent-color); width: 16px; height: 16px; border: 0; border-radius: 50%; }
+input:checked + .switch-slider { background: var(--accent-color); }
+input:focus-visible + .switch-slider { outline: 2px solid var(--accent-color); outline-offset: 4px; }
+.action-btn, .action-btn.primary { background: var(--accent-color); color: #000000; border-radius: 6px; box-shadow: none; }
+.action-btn:hover { background: var(--accent-color); transform: scale(1.015); }
+.action-btn:active { transform: scale(.97); }
+.action-btn.secondary { background: #191919; color: var(--text-primary); border-color: #333333; }
+.action-btn.secondary:hover { background: #222222; border-color: var(--accent-color); }
+button:disabled { cursor: not-allowed; opacity: .45; }
+button:disabled:hover { transform: none; }
+button:focus-visible, [role="button"]:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
+input, select, textarea { color: var(--text-primary); background: #191919; accent-color: var(--accent-color); }
+input::placeholder { color: var(--text-tertiary); }
+.time-sig-buttons { background: #191919; }
+.time-sig-btn:hover { background: #242424; }
+.time-sig-btn.active { background: var(--accent-color); color: #000000; box-shadow: none; }
+.drum-kit-card { background: var(--bg-card); border-color: var(--border-card); }
+.drum-kit-card:hover { border-color: var(--accent-color); box-shadow: none; }
+.drum-kit-dropdown { background: #111111; border-color: #333333; border-radius: 8px; box-shadow: 0 16px 36px #00000066; width: min(340px, calc(100vw - 32px)); }
+.drum-kit-cat-chip { border-radius: 4px; }
+.drum-kit-cat-chip.active { background: var(--accent-color); color: #000000; }
+.drum-kit-item.selected { background: #191919; border-color: var(--accent-color); }
+.drum-kit-title, .drum-kit-item-name { color: var(--text-primary); }
+.drum-kit-category-tag, .drum-kit-item-cat { color: var(--text-secondary); }
+.beat-indicator-container { top: 9%; background: #111111; border-color: #292929; box-shadow: none; backdrop-filter: none; padding: 10px 18px; gap: 12px; }
+.beat-dot { background: #292929; border-color: #444444; }
+.beat-dot.downbeat { border-color: #777777; }
+.beat-dot.active, .beat-dot.downbeat.active { background: var(--accent-color); border-color: var(--accent-color); box-shadow: none; }
+.beat-dot.active .beat-dot-inner { background: #000000; box-shadow: none; }
+.rudiment-select-screen { max-width: 900px; }
+.rudiment-select-heading { gap: 12px; margin-bottom: 12px; }
+.rudiment-select-heading .control-label { color: var(--accent-color); letter-spacing: .2em; }
+.rudiment-select-heading h2 { font-size: clamp(22px, 3vw, 32px); font-weight: 600; }
+.rudiment-difficulty-card { background: #111111; border: 1px solid #292929; box-shadow: none; min-height: 210px; padding: 24px; gap: 12px; }
+.rudiment-difficulty-card.easy, .rudiment-difficulty-card.normal, .rudiment-difficulty-card.hard { border-top: 1px solid #292929; }
+.rudiment-difficulty-card:hover, .rudiment-difficulty-card:focus-visible { background: #161616; border-color: var(--accent-color); box-shadow: none; transform: translateY(-3px); }
+.rudiment-difficulty-card:hover .difficulty-name { color: var(--accent-color); }
+.difficulty-name { font-size: 28px; font-weight: 600; }
+.difficulty-meta { font-weight: 500; }
+.badge.easy, .badge.medium, .badge.hard { background: #222222; color: var(--text-secondary); border: 1px solid #333333; }
+.selection-card { background: #111111; border-color: #292929; }
+.selection-card.active { background: #191919; border-color: var(--accent-color); color: var(--accent-color); }
+.rudiment-topbar { background: #111111; border-color: #292929; backdrop-filter: none; box-shadow: none; }
+.rudiment-stats span, .rudiment-pattern-strip { background: #191919; }
+.countdown-overlay { text-shadow: none; }
+.modal-overlay { background: #000000bb; padding: 20px; }
+.modal-content { background: #111111; border: 1px solid #333333; box-shadow: 0 24px 80px #00000080; }
+.midi-mapping-row { background: #191919; border-color: #292929; gap: 12px; }
+.midi-key-badge { background: #292929; color: var(--text-secondary); font-size: 10px; }
+.midi-learn-btn { background: #222222; color: var(--text-primary); min-height: 36px; border: 1px solid #333333; }
+.midi-learn-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
+.midi-learn-btn.learning { background: var(--accent-color); color: #000000; }
+.sidebar-balance-spacer { flex: 0 0 252px; width: 252px !important; pointer-events: none; visibility: hidden; }
+/* FREE PLAY only: exact 48px page margins. The sidebar's own 16px inline padding moves into the page
+   margin (box width drops 252px -> 220px) so the cards keep their size and their edge lands on 48px. */
+.acoustic-studio .main-layout { padding-inline: 48px; }
+.acoustic-studio .sidebar-left, .acoustic-studio .sidebar-balance-spacer { padding-inline: 0; flex-basis: 220px; width: 220px !important; }
+.app-container[data-view="RHYTHM GAME"] .rudiment-stage > .glass-panel { border: 0; border-radius: 0; background: var(--bg-app); overflow-y: auto; }
+@media (max-width: 1150px) {
+  .sidebar-left, .sidebar-right, .sidebar-balance-spacer { flex-basis: 220px; width: 220px !important; padding: 16px 10px; }
+  .acoustic-studio .sidebar-left, .acoustic-studio .sidebar-balance-spacer { flex-basis: 200px; width: 200px !important; }
 }
-.acoustic-studio .app-header { background: #111315; border-color: #292b2e; height:64px; flex-shrink:0; }
-.acoustic-studio .logo { background: none; -webkit-text-fill-color: #ece6dd; }
-.acoustic-studio .nav-tabs { background:#08090a; border:1px solid #2a2c2f; border-radius:8px; }
-.acoustic-studio .tab-button { border-radius:5px; font-size:12px; }
-.acoustic-studio .tab-button.active { background:#303132; color:#f1d0ac; box-shadow:none; }
-.acoustic-studio .sidebar-left, .acoustic-studio .sidebar-right { flex:0 0 232px; width:232px !important; padding:20px 12px; gap:14px; }
-.acoustic-studio .glass-panel { border-radius:10px; box-shadow:none; backdrop-filter:none; gap:12px; }
-.acoustic-studio .control-label { font-size:10px; letter-spacing:1px; }
-.acoustic-studio .bpm-btn, .acoustic-studio .time-sig-btn,
-.acoustic-studio .custom-select, .acoustic-studio .action-btn.secondary { background:#242629; color:#d4d4d0; border-color:#383b3e; }
-.acoustic-studio .custom-slider, .acoustic-studio .switch-slider { background:#3a3c3e; }
-.acoustic-studio .action-btn.primary { background:#b87948; color:#fff4e7; box-shadow:none; }
-.acoustic-studio .play-area { min-width:0; }
-.acoustic-studio .play-area::before {
-  content:'ACOUSTIC  /  STUDIO KIT'; position:absolute; top:30px; left:50%; transform:translateX(-50%);
-  color:#bcb3a5; font-size:10px; font-weight:600; letter-spacing:3px; white-space:nowrap; pointer-events:none; z-index:2;
+@media (max-width: 900px) {
+  .app-container { height: auto; min-height: 100dvh; overflow: visible; }
+  .main-layout { flex-wrap: wrap; overflow: visible; }
+  .play-area { order: -1; flex: 1 0 100% !important; height: 65dvh; min-height: 420px; }
+  .sidebar-left, .sidebar-right { flex: 1 1 50%; width: 50% !important; min-width: 0; }
+  .acoustic-studio .sidebar-left { flex: 1 1 50%; width: 50% !important; }
+  .rudiment-select-screen { padding-block: 24px; }
+  .app-container[data-view="RUDIMENT"] .play-area { min-height: 780px; }
+  .rudiment-difficulty-card { min-height: 160px; }
+  .rudiment-topbar { grid-template-columns: 1fr; gap: 10px; }
+  .rudiment-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .rudiment-stats { flex-wrap: wrap; }
+  .rudiment-practice { inset: 0; }
+  .rudiment-drum-layer { inset: 40% 0 0; height: 60%; }
 }
-.acoustic-studio .play-area::after {
-  content:'각 드럼과 심벌을 클릭해 연주하세요'; position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
-  color:#858581; font-size:11px; letter-spacing:0.5px; white-space:nowrap; pointer-events:none; z-index:2;
+@media (max-width: 520px) {
+  .sidebar-left, .sidebar-right { flex: 1 0 100%; width: 100% !important; padding: 12px 16px; }
+  .acoustic-studio .sidebar-left { flex: 1 0 100%; width: 100% !important; }
+  .modal-content { padding: 20px 16px; }
+  .midi-mapping-row { align-items: flex-start; flex-direction: column; }
+  .midi-mapping-row > div { flex-wrap: wrap; }
 }
-.acoustic-studio .drum-kit-dropdown { background:#1c1e20; border-color:#36393b; }
-.acoustic-studio .drum-kit-item:hover { background:#292c2f; }
-.acoustic-studio .drum-kit-item.selected { background:#30261e; }
-@media (max-width:1100px) {
-  .acoustic-studio .sidebar-left, .acoustic-studio .sidebar-right { flex-basis:196px; width:196px !important; padding:14px 8px; }
-}
-@media (max-width:800px) {
-  .acoustic-studio { height:auto; min-height:100dvh; overflow:visible; }
-  .acoustic-studio .app-header { padding:12px; gap:8px; flex-wrap:wrap; height:auto; }
-  .acoustic-studio .nav-tabs { order:3; width:100%; justify-content:center; }
-  .acoustic-studio .main-layout { flex-wrap:wrap; overflow:visible; }
-  .acoustic-studio .play-area { order:-1; flex:1 0 100%; height:65vh; min-height:380px; }
-  .acoustic-studio .sidebar-left, .acoustic-studio .sidebar-right { flex:1 1 50%; width:50% !important; }
+@media (prefers-reduced-motion: reduce) {
+  .app-container *, .app-container *::after { animation: none !important; transition: none !important; }
 }
 
-.acoustic-studio .drum-kit-title, .acoustic-studio .drum-kit-item-name { color:#e6e1d9; }
-.acoustic-studio .drum-kit-cat-chip { background:#272a2c; color:#bbbcb8; border-color:#35383a; }
-.acoustic-studio .drum-kit-cat-chip.active { background:#4b3424; color:#f0c7a4; border-color:#775238; }
+/* FREE PLAY bottom-left drum kit control: aligned to the 48px page margin; the shared dropdown opens upward. */
+.drum-kit-bottom { position: fixed; left: 48px; bottom: 32px; z-index: 60; flex-direction: row; align-items: center; gap: 14px; padding: 16px; user-select: none; }
+.drum-kit-bottom-icon { display: flex; align-items: center; background: none; border: 0; padding: 0; color: var(--text-primary); cursor: pointer; transition: color .2s ease; }
+.drum-kit-bottom-icon:hover { color: #FF9466; }
+.drum-kit-bottom-text { display: flex; flex-direction: column; gap: 3px; }
+.drum-kit-bottom-label { font-size: 11px; font-weight: 600; letter-spacing: .16em; color: var(--text-secondary); }
+.drum-kit-bottom-current { display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; color: var(--text-primary); font-family: var(--font-display); font-size: 16px; font-weight: 800; letter-spacing: .04em; cursor: pointer; transition: color .2s ease; }
+.drum-kit-bottom-current svg { color: #FF6D2D; }
+.drum-kit-bottom-current:hover, .drum-kit-bottom-current[aria-expanded="true"] { color: #FF6D2D; }
+.drum-kit-dropdown-up { top: auto; bottom: calc(100% + 14px); max-height: min(440px, calc(100dvh - 130px)); animation-name: drum-kit-pop-up; }
+@keyframes drum-kit-pop-up { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* Bottom-left kit popup: fixed 48px rows, list capped at exactly 2 rows (2 x 48px + 1 x 4px gap) and scrolls beyond that. */
+.drum-kit-dropdown-up .drum-kit-list-scroll { max-height: 100px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.18) transparent; }
+.drum-kit-dropdown-up .drum-kit-item { flex: 0 0 48px; }
+
+/* FREE PLAY bottom-right volume: bare - / slider / + aligned to the 48px right margin; #FF6D2D fill over a neutral track. */
+.volume-bottom { position: fixed; right: 48px; bottom: 32px; z-index: 60; display: flex; align-items: center; gap: 14px; }
+.volume-bottom button { display: flex; align-items: center; background: none; border: 0; padding: 9px 0; color: var(--text-primary); cursor: pointer; transition: color .2s ease; }
+.volume-bottom button:hover { color: #FF9466; }
+.volume-bottom-slider { -webkit-appearance: none; appearance: none; width: 160px; height: 2px; border-radius: 1px; outline: none; cursor: pointer; background: linear-gradient(to right, #FF6D2D var(--vol), rgba(255,255,255,.18) var(--vol)); }
+.volume-bottom-slider::-webkit-slider-runnable-track { height: 2px; background: transparent; }
+.volume-bottom-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; margin-top: -5px; border-radius: 50%; background: #FF6D2D; border: 0; }
+.volume-bottom-slider::-moz-range-track { height: 2px; background: transparent; }
+.volume-bottom-slider::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #FF6D2D; border: 0; }

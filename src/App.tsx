@@ -1,10 +1,9 @@
-import { BrandLogo } from "./components/brand/BrandLogo";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
+import { ChevronDown, Minus, Plus } from "lucide-react";
 import { Drum3D } from "./components/Drum3D";
 import type { Drum3DHandle } from "./components/Drum3D";
 import { useMidi } from "./hooks/useMidi";
 import { drumSynth } from "./utils/synth";
-import { Menu, Settings, Bluetooth } from "lucide-react";
 import { RudimentPractice } from "./components/RudimentPractice";
 import { SongPractice } from "./components/SongPractice";
 import type { GameScore, SongChart } from "./types";
@@ -12,15 +11,17 @@ import { MidiSettingsModal } from "./components/MidiSettingsModal";
 import { DrumKitSelector } from "./components/DrumKitSelector";
 import { BeatIndicator, type TimeSignature } from "./components/BeatIndicator";
 import { DrumKitShowroom } from "./components/showroom/DrumKitShowroom";
+import { LandingPage } from "./components/brand/BrandIntro";
+import { ShowroomHeader } from "./components/showroom/ShowroomHeader";
 
 type ActiveTab = "FREE PLAY" | "RUDIMENT" | "RHYTHM GAME";
-type AppView = "SHOWROOM" | "PLAY";
+type AppView = "LANDING" | "SHOWROOM" | "PLAY";
 type DrumPadId = "kick" | "snare" | "hihat" | "tom1" | "tom2" | "tom3" | "crash" | "ride";
 type RudimentDifficulty = "EASY" | "NORMAL" | "HARD";
 
 function App() {
   const drumRef = useRef<Drum3DHandle | null>(null);
-  const [appView, setAppView] = useState<AppView>("SHOWROOM");
+  const [appView, setAppView] = useState<AppView>("LANDING");
   const [activeTab, setActiveTab] = useState<ActiveTab>("FREE PLAY");
   const [selectedKitId, setSelectedKitId] = useState<string>(() => drumSynth.getCurrentKitId());
 
@@ -56,8 +57,15 @@ function App() {
   // Audio & Metronome settings
   const [bpm, setBpm] = useState<number>(60);
   const [volume, setVolume] = useState<number>(80);
+  const changeVolume = useCallback((next: number) => {
+    const clamped = Math.max(0, Math.min(100, next));
+    setVolume(clamped);
+    drumSynth.setVolume(clamped / 100);
+  }, []);
   const [metronomeOn, setMetronomeOn] = useState<boolean>(false);
   const [timeSignature, setTimeSignature] = useState<TimeSignature>("4/4");
+  const [noteDivision, setNoteDivision] = useState<number>(1);
+  const metronomeDivision = activeTab === "FREE PLAY" ? noteDivision : 1;
   const [currentBeat, setCurrentBeat] = useState<number>(-1);
   const [isMetronomeFlash, setIsMetronomeFlash] = useState<boolean>(false);
 
@@ -98,7 +106,6 @@ function App() {
 
   // Hook into MIDI Devices and Custom mapping configuration
   const {
-    connectionState,
     inputs: midiInputs,
     midiMap,
     learningPadId,
@@ -171,7 +178,7 @@ function App() {
     }
 
     const beats = timeSignature === "3/4" ? 3 : timeSignature === "6/8" ? 6 : 4;
-    const intervalMs = (60 / bpm) * 1000;
+    const intervalMs = (60 / bpm) * 1000 / metronomeDivision;
 
     // Play first beat immediately on start
     drumSynth.playMetronomeClick(true);
@@ -182,10 +189,10 @@ function App() {
     let step = 0;
 
     const interval = setInterval(() => {
-      step = (step + 1) % beats;
+      step = (step + 1) % (beats * metronomeDivision);
       const isDownbeat = step === 0;
       drumSynth.playMetronomeClick(isDownbeat);
-      setCurrentBeat(step);
+      setCurrentBeat(Math.floor(step / metronomeDivision));
       setIsMetronomeFlash(true);
       setTimeout(() => setIsMetronomeFlash(false), 80);
     }, intervalMs);
@@ -194,137 +201,51 @@ function App() {
       clearInterval(interval);
       clearTimeout(flashTimeout);
     };
-  }, [metronomeOn, bpm, timeSignature]);
+  }, [metronomeOn, bpm, timeSignature, metronomeDivision]);
 
   const beatsPerBar = timeSignature === "3/4" ? 3 : timeSignature === "6/8" ? 6 : 4;
 
-  if (appView === "SHOWROOM") {
-    return (
+  const handleHome = () => {
+    setAppView("LANDING");
+    setIsSettingsOpen(false);
+    setMetronomeOn(false);
+    setRudimentIsPlaying(false);
+    setSongIsPlaying(false);
+  };
+
+  const appContent = appView !== "PLAY" ? (
+      <>
+      {appView === "LANDING" ? (
+        <LandingPage
+          onOpenShowroom={() => setAppView("SHOWROOM")}
+          onHome={handleHome}
+          onNavigate={(tab) => { handleTabChange(tab); setAppView("PLAY"); }}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
+      ) : (
       <DrumKitShowroom
+        onHome={handleHome}
         initialKitId={selectedKitId}
+        onNavigate={(tab) => { handleTabChange(tab); setAppView("PLAY"); }}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         onEnterPlay={(kitId) => {
           handleSelectKit(kitId);
+          handleTabChange("FREE PLAY");
           setAppView("PLAY");
         }}
       />
-    );
-  }
-
-  return (
+      )}
+      <div className="showroom-settings">
+        <MidiSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)}
+          inputs={midiInputs} midiMap={midiMap} learningPadId={learningPadId}
+          startLearning={startLearning} stopLearning={stopLearning} resetToDefaultMapping={resetToDefaultMapping} />
+      </div>
+      </>
+  ) : (
     <div className={`app-container play-view-in ${activeTab === "FREE PLAY" ? "acoustic-studio" : ""}`} data-view={activeTab}>
       {/* HEADER SECTION */}
-      <header className="app-header">
-        <div className="header-left">
-          <button className="menu-button" aria-label="드럼 키트 선택" onClick={() => setAppView("SHOWROOM")}>
-            <Menu size={20} />
-          </button>
-          <h1
-            className="logo brand-header"
-            onClick={() => setAppView("SHOWROOM")}
-            style={{ cursor: "pointer" }}
-            title="Go to Drum Kit Showroom"
-          >
-            <BrandLogo />
-          </h1>
-        </div>
-
-        {/* Tab Navigation Capsule */}
-        <nav className="nav-tabs">
-          <button
-            type="button"
-            className="tab-button"
-            onClick={() => setAppView("SHOWROOM")}
-            style={{ color: "var(--accent-color, #FF6D2D)", fontWeight: 700 }}
-            title="Return to Drum Kit Selection Showroom"
-          >
-            ← DRUM KITS
-          </button>
-          {(["FREE PLAY", "RUDIMENT", "RHYTHM GAME"] as ActiveTab[]).map((tab) => (
-            <button
-              key={tab}
-              className={`tab-button ${activeTab === tab ? "active" : ""}`}
-              onClick={() => handleTabChange(tab)}
-            >
-              {tab === "FREE PLAY" ? "Free Play" : tab === "RUDIMENT" ? "Rudiment" : "Song Practice"}
-            </button>
-          ))}
-        </nav>
-
-        <div className="header-right">
-          <button 
-            className="icon-button" 
-            title="설정"
-            onClick={() => setIsSettingsOpen(true)}
-          >
-            <Settings size={20} />
-          </button>
-          <button
-            className="icon-button"
-            style={{ 
-              color: 
-                connectionState === "connected" 
-                  ? "#FF6D2D" 
-                  : connectionState === "lost" 
-                  ? "#FF6D2D" 
-                  : connectionState === "error" 
-                  ? "#FF6D2D"
-                  : (connectionState === "scanning" || connectionState === "connecting")
-                  ? "#FF6D2D"
-                  : "var(--text-secondary)" 
-            }}
-            title={
-              connectionState === "connected" ? "MIDI 기기 연결됨" : 
-              connectionState === "lost" ? "연결 해제됨" : 
-              connectionState === "error" ? "오류 발생" : "연결 대기중"
-            }
-          >
-            <Bluetooth size={20} />
-          </button>
-          <div
-            className={`midi-status`}
-            style={{
-              padding: "4px 10px",
-              fontSize: "11px",
-              fontWeight: "bold",
-              background: 
-                connectionState === "connected"
-                  ? "rgba(255, 109, 45, 0.1)"
-                  : connectionState === "lost"
-                  ? "rgba(255, 109, 45, 0.1)"
-                  : connectionState === "error"
-                  ? "rgba(255, 109, 45, 0.1)"
-                  : (connectionState === "scanning" || connectionState === "connecting")
-                  ? "rgba(255, 109, 45, 0.1)"
-                  : "rgba(255, 255, 255, 0.04)",
-              color: 
-                connectionState === "connected"
-                  ? "#FF6D2D"
-                  : connectionState === "lost"
-                  ? "#FF6D2D"
-                  : connectionState === "error"
-                  ? "#FF6D2D"
-                  : (connectionState === "scanning" || connectionState === "connecting")
-                  ? "#FF6D2D"
-                  : "var(--text-tertiary)",
-              border: 
-                connectionState === "connected"
-                  ? "1px solid rgba(255, 109, 45, 0.2)"
-                  : connectionState === "lost"
-                  ? "1px solid rgba(255, 109, 45, 0.2)"
-                  : connectionState === "error"
-                  ? "1px solid rgba(255, 109, 45, 0.2)"
-                  : "1px solid rgba(255, 255, 255, 0.06)",
-              borderRadius: "20px",
-            }}
-          >
-            {connectionState === "connected" ? "HOSIMI ON" :
-             connectionState === "scanning" ? "검색 중" :
-             connectionState === "connecting" ? "연결 중" :
-             connectionState === "lost" ? "연결 해제" :
-             connectionState === "error" ? "오류" : "MIDI OFF"}
-          </div>
-        </div>
-      </header>
+      <ShowroomHeader activeTab={activeTab} onNavigate={handleTabChange}
+        onOpenSettings={() => setIsSettingsOpen(true)} onHome={handleHome} />
 
       {/* MAIN CONTAINER LAYOUT */}
       <main className="main-layout">
@@ -346,11 +267,48 @@ function App() {
                 currentKitId={selectedKitId}
                 onSelectKit={handleSelectKit}
                 onOpenShowroom={() => setAppView("SHOWROOM")}
+                variant="bottom"
               />
             )}
 
             {/* Card 2: Tempo & Metronome (Unified) */}
             <div className="glass-panel tempo-metronome-card" style={{ padding: "16px" }}>
+              {activeTab === "FREE PLAY" ? (
+                <div className="free-play-tempo">
+                  <div className="tempo-power">
+                    <span className={metronomeOn ? "is-on" : undefined}>{metronomeOn ? "ON" : "OFF"}</span>
+                    <label className="switch">
+                      <input type="checkbox" aria-label="Metronome" checked={metronomeOn}
+                        onChange={(e) => { drumSynth.init(); setMetronomeOn(e.target.checked); }} />
+                      <span className="switch-slider" />
+                    </label>
+                  </div>
+                  <div className="tempo-value-row">
+                    <button type="button" className="tempo-step" aria-label="Decrease BPM" title="BPM -5"
+                      onClick={() => setBpm((b) => Math.max(40, b - 5))}><Minus size={18} strokeWidth={1.5} /></button>
+                    <div className="tempo-value"><span className="tempo-number">{bpm}</span><span className="tempo-unit">BPM</span></div>
+                    <button type="button" className="tempo-step" aria-label="Increase BPM" title="BPM +5"
+                      onClick={() => setBpm((b) => Math.min(240, b + 5))}><Plus size={18} strokeWidth={1.5} /></button>
+                  </div>
+                  <div className="tempo-options">
+                    <div className="tempo-option tempo-note">
+                      <select aria-label="Note value" value={noteDivision} onChange={(e) => setNoteDivision(Number(e.target.value))}>
+                        <option value={1} aria-label="Quarter note">♩</option>
+                        <option value={2} aria-label="Eighth note">♪</option>
+                        <option value={4} aria-label="Sixteenth notes">♬</option>
+                      </select>
+                      <ChevronDown size={12} aria-hidden="true" />
+                    </div>
+                    <div className="tempo-option">
+                      <select aria-label="Time signature" value={timeSignature} onChange={(e) => setTimeSignature(e.target.value as TimeSignature)}>
+                        <option value="4/4">4/4</option><option value="3/4">3/4</option><option value="6/8">6/8</option>
+                      </select>
+                      <ChevronDown size={12} aria-hidden="true" />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+              <>
               {/* Header: Title & Metronome Switch */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -421,9 +379,27 @@ function App() {
                   ))}
                 </div>
               </div>
+              </>
+              )}
             </div>
 
-            {/* Card 3: Volume */}
+            {/* Card 3: Volume (FREE PLAY uses the minimal bottom-right control instead) */}
+            {activeTab === "FREE PLAY" ? (
+              <div className="volume-bottom">
+                <button type="button" aria-label="Volume down" onClick={() => changeVolume(volume - 10)}><Minus size={18} strokeWidth={1.5} /></button>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={volume}
+                  onChange={(e) => changeVolume(Number(e.target.value))}
+                  className="volume-bottom-slider"
+                  style={{ "--vol": `${volume}%` } as CSSProperties}
+                  aria-label="Volume"
+                />
+                <button type="button" aria-label="Volume up" onClick={() => changeVolume(volume + 10)}><Plus size={18} strokeWidth={1.5} /></button>
+              </div>
+            ) : (
             <div className="glass-panel" style={{ padding: "16px" }}>
               <span className="control-label" style={{ fontSize: "11px" }}>Volume</span>
               <div className="slider-container" style={{ marginTop: "8px" }}>
@@ -439,6 +415,7 @@ function App() {
                 <span style={{ fontSize: "12px", width: "24px", textAlign: "right", fontWeight: "600", opacity: 0.5 }}>{volume}</span>
               </div>
             </div>
+            )}
           </aside>
         )}
 
@@ -549,7 +526,10 @@ function App() {
           )}
         </section>
 
-
+        {/* RIGHT BALANCE SPACER: balances sidebar-left so 3D drum stays centered in the viewport */}
+        {activeTab !== "RUDIMENT" && (
+          <div className="sidebar-balance-spacer" aria-hidden="true" />
+        )}
       </main>
       <MidiSettingsModal
         isOpen={isSettingsOpen}
@@ -563,6 +543,8 @@ function App() {
       />
     </div>
   );
+
+  return appContent;
 }
 
 export default App;

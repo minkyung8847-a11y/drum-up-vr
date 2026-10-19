@@ -10,7 +10,7 @@ interface DrumKitVisualProps {
 export const DrumKitVisual: React.FC<DrumKitVisualProps> = ({ kit, isActive, onAudition }) => (
   <button
     type="button"
-    className="showroom-drum-img-wrapper"
+    className="showroom-drum-img-wrapper showroom-reference-drum"
     onClick={onAudition}
     tabIndex={isActive ? 0 : -1}
     disabled={!isActive}

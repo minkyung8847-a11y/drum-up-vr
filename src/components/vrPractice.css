@@ -1,0 +1,81 @@
+.vr-practice {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: #101114;
+  color: #ececee;
+  font-family: Arial, sans-serif;
+}
+
+.vr-practice-stage { position: absolute; inset: 64px 0 44px; }
+.vr-practice-stage canvas { display: block; cursor: grab; touch-action: none; }
+.vr-practice-stage canvas.is-looking { cursor: grabbing; }
+.vr-practice-toolbar {
+  position: absolute;
+  inset: 0 0 auto;
+  min-height: 64px;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 12px;
+}
+.vr-practice-toolbar span { color: #a6a7ad; letter-spacing: 1.5px; }
+.vr-practice-actions { display: flex; align-items: center; gap: 8px; }
+.vr-background-switcher { position: relative; z-index: 5; }
+.vr-practice-toolbar .vr-background-button { display: grid; place-items: center; padding: 8px; }
+.vr-background-menu { position: absolute; top: calc(100% + 10px); right: 0; width: 270px; padding: 5px; border: 1px solid #45464c; border-radius: 8px; background: #131418f5; box-shadow: 0 12px 28px #0008; backdrop-filter: blur(12px); }
+.vr-practice-toolbar .vr-background-menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; text-align: left; border: 0; background: transparent; }
+.vr-practice-toolbar .vr-background-menu button:hover, .vr-practice-toolbar .vr-background-menu button[aria-checked="true"] { background: #ffffff0d; }
+.vr-practice-toolbar .vr-background-menu span { color: #e8e8eb; letter-spacing: 0; }
+.vr-background-menu strong { display: block; font-size: 12px; font-weight: 500; }
+.vr-background-menu small { display: block; margin-top: 4px; font-size: 10px; color: #9699a4; }
+.vr-background-menu svg { flex-shrink: 0; margin-left: auto; }
+.vr-background-swatch { flex: 0 0 34px; height: 28px; border: 1px solid #5556; border-radius: 4px; }
+.vr-background-swatch-concert { background: repeating-linear-gradient(110deg,#131720 0 8px,#8393aa 9px,#131720 10px 16px); }
+.vr-background-swatch-cloud { background: radial-gradient(circle at 75% 25%,#8490ac 0 22%,transparent 24%),linear-gradient(#19253b,#76647c); }
+.vr-background-swatch-studio { background: linear-gradient(140deg,#22242a,#0b0b0d); }
+.vr-practice-toolbar .vr-demo-label { font-size: 10px; letter-spacing: 1px; }
+.vr-practice-toolbar a { color: inherit; text-decoration: none; }
+.vr-practice-toolbar button {
+  padding: 8px 12px;
+  background: transparent;
+  color: inherit;
+  border: 1px solid #414249;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+}
+.vr-practice-toolbar a:focus-visible,
+.vr-practice-toolbar button:focus-visible { outline: 2px solid #ff9466; outline-offset: 4px; }
+.vr-practice-hint { position: absolute; bottom: 12px; margin: 0; width: 100%; text-align: center; color: #a6a7ad; font-size: 12px; pointer-events: none; }
+.vr-xr-status { position: absolute; bottom: 32px; margin: 0; width: 100%; text-align: center; color: #8f929c; font-size: 11px; pointer-events: none; }
+.vr-stick-panel { position: absolute; top: 74px; right: 20px; width: 290px; max-height: calc(100% - 150px); overflow: auto; border: 1px solid #34363d; border-radius: 6px; background: #15161aef; padding: 10px 12px; font-size: 12px; }
+.vr-stick-panel summary { cursor: pointer; }
+.vr-stick-panel p { color: #a6a7ad; line-height: 1.4; margin: 10px 0; font-size: 11px; }
+.vr-stick-panel fieldset { border: 1px solid #34363d; margin: 10px 0; padding: 8px; }
+.vr-stick-options { display: flex; gap: 10px; }
+.vr-stick-options label { display: grid; gap: 5px; }
+.vr-stick-panel select, .vr-stick-panel button { background: #22242a; color: #ececee; border: 1px solid #414249; padding: 5px; border-radius: 4px; font: inherit; }
+.vr-stick-slider { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.vr-stick-slider input { width: 155px; accent-color: #ff9466; }
+.vr-stick-slider output { width: 42px; font-variant-numeric: tabular-nums; text-align: right; }
+.vr-practice button:disabled { opacity: 0.5; cursor: default; }
+@media (min-width: 541px) and (max-width: 1000px) {
+  .vr-practice-toolbar { padding-inline: 12px; gap: 8px; }
+  .vr-practice-toolbar > span { font-size: 10px; letter-spacing: 0.5px; }
+  .vr-practice-toolbar .vr-demo-label { display: none; }
+}
+@media (max-width: 540px) {
+  .vr-practice-toolbar { flex-wrap: wrap; }
+  .vr-practice-actions { width: 100%; justify-content: center; }
+  .vr-practice-stage { top: 108px; }
+  .vr-practice-actions { flex-wrap: wrap; }
+  .vr-stick-panel { top: 120px; right: 10px; }
+  .vr-background-menu { position: fixed; top: 110px; right: 12px; width: min(270px, calc(100vw - 24px)); }
+  .vr-practice-toolbar .vr-background-menu span { max-width: none; text-align: left; }
+  .vr-practice-toolbar .vr-demo-label { display: none; }
+  .vr-practice-toolbar { padding-inline: 12px; gap: 8px; font-size: 11px; }
+  .vr-practice-toolbar span { max-width: 120px; text-align: center; font-size: 10px; }
+}

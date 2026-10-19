@@ -6,6 +6,10 @@ import {
 } from "../config/drumKits";
 
 const SAMPLE_URL = `${import.meta.env.BASE_URL}samples/MusicHobbyDrum.wav`;
+// MusicHobbyDrum.wav is 44.1 kHz, mono, 32-bit float PCM; audio data starts at byte 54.
+const SAMPLE_DATA_OFFSET = 54;
+const SAMPLE_BYTES_PER_FRAME = 4;
+const SAMPLE_RATE = 44100;
 
 // Map drum part IDs to HOSIMI default key numbers
 const PAD_TO_KEY: Record<string, number> = {
@@ -29,6 +33,9 @@ class DrumSynth {
   private masterAudioBuffer: AudioBuffer | null = null;
   private kitBuffers = new Map<string, Map<number, AudioBuffer>>();
   private loading: Promise<AudioBuffer | null> | null = null;
+  private loadingRegions = new Map<string, Promise<AudioBuffer | null>>();
+  private rangeSupported: Promise<boolean> | null = null;
+  private preloadingKits = new Set<string>();
   private openHiHatSource: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
   private listeners: Set<(kitId: string) => void> = new Set();
 
@@ -58,7 +65,7 @@ class DrumSynth {
       this.masterGain.connect(this.ctx.destination);
     }
 
-    void this.loadMasterSample();
+    void this.preloadKit(this.currentKitId);
   }
 
   public setVolume(vol: number) {
@@ -90,13 +97,7 @@ class DrumSynth {
     }
 
     this.init();
-    if (this.masterAudioBuffer) {
-      this.ensureKitBuffers(kitId, this.masterAudioBuffer);
-    } else {
-      void this.loadMasterSample().then((master) => {
-        if (master) this.ensureKitBuffers(kitId, master);
-      });
-    }
+    void this.preloadKit(kitId);
 
     this.listeners.forEach((listener) => {
       try {
@@ -110,6 +111,17 @@ class DrumSynth {
   public onKitChange(listener: (kitId: string) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  // Let interactive views finish loading before accepting timing-sensitive hits.
+  public async prepareKit(): Promise<boolean> {
+    this.init();
+    if (!this.ctx) return false;
+    const kitId = this.currentKitId;
+    const buffers = await Promise.all(
+      Object.keys(DRUM_KITS_MAP[kitId].regions).map(key => this.loadRegion(kitId, Number(key)))
+    );
+    return buffers.length > 0 && buffers.every(buffer => buffer !== null);
   }
 
   public trigger(padId: string | number, velocity = 1.0) {
@@ -146,13 +158,8 @@ class DrumSynth {
     const buffer = currentMap?.get(key);
 
     if (!buffer) {
-      void this.loadMasterSample().then((master) => {
-        if (!master) return;
-        const map = this.ensureKitBuffers(this.currentKitId, master);
-        const buf = map.get(key!);
-        if (buf) {
-          this.playBuffer(buf, velocity, isOpenHiHat);
-        }
+      void this.loadRegion(this.currentKitId, key).then((loaded) => {
+        if (loaded) this.playBuffer(loaded, velocity, isOpenHiHat);
       });
       return;
     }
@@ -160,13 +167,89 @@ class DrumSynth {
     this.playBuffer(buffer, velocity, isOpenHiHat);
   }
 
+  private async preloadKit(kitId: string) {
+    if (this.preloadingKits.has(kitId)) return;
+    this.preloadingKits.add(kitId);
+    const keys = Object.keys(DRUM_KITS_MAP[kitId]?.regions ?? {}).map(Number);
+    // Make the two most common hits available first, then fill the cache.
+    for (const key of [38, 36, ...keys.filter((key) => key !== 38 && key !== 36)]) {
+      await this.loadRegion(kitId, key);
+    }
+    if (this.kitBuffers.get(kitId)?.size !== keys.length) this.preloadingKits.delete(kitId);
+  }
+
+  private async supportsRanges(): Promise<boolean> {
+    if (!this.rangeSupported) {
+      this.rangeSupported = fetch(SAMPLE_URL, { cache: "no-store", headers: { Range: "bytes=0-53" } })
+        .then((response) => {
+          if (response.status === 206) {
+            void response.body?.cancel();
+            return true;
+          }
+          if (!response.ok) throw new Error(`Failed to load drum sample: ${response.status}`);
+          this.loading = this.decodeMasterSample(response);
+          return false;
+        }).catch((error) => {
+          this.rangeSupported = null;
+          throw error;
+        });
+    }
+    return this.rangeSupported;
+  }
+
+  private loadRegion(kitId: string, key: number): Promise<AudioBuffer | null> {
+    const existing = this.kitBuffers.get(kitId)?.get(key);
+    if (existing) return Promise.resolve(existing);
+    const region = DRUM_KITS_MAP[kitId]?.regions[key];
+    if (!region || !this.ctx) return Promise.resolve(null);
+
+    const id = `${kitId}:${key}`;
+    const pending = this.loadingRegions.get(id);
+    if (pending) return pending;
+
+    const loading = (async () => {
+      if (!(await this.supportsRanges())) {
+        const master = await this.loadMasterSample();
+        return master ? this.ensureKitBuffers(kitId, master).get(key) ?? null : null;
+      }
+
+      const start = SAMPLE_DATA_OFFSET + region.offset * SAMPLE_BYTES_PER_FRAME;
+      const end = SAMPLE_DATA_OFFSET + (region.end + 1) * SAMPLE_BYTES_PER_FRAME - 1;
+      const response = await fetch(SAMPLE_URL, { cache: "no-store", headers: { Range: `bytes=${start}-${end}` } });
+      if (response.status !== 206) throw new Error(`Failed to load drum region: ${response.status}`);
+      const bytes = await response.arrayBuffer();
+      const frames = region.end - region.offset + 1;
+      if (bytes.byteLength !== frames * SAMPLE_BYTES_PER_FRAME) {
+        throw new Error(`Incomplete drum region ${kitId}:${key}: ${bytes.byteLength}/${frames * SAMPLE_BYTES_PER_FRAME} bytes`);
+      }
+      const buffer = this.ctx!.createBuffer(1, frames, SAMPLE_RATE);
+      const output = buffer.getChannelData(0);
+      const source = new DataView(bytes);
+      for (let i = 0; i < frames; i += 1) output[i] = source.getFloat32(i * SAMPLE_BYTES_PER_FRAME, true);
+      const kit = this.kitBuffers.get(kitId) ?? new Map<number, AudioBuffer>();
+      kit.set(key, buffer);
+      this.kitBuffers.set(kitId, kit);
+      return buffer;
+    })().catch((error) => {
+      console.error("Failed to load drum region:", error);
+      return null;
+    }).finally(() => this.loadingRegions.delete(id));
+
+    this.loadingRegions.set(id, loading);
+    return loading;
+  }
+
   private async loadMasterSample(): Promise<AudioBuffer | null> {
     if (this.masterAudioBuffer) return this.masterAudioBuffer;
     if (this.loading) return this.loading;
     if (!this.ctx) return null;
 
-    this.loading = (async () => {
-      const response = await fetch(SAMPLE_URL);
+    this.loading = this.decodeMasterSample(await fetch(SAMPLE_URL));
+    return this.loading;
+  }
+
+  private decodeMasterSample(response: Response): Promise<AudioBuffer | null> {
+    return (async () => {
       if (!response.ok) {
         throw new Error(`Failed to load master drum sample: ${response.status} ${response.statusText}`);
       }
@@ -186,14 +269,12 @@ class DrumSynth {
       return null;
     });
 
-    return this.loading;
   }
 
   private ensureKitBuffers(kitId: string, sourceBuffer: AudioBuffer): Map<number, AudioBuffer> {
-    const existing = this.kitBuffers.get(kitId);
-    if (existing) return existing;
-
     const preset = DRUM_KITS_MAP[kitId] || DRUM_KITS_MAP[DEFAULT_DRUM_KIT_ID] || DRUM_KITS[0];
+    const existing = this.kitBuffers.get(kitId);
+    if (existing && existing.size === Object.keys(preset.regions).length) return existing;
     const kitMap = new Map<number, AudioBuffer>();
 
     Object.values(preset.regions).forEach((region) => {

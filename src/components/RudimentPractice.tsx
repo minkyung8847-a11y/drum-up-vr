@@ -39,14 +39,14 @@ interface Particle {
 }
 
 const LANE_CONFIG: Record<DrumPadId, { x: number; color: string; label: string }> = {
-  crash: { x: 0.18, color: "#ff9500", label: "CRASH" },
-  hihat: { x: 0.30, color: "#ff2d55", label: "HI-HAT" },
-  snare: { x: 0.42, color: "#34c759", label: "SNARE" },
-  tom1: { x: 0.50, color: "#af52de", label: "TOM 1" },
-  kick: { x: 0.56, color: "#00c781", label: "KICK" },
-  tom2: { x: 0.64, color: "#5856d6", label: "TOM 2" },
-  tom3: { x: 0.74, color: "#007aff", label: "FLOOR" },
-  ride: { x: 0.86, color: "#ffcc00", label: "RIDE" },
+  crash: { x: 0.18, color: "#FF6D2D", label: "CRASH" },
+  hihat: { x: 0.30, color: "#FF6D2D", label: "HI-HAT" },
+  snare: { x: 0.42, color: "#FF6D2D", label: "SNARE" },
+  tom1: { x: 0.50, color: "#FF6D2D", label: "TOM 1" },
+  kick: { x: 0.56, color: "#FF6D2D", label: "KICK" },
+  tom2: { x: 0.64, color: "#FF6D2D", label: "TOM 2" },
+  tom3: { x: 0.74, color: "#FF6D2D", label: "FLOOR" },
+  ride: { x: 0.86, color: "#FF6D2D", label: "RIDE" },
 };
 
 const RUDIMENTS: Record<RudimentDifficulty, {
@@ -117,14 +117,14 @@ const PAD_RADII: Record<DrumPadId, number> = {
 };
 
 const PART_COLORS: Record<DrumPadId, string> = {
-  crash: "#f3cd82", // Pastel Sand Gold
-  ride: "#f3cd82",  // Same as Crash
-  hihat: "#f4a7b9", // Pastel Rose Pink
-  snare: "#95c2de", // Pastel Sky Blue
-  kick: "#98d9c2",  // Pastel Mint Green
-  tom1: "#af78db",  // Stronger Pastel Lilac Lavender
-  tom2: "#708ee6",  // Stronger Pastel Periwinkle Blue
-  tom3: "#e98862",  // Stronger Pastel Salmon Coral
+  crash: "#FF6D2D", // Pastel Sand Gold
+  ride: "#FF6D2D",  // Same as Crash
+  hihat: "#FF6D2D", // Pastel Rose Pink
+  snare: "#FF6D2D", // Pastel Sky Blue
+  kick: "#FF6D2D",  // Pastel Mint Green
+  tom1: "#FF6D2D",  // Stronger Pastel Lilac Lavender
+  tom2: "#FF6D2D",  // Stronger Pastel Periwinkle Blue
+  tom3: "#FF6D2D",  // Stronger Pastel Salmon Coral
 };
 
 const hexToRgba = (hex: string, alpha: number) => {
@@ -315,9 +315,9 @@ export const RudimentPractice: React.FC<RudimentPracticeProps> = ({
 
   const showJudgement = (result: Judgement) => {
     const config = {
-      perfect: { text: "PERFECT", color: "#00c781" },
-      good: { text: "GOOD", color: "#007aff" },
-      miss: { text: "MISS", color: "#ff3b30" },
+      perfect: { text: "PERFECT", color: "#FF6D2D" },
+      good: { text: "GOOD", color: "#FF6D2D" },
+      miss: { text: "MISS", color: "#FF6D2D" },
     }[result];
 
     setJudgement({ ...config, id: Math.random() });
@@ -396,7 +396,7 @@ export const RudimentPractice: React.FC<RudimentPracticeProps> = ({
 
         const time = (performance.now() - boosterStartTimeRef.current) / 1000;
 
-        const spotlightColors = ["rgba(175, 120, 219, 0.22)", "rgba(112, 142, 230, 0.22)", "rgba(233, 136, 98, 0.22)", "rgba(244, 167, 185, 0.22)"];
+        const spotlightColors = ["rgba(255, 109, 45, 0.22)", "rgba(255, 109, 45, 0.22)", "rgba(255, 109, 45, 0.22)", "rgba(255, 109, 45, 0.22)"];
         const startPoints = [
           { x: 0, y: 0, targetX: w * 0.35, targetY: h * 0.85 },
           { x: w, y: 0, targetX: w * 0.65, targetY: h * 0.85 },
@@ -427,11 +427,7 @@ export const RudimentPractice: React.FC<RudimentPracticeProps> = ({
           ctx.lineTo(rightX, rightY);
           ctx.closePath();
           
-          const grad = ctx.createLinearGradient(pt.x, pt.y, targetX, targetY);
-          grad.addColorStop(0, spotlightColors[index]);
-          grad.addColorStop(1, "rgba(0, 0, 0, 0)");
-          
-          ctx.fillStyle = grad;
+          ctx.fillStyle = spotlightColors[index];
           ctx.fill();
           ctx.restore();
         });
@@ -472,7 +468,7 @@ export const RudimentPractice: React.FC<RudimentPracticeProps> = ({
         ctx.closePath();
         ctx.fill();
 
-        const stickColors = ["#f4a7b9", "#95c2de", "#af78db", "#98d9c2", "#f3cd82"];
+        const stickColors = ["#FF6D2D", "#FF6D2D", "#FF6D2D", "#FF6D2D", "#FF6D2D"];
         for (let i = 0; i < leftCrowdCount; i++) {
           if (i % 2 === 0) {
             const headX = i * leftSpacing;
@@ -517,10 +513,10 @@ export const RudimentPractice: React.FC<RudimentPracticeProps> = ({
 
         ctx.save();
         ctx.font = "900 24px Outfit, Inter, sans-serif";
-        ctx.fillStyle = "rgba(0, 199, 129, 0.92)";
+        ctx.fillStyle = "rgba(255, 109, 45, 0.92)";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.shadowColor = "#00c781";
+        ctx.shadowColor = "#FF6D2D";
         ctx.shadowBlur = 10;
         ctx.fillText("POWER UP BOOSTER!", w / 2, h * 0.45);
         ctx.restore();
@@ -578,7 +574,7 @@ export const RudimentPractice: React.FC<RudimentPracticeProps> = ({
         }
 
         const isActiveLane = notesRef.current.some((note) => !note.hit && note.padId === padId);
-        ctx.strokeStyle = isActiveLane ? "rgba(0, 199, 129, 0.16)" : "rgba(0, 0, 0, 0.05)";
+        ctx.strokeStyle = isActiveLane ? "rgba(255, 109, 45, 0.16)" : "rgba(255, 255, 255, 0.05)";
         ctx.setLineDash([4, 7]);
         ctx.beginPath();
         ctx.moveTo(vanishingX, vanishingY);
@@ -635,7 +631,7 @@ export const RudimentPractice: React.FC<RudimentPracticeProps> = ({
         ctx.restore();
 
         ctx.font = "700 9px Inter, sans-serif";
-        ctx.fillStyle = "rgba(28, 28, 30, 0.52)";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
         ctx.textAlign = "center";
         ctx.fillText(lane.label, x, y + radiusY + 14);
       });
@@ -686,7 +682,7 @@ export const RudimentPractice: React.FC<RudimentPracticeProps> = ({
           judgementsRef.current.push({
             id: Math.random().toString(),
             text: "MISS",
-            color: "#ff3b30",
+            color: "#FF6D2D",
             x: targetX,
             y: targetY - 25,
             life: 0.8,
@@ -745,18 +741,13 @@ export const RudimentPractice: React.FC<RudimentPracticeProps> = ({
         );
 
         ctx.shadowColor = color;
-        ctx.shadowBlur = 10 * proj.projectedProgress;
+        ctx.shadowBlur = 0;
 
         ctx.translate(x, y);
         ctx.rotate(rotation);
         ctx.scale(1, radiusY / radiusX);
 
-        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, radiusX);
-        grad.addColorStop(0, "#ffffff");
-        grad.addColorStop(0.35, hexToRgba(color, 0.45));
-        grad.addColorStop(1, color);
-
-        ctx.fillStyle = grad;
+        ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(0, 0, radiusX, 0, Math.PI * 2);
         ctx.fill();
@@ -873,7 +864,7 @@ export const RudimentPractice: React.FC<RudimentPracticeProps> = ({
       judgementsRef.current.push({
         id: Math.random().toString(),
         text: result.toUpperCase(),
-        color: result === "perfect" ? "#00c781" : "#007aff",
+        color: result === "perfect" ? "#FF6D2D" : "#FF6D2D",
         x,
         y: y - 25,
         life: 0.8,

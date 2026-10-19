@@ -1,11 +1,24 @@
-import { StrictMode } from 'react'
+import { StrictMode, lazy, Suspense, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { BrandExperience } from './components/brand/BrandIntro'
+
+const VRPractice = lazy(() => import('./components/VRPractice.tsx'))
+
+export function Entry() {
+  const [hash, setHash] = useState(window.location.hash)
+  useEffect(() => {
+    const navigate = () => setHash(window.location.hash)
+    window.addEventListener('hashchange', navigate)
+    return () => window.removeEventListener('hashchange', navigate)
+  }, [])
+  return hash === '#/vr'
+    ? <Suspense fallback={null}><VRPractice /></Suspense>
+    : <App />
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrandExperience><App /></BrandExperience>
+    <Entry />
   </StrictMode>,
 )

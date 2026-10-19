@@ -26,6 +26,29 @@ export const DrumKitCarousel: React.FC<DrumKitCarouselProps> = ({
   const lastX = useRef<number>(0);
   const lastTime = useRef<number>(0);
   const gestureMoved = useRef(false);
+  const platformRef = useRef<HTMLDivElement>(null);
+  const platformAnimation = useRef<Animation | null>(null);
+  const previousKitIndex = useRef(activeIndex);
+
+  useEffect(() => {
+    if (previousKitIndex.current === activeIndex) return;
+    previousKitIndex.current = activeIndex;
+    const platform = platformRef.current;
+    if (!platform) return;
+    const { transform, opacity } = getComputedStyle(platform);
+    platformAnimation.current?.cancel();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // Contract in 200ms, then expand in 260ms as the 880ms slide approaches center.
+    platformAnimation.current = platform.animate([
+      { transform: transform === "none" ? "scaleX(1)" : transform, opacity, offset: 0, easing: "ease-in-out" },
+      { transform: "scaleX(.82)", opacity: .84, offset: 200 / 700, easing: "ease-in-out" },
+      { transform: "scaleX(.82)", opacity: .84, offset: 440 / 700, easing: "ease-in-out" },
+      { transform: "scaleX(1)", opacity: 1, offset: 1 },
+    ], { duration: 700 });
+  }, [activeIndex]);
+
+  useEffect(() => () => platformAnimation.current?.cancel(), []);
 
   // Pointer Down (Mouse or Touch)
   const handlePointerDown = (clientX: number) => {
@@ -173,28 +196,40 @@ export const DrumKitCarousel: React.FC<DrumKitCarouselProps> = ({
         <ChevronLeft size={36} strokeWidth={1.5} />
       </button>
 
-      {/* Layered cutouts crossfade in place; gestures keep their existing navigation. */}
+      {/* Continuous horizontal track: center kit plus partial prev/next peeking at the edges. */}
       <div className="showroom-stage-track">
+        <div ref={platformRef} className="showroom-platform" aria-hidden="true" />
         {kits.map((kit, idx) => {
-          const isCenter = idx === activeIndex;
+          const total = kits.length;
+          let delta = idx - activeIndex;
+          delta = (((delta + total / 2) % total) + total) % total - total / 2;
+          const isCenter = delta === 0;
+          const isPeek = Math.abs(delta) === 1;
+          const distance = Math.min(Math.abs(delta + dragOffset / 320), 1);
+          // Desktop retains the existing product/info composition; mobile uses symmetric peeks.
+          const step = delta < 0 ? "var(--carousel-prev-step)" : "var(--carousel-next-step)";
           const slotStyle: React.CSSProperties = {
-            transform: `scale(${isCenter ? 1 - Math.min(Math.abs(dragOffset) / 6000, 0.025) : 0.97})`,
-            opacity: isCenter ? 1 : 0,
-            zIndex: isCenter ? 1 : 0,
+            // Side kits sit further back: small (0.55 scale, both sides identical), lifted 15% of the track height so they stay above the
+            // horizon line, with ~1px soft focus, 65% opacity and slightly lower brightness/contrast; depth comes mostly from size and height.
+            transform: `translateX(calc(${step} * ${delta} + ${dragOffset}px)) translateY(${-distance * 2}%) scale(${1 - distance * 0.45})`,
+            opacity: isCenter || isPeek ? 1 - distance * 0.35 : 0,
+            filter: `blur(${distance * 1}px) brightness(${1 - distance * 0.1}) contrast(${1 - distance * 0.08})`,
+            zIndex: isCenter ? 2 : isPeek ? 1 : 0,
             pointerEvents: isCenter ? "auto" : "none",
           };
           return (
             <div
               key={kit.id}
-              className={`showroom-kit-slot ${isCenter ? "slot-active" : "slot-hidden"}`}
+              className={`showroom-kit-slot ${isCenter ? "slot-active" : "slot-hidden"} ${isDragging ? "is-dragging" : ""}`}
               style={slotStyle}
               aria-hidden={!isCenter}
+              inert={!isCenter}
             >
-              <DrumKitVisual
-                kit={kit}
-                isActive={isCenter}
-                onAudition={() => onAuditionKit?.(kit)}
-              />
+                <DrumKitVisual
+                  kit={kit}
+                  isActive={isCenter}
+                  onAudition={() => onAuditionKit?.(kit)}
+                />
             </div>
           );
         })}
@@ -216,4 +251,3 @@ export const DrumKitCarousel: React.FC<DrumKitCarouselProps> = ({
     </div>
   );
 };
-

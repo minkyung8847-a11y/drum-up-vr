@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+let p='src/components/virtualDrumSet.ts', c=fs.readFileSync(p,'utf8');
+c=c.replace('blackShell: 0xffe0bc','blackShell: 0xff6d2d').replace('chrome: 0xeff3f6','chrome: 0x555555').replace('chromeDark: 0x34383c','chromeDark: 0x242424').replace('drumHead: 0xd8d5cc','drumHead: 0x252525').replace('highlight: 0xffe6a3','highlight: 0xff6d2d');
+c=c.replace('  const shellTexture = createWoodTexture();\r\n','').replace('    map: shellTexture,\r\n','');
+c=c.replace(/function createWoodTexture\(\) \{[\s\S]*?\nfunction createHeadTexture/, 'function createHeadTexture');
+c=c.replace('color: 0x999b97','color: 0x252525').replaceAll('0xe8ac70','0xff6d2d').replaceAll('0xbe793d','0xff6d2d');
+fs.writeFileSync(p,c);
+p='src/components/Drum3D.tsx';c=fs.readFileSync(p,'utf8').replace('0xe8eaf0','0xffffff').replace('0xfff4e5','0xffffff').replace('0xc6d6ef','0xffffff');fs.writeFileSync(p,c);
+p='src/components/brand/brandIntro.css';c=fs.readFileSync(p,'utf8');
+const accent=['f6dfc1','cc6e35','e88b44','c27e45','e58b43','edc5a1','c9854d','d48b4e'];
+for(const hex of accent)c=c.replaceAll('#'+hex,'#FF6D2D');
+const neutral={f4f1ec:'FFFFFF',c9b29a:'999999',a59c8c:'888888',eee4d5:'FFFFFF',e4d3b8:'999999',9a948b:'999999'};

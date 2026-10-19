@@ -1,7 +1,7 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import * as THREE from "three";
 import { createStudioEnvironment } from "./studioEnvironment";
-import { createVirtualDrumSet } from "./virtualDrumSet";
+import { createVirtualDrumSet, drumPositions } from "./virtualDrumSet";
 
 export type Drum3DPartId = "kick" | "snare" | "hihat" | "tom1" | "tom2" | "tom3" | "crash" | "ride";
 
@@ -10,6 +10,7 @@ export interface Drum3DHandle {
 }
 
 interface Drum3DProps {
+  showroom?: boolean;
   onPartClick?: (partId: Drum3DPartId) => void;
   onDrumPositionsUpdate?: (positions: Record<Drum3DPartId, { x: number; y: number }>) => void;
 }
@@ -38,7 +39,7 @@ const EXTERNAL_TO_INTERNAL: Record<Drum3DPartId, string> = {
   ride: "ride",
 };
 
-export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDrumPositionsUpdate }, ref) => {
+export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDrumPositionsUpdate, showroom = false }, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const drumSetRef = useRef<any>(null);
   
@@ -82,6 +83,10 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
       camera.aspect = w / Math.max(h, 1);
       const distance = Math.max(2.65, 1.65 / (Math.tan(Math.PI / 8) * camera.aspect));
       camera.position.set(0, 0.70 + distance * 0.58, 0.1 + distance * 0.815);
+      if (showroom) {
+        const showcaseDistance = Math.max(2.6, 1.48 / (Math.tan(Math.PI / 8) * camera.aspect));
+        camera.position.set(0, 0.70 + showcaseDistance * 0.38, 0.1 + showcaseDistance * 0.925);
+      }
       camera.lookAt(0, 0.70, 0.1);
       camera.updateProjectionMatrix();
     };
@@ -89,9 +94,9 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
 
     // 3. Renderer setup
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, showroom ? 1.5 : 2));
     renderer.setSize(width, height);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = !showroom;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.95;
@@ -129,7 +134,7 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
     const rimLight = new THREE.DirectionalLight(0xc6d6ef, 1.6);
     rimLight.position.set(2, 3, -2);
     scene.add(rimLight);
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(20,20), new THREE.ShadowMaterial({opacity:0.13}));
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(20,20), new THREE.ShadowMaterial({opacity:showroom ? 0.04 : 0.13}));
     ground.rotation.x = -Math.PI/2;
     ground.position.y = -0.016;
     ground.receiveShadow = true;
@@ -137,6 +142,7 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
 
     // 5. Initialize the high-fidelity procedural 3D Drum Set
     const virtualDrum = createVirtualDrumSet(scene);
+    if (showroom) virtualDrum.group.rotation.y = Math.PI;
     drumSetRef.current = virtualDrum;
 
     // 6. Raycast Mouse interaction
@@ -169,10 +175,48 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
       }
     };
 
-    renderer.domElement.addEventListener("mousedown", handleMouseDown);
+    if (!showroom) renderer.domElement.addEventListener("mousedown", handleMouseDown);
+
+    // Showroom-only rotation; the practice view retains its existing hit controls.
+    let pointerX: number | null = null;
+    let pointerStartX = 0;
+    let moved = false;
+    let targetRotation = 0;
+    let angularVelocity = 0;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const startRotation = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      pointerX = pointerStartX = event.clientX;
+      moved = false;
+      angularVelocity = 0;
+      renderer.domElement.setPointerCapture(event.pointerId);
+    };
+    const moveRotation = (event: PointerEvent) => {
+      if (pointerX === null) return;
+      const delta = (event.clientX - pointerX) * 0.004;
+      pointerX = event.clientX;
+      moved ||= Math.abs(event.clientX - pointerStartX) > 5;
+      targetRotation = THREE.MathUtils.clamp(targetRotation + delta, -0.65, 0.65);
+      angularVelocity = delta * 12;
+    };
+    const endRotation = (event: PointerEvent) => {
+      if (pointerX === null) return;
+      pointerX = null;
+      if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId);
+      if (!moved && event.type === 'pointerup') handleMouseDown(event);
+      if (event.type === 'pointercancel') angularVelocity = 0;
+    };
+    if (showroom) {
+      renderer.domElement.style.touchAction = 'pan-y';
+      renderer.domElement.addEventListener('pointerdown', startRotation);
+      renderer.domElement.addEventListener('pointermove', moveRotation);
+      renderer.domElement.addEventListener('pointerup', endRotation);
+      renderer.domElement.addEventListener('pointercancel', endRotation);
+    }
 
     // Presentation-only hover; the existing mousedown callback and ID mapping stay intact.
     const handleHover = (event: MouseEvent) => {
+      if (showroom) { renderer.domElement.style.cursor = pointerX === null ? 'grab' : 'grabbing'; return; }
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.set(((event.clientX-rect.left)/rect.width)*2-1, -((event.clientY-rect.top)/rect.height)*2+1);
       raycaster.setFromCamera(mouse,camera);
@@ -191,6 +235,16 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
     const animate = () => {
       reqId = requestAnimationFrame(animate);
       const delta = clock.getDelta();
+      if (showroom) {
+        const dt = Math.min(delta, 0.05);
+        if (pointerX === null && !reducedMotion) {
+          targetRotation = THREE.MathUtils.clamp(targetRotation + angularVelocity * dt, -0.65, 0.65);
+          angularVelocity *= Math.exp(-9 * dt);
+        }
+        virtualDrum.group.rotation.y = reducedMotion ? Math.PI + targetRotation
+          : THREE.MathUtils.damp(virtualDrum.group.rotation.y, Math.PI + targetRotation, 14, dt);
+        renderer.domElement.dataset.rotation = (virtualDrum.group.rotation.y - Math.PI).toFixed(4);
+      }
       virtualDrum.update(delta);
       renderer.render(scene, camera);
     };
@@ -206,12 +260,12 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
       const positions3D: Record<Drum3DPartId, [number, number, number]> = {
         crash: [-0.88, 1.32, 0.02],
         hihat: [-0.82, 0.94, 0.28],
-        kick: [0.0, 0.39, 0.282],
-        ride: [0.86, 1.18, 0.1],
-        snare: [-0.50, 0.72, 0.36],
-        tom1: [-0.26, 0.98, 0.02],
-        tom2: [0.26, 0.98, 0.02],
-        tom3: [0.60, 0.7, 0.32],
+        kick: [0.0, 0.45, 0.282],
+        ride: drumPositions.ride,
+        snare: drumPositions.snare,
+        tom1: drumPositions.smallTom,
+        tom2: drumPositions.middleTom,
+        tom3: drumPositions.floorTom,
       };
 
       const projected: Record<string, { x: number; y: number }> = {};
@@ -260,6 +314,10 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
       window.removeEventListener("resize", handleResize);
       if (renderer.domElement) {
         renderer.domElement.removeEventListener("mousedown", handleMouseDown);
+        renderer.domElement.removeEventListener('pointerdown', startRotation);
+        renderer.domElement.removeEventListener('pointermove', moveRotation);
+        renderer.domElement.removeEventListener('pointerup', endRotation);
+        renderer.domElement.removeEventListener('pointercancel', endRotation);
         renderer.domElement.removeEventListener('mousemove', handleHover);
         renderer.domElement.removeEventListener('mouseleave', clearHover);
         if (container) {
@@ -286,7 +344,7 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
       renderer.dispose();
       scene.clear();
     };
-  }, []);
+  }, [showroom]);
 
   return (
     <div

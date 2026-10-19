@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { ArrowRight } from "lucide-react";
 import { SHOWROOM_DRUM_KITS, type ShowroomDrumKit } from "../../config/showroomKits";
+import { ShowroomHeader } from "./ShowroomHeader";
 import { DrumKitInfo } from "./DrumKitInfo";
 import { DrumKitCarousel } from "./DrumKitCarousel";
 import { DrumKitThumbnails } from "./DrumKitThumbnails";
@@ -10,11 +10,17 @@ import "./drumKitShowroom.css";
 interface DrumKitShowroomProps {
   onEnterPlay: (selectedKitId: string) => void;
   initialKitId?: string;
+  onNavigate: (tab: "FREE PLAY" | "RUDIMENT" | "RHYTHM GAME") => void;
+  onOpenSettings: () => void;
+  onHome: () => void;
 }
 
 export const DrumKitShowroom: React.FC<DrumKitShowroomProps> = ({
   onEnterPlay,
   initialKitId = "001",
+  onNavigate,
+  onOpenSettings,
+  onHome,
 }) => {
   // Find initial kit index based on audioPresetId or id
   const getInitialIndex = () => {
@@ -85,6 +91,8 @@ export const DrumKitShowroom: React.FC<DrumKitShowroomProps> = ({
 
   return (
     <div className="showroom-container">
+      <ShowroomHeader onNavigate={onNavigate} onOpenSettings={onOpenSettings} onHome={onHome} />
+      <div className="showroom-background-title" aria-hidden="true">{activeKit.name}</div>
       {/* Center Stage Area */}
       <main className="showroom-stage">
         {/* 3D-Feel Carousel */}
@@ -97,6 +105,7 @@ export const DrumKitShowroom: React.FC<DrumKitShowroomProps> = ({
         />
 
         {/* Kit Name & Tagline below the drum */}
+        <div className="showroom-details">
         <DrumKitInfo kit={activeKit} />
 
         {/* Primary Action Button: SELECT KIT */}
@@ -105,9 +114,18 @@ export const DrumKitShowroom: React.FC<DrumKitShowroomProps> = ({
           className="showroom-select-btn"
           onClick={() => handleSelectKit(activeKit)}
         >
-          <span>SELECT KIT</span>
-          <ArrowRight size={14} className="btn-arrow" />
+          <span className="showroom-play-trace" aria-hidden="true">
+            <span className="showroom-play-sparkle">
+            <svg viewBox="0 0 14 14" focusable="false">
+              <path className="showroom-play-trace-bloom" d="M7 1 8.4 5.6 13 7 8.4 8.4 7 13 5.6 8.4 1 7 5.6 5.6Z" />
+              <path className="showroom-play-trace-rays" d="M7 0V14M0 7H14" />
+              <path className="showroom-play-trace-light" d="M7 2 8.1 5.9 12 7 8.1 8.1 7 12 5.9 8.1 2 7 5.9 5.9Z" />
+            </svg>
+            </span>
+          </span>
+          <span>PLAY</span>
         </button>
+        </div>
       </main>
 
       {/* Bottom Section: Thumbnails */}
@@ -124,4 +142,3 @@ export const DrumKitShowroom: React.FC<DrumKitShowroomProps> = ({
     </div>
   );
 };
-
