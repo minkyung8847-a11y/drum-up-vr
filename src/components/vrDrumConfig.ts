@@ -2,11 +2,10 @@
 // not bounding boxes including rims, legs and stands.
 const inch = 0.0254;
 export const VR_FREE_DRUMMING = { fallingNotes: false };
-// Right-handed acoustic layout, viewed from the existing seat at (0, *, 1).
-// +X is the player's right; -Z is forward. Rotations are radians (XYZ).
-// Placement references: Yamaha's overhead Steve Francis kit photograph and
-// Zildjian Drum Set Method lesson 11 (reachable cymbals, gently tilted inward).
-// Current kit with a slightly smaller/lower snare and more inward rack-tom tilt.
+// Construction baseline frozen at 6d78dff so existing vertex buffers/materials
+// remain unchanged. These placements are NOT the active VR arrangement:
+// createRestoredVRDrumSet replaces them with initial-Git transforms before
+// hit zones, feedback and hardware instances are created.
 export const VR_DRUM_LAYOUT: Record<string, {
   diameter: number; depth?: number; position: [number, number, number];
   tilt?: [number, number]; // X / Z: adjust the existing stand/mount angle only

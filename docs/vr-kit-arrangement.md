@@ -1,102 +1,68 @@
-# Seated acoustic kit arrangement
+# 초기 Git 드럼 배치 복원
 
-The VR layout uses the existing seat at X=0, Z=1 and the headset's physical
-floor-relative eye height. No camera, seating or head-tracking transforms were
-changed. Positive X is the drummer's right; negative Z is forward. Coordinates
-and diameters below are metres. Drum coordinates are their top pivot, cymbal
-coordinates are their mounting pivot, and kick coordinates are its shell centre.
+## 복원 근거
 
-| Instrument | Diameter | Position X, Y, Z | Tilt X / Z, degrees |
+- 저장소 최초 커밋: `7d3e13817d07686d9c6470b729d5306bf13f4c54` (2026-09-07).
+- 원본 파일: `src/components/virtualDrumSet.ts`.
+- 원본 Git blob: `8d9e84edca212e94ed4d3997bcfeaa4f88c29250`.
+- 별도의 GLB/FBX 가져오기 파일은 발견되지 않았다. 이 저장소의 최초 모델은 Three.js 코드로 생성된다.
+- 원본 코드를 별도 장면에서 실행해 악기와 받침대의 실제 변환을 추출했다.
+  원본 좌표표의 킥 값은 실제 생성 호출과 다르므로, 실제 호출의 `[0, 0.39, 0.08]`을 사용한다.
+- 복원 전 현재값과 원본값을 비교했으며, 원본 데이터는 `originalImportedKit.ts`에 출처와 함께 고정했다.
+  Paradiddle이나 다른 드럼 배치는 복원 기준으로 사용하지 않는다.
+
+## 원본 위치·회전·상대 크기
+
+아래 값은 초기 파일의 로컬 좌표와 명목 치수다. 위치 단위는 원본 장면 단위,
+회전은 라디안 XYZ이며 각 악기의 Y 회전은 0이다. 킥은 X 회전 π/2다.
+
+| 악기 | 원본 위치 X, Y, Z | 회전 X / Z | 지름 / 깊이 |
 | --- | --- | --- | --- |
-| Snare | 0.3302 (13 in) | -0.05, 0.64, 0.56 | 3.4 / -1.1 |
-| Kick | 0.5588 (22 in) | 0.18, 0.30, -0.12 | 90 / 0 (existing orientation) |
-| Small rack tom | 0.2540 (10 in) | -0.175, 0.91, 0.12 | 21.8 / 2.3 |
-| Middle rack tom | 0.3048 (12 in) | 0.175, 0.93, 0.10 | 21.8 / -2.3 |
-| Floor tom | 0.4064 (16 in) | 0.43, 0.63, 0.58 | 2.3 / -2.3 (existing tilt) |
-| Hi-hat | 0.3556 (14 in) | -0.44, 0.83, 0.54 | 3.4 / -1.1 |
-| Crash | 0.4572 (18 in) | -0.62, 1.04, 0.14 | 8.6 / -6.9 |
-| Ride | 0.5080 (20 in) | 0.64, 0.94, 0.24 | 6.9 / 8.0 |
+| 스네어 | -0.50, 0.72, 0.36 | 0.08 / -0.06 | 0.48 / 0.16 |
+| 베이스드럼 | 0, 0.39, 0.08 | π/2 / 0 | 0.76 / 0.38 |
+| 작은 랙 탐 | -0.26, 0.98, 0.02 | 0.16 / 0.12 | 0.40 / 0.24 |
+| 중간 랙 탐 | 0.26, 0.98, 0.02 | 0.14 / -0.10 | 0.44 / 0.26 |
+| 플로어 탐 | 0.60, 0.70, 0.32 | 0.04 / -0.04 | 0.48 / 0.36 |
+| 하이햇 | -0.82, 0.94, 0.28 | 0.08 / 0 | 0.42 |
+| 크래시 | -0.88, 1.32, 0.02 | 0.18 / -0.10 | 0.58 |
+| 라이드 | 0.86, 1.18, 0.10 | 0.16 / 0.10 | 0.60 |
 
-All shell depths are unchanged: snare 0.1397 m, kick 0.4064 m, small tom
-0.2032 m, middle tom 0.2286 m and floor tom 0.3556 m. Only the snare diameter
-is reduced (14 to 13 inches, about 7%). The kick beater mechanism is scaled to
-80%; its striking face retains its X/Z alignment with the unchanged bass head.
-The bass shell, pedal board and pedal base retain their original sizes.
-The same designs, materials, colours and cymbal profiles are retained.
-Existing procedural stands and mounts follow their instruments; lower floor-tom
-legs remain grounded.
-The shared non-VR layout retains its original defaults.
+복원 전 스네어는 위치 [-0.05, 0.64, 0.56], 지름 0.3302m이었고 랙 탐은
+[-0.175, 0.91, 0.12] / [0.175, 0.93, 0.10]에 X 기울기 0.38이었다.
+이후 추가된 개별 배치·기울기·크기 조정은 원본 값과 상대 비율로 대체했다.
 
-The latest local adjustment keeps the snare's X/Z position and lowers it 3 cm.
-The floor tom is also lowered 3 cm. Both rack toms shift 2.5 cm right and tilt
-from 16.0 to 21.8 degrees toward the drummer. Their heights and front/back
-positions stay fixed. The kick, cymbals, pedals, camera and seat stay in place.
-The exposed bass head is clearer between the smaller snare and the rack toms.
-No components are added or removed.
+## 현재 VR 크기와 모델 보존
 
-Placement references were inspected before editing:
+복원 전에는 공통 축소값 없이 악기별 치수가 지정돼 있었다. 전체가 다시
+커지는 것을 막기 위해, 현재 베이스드럼 지름 0.5588m를 보존하는 단일 배율
+`0.5588 / 0.76 = 0.7352631578947368`을 키트 전체에 적용한다.
+모든 원본 위치·지름·깊이에 동일한 배율이 적용되므로 원본의 상대 관계를 유지한다.
 
-- [Yamaha: Steve Francis, overhead photograph of an acoustic kit](https://au.yamaha.com/en/artists/s/steve-francis.html).
-  The relative arrangement of snare between the knees, rack toms ahead, floor
-  tom beside the snare, and outer cymbals informed this layout. Coordinates are
-  an adaptation for the project's existing instrument sizes, not measurements
-  extracted from the photograph.
-- [Zildjian Drum Set Method, lesson 11, printed page 29](https://ae.zildjian.com/wp-content/uploads/Zildjian_Drum_Method_Lesson_11.pdf).
-  The cymbal setup guidance informed reachable crash placement and a gentle
-  tilt toward the player.
+현재 메시를 생성한 뒤 객체 변환만 적용한다. 기하 버퍼·인덱스·재질·텍스처를
+변경하지 않는다. 각 악기 본체의 X/Z 스케일은 원본/현재 지름 비율,
+Y 스케일은 원본/현재 깊이 비율로 복원한다. 심벌은 원본 지름 비율로 균일 조정한다.
+현행 상세 모델을 유지하면서 원본 중심·회전·지름/깊이 비율을 복원하는 방식이다.
 
-## Assisted strikes
+원본 받침대 42개와 플로어 탐 다리·발 6개의 변환도 원본 실행 결과와 맞춘다.
+크기가 달라진 부모 아래의 다리는 보정 행렬을 사용하며, 파이프·부품의 기하
+버퍼는 그대로다. 현재 상세 모델에만 있는 장식 부품은 유지한다.
+킥/하이햇 페달 위치와 비터의 최상위 변환도 원본으로 복원하고,
+나중에 적용한 비터 80% 축소를 해제한다. 현재 페달의 상세 기하와 동작은 유지한다.
 
-Hit zones are derived from each instrument's resting mesh world matrix, so
-position and angle changes apply to both controller hands without independent
-hardcoded collider coordinates. Existing audio samples, visual effects and
-controller haptics are preserved. Falling notes remain disabled.
+## 유지되는 VR 기능과 검증
 
-Existing sensitivity and reach limits are retained: 0.07 m/s minimum speed,
-0.035 m/s approach speed, 4 mm accumulated strike travel, 65 degree cone half
-angle, 32 cm above / 8 cm below surface, 12 cm radial assistance, 40 cm tip
-reach, 85 cm grip reach and 1.25 m head-to-target reach (1.5 m for kick).
-Rearming requires an 8 mm recovery lift and a 40 ms cooldown per hand.
+- 기존 좌석과 카메라 위치 [0, 1.22, 1], XR 머리·컨트롤러 추적, 양손 스틱 보정 유지.
+- 현재 오디오·강약·보조 타격·재타격 방지·햅틱·시각 피드백 유지.
+- 복원된 월드 행렬이 확정된 다음 타격 영역·피드백·하드웨어 인스턴스를 생성한다.
+- 배경·조명·UI 유지, 낙하 노트 비활성화 유지.
+- 전체 프로젝트나 과거 렌더링/음향 코드를 되돌리지 않는다.
 
-Target selection gives the playable disc and its 2 cm rim allowance priority
-over another instrument's broad padding. Between padded regions it prefers the
-nearest lateral edge, then surface distance and swing alignment. A hand can
-produce only one instrument hit per stroke. Dropped frames and temporary
-tracking/viewer-pose loss discard pending travel while preserving a fired
-stroke's latch; they cannot rearm a stroke without a measured recovery lift.
+`scripts/check-vr-original-layout.mjs`는 초기 Git 파일을 직접 다시 실행해서 비교한다.
+악기 8개의 위치·회전, 정규화된 지름/깊이, 받침대 48개가 일치한다.
+복원 전후 동일한 기하 객체·버퍼 내용·재질·텍스처 객체가 보존되는지도 검사한다.
+양손, 60/72/90/120 Hz, 세 가지 비접촉 높이의 192개 타격 조합이 통과했다.
 
-## Validation
-
-`scripts/check-vr-layout.mjs` tests the actual rendered kit and a separate
-fixture built with all eight production instruments and hit zones:
-
-- Instrument materials match the previous kit. Body geometry remains unchanged
-  except the requested snare diameter reduction; grounded floor support lengths
-  follow its lower height. Other diameters, all depths and drum unit scales are
-  unchanged. The beater alone is scaled to 80%, with unchanged geometry and
-  materials, preserved face alignment, and an unchanged pedal board/base.
-- Explicit checks cover the 3 cm snare/floor height reductions, 2.5 cm rack-tom
-  right shifts and 0.38 radian inward tilt, with other instrument positions fixed.
-- Conservative oriented envelopes around shells, heads, rims and cymbal discs
-  have no pairwise intersections. Intentional support hardware is excluded
-  from this body-clearance test.
-- All 33 sampled points across the central 70% radius of each playable drumhead
-  and cymbal are unobstructed from the fixed reference seat at (0, 1.22, 1).
-- 320 centre-strike cases cover both hands, 60/72/90/120 Hz inputs and five
-  non-contact heights. A further 768 cases cover near edges, outer assistance
-  and reversed zone ordering. No incorrect instrument or multiple-hit result
-  occurs. Far outer points may remain silent under the intentional reach cap.
-- Notes and note guides are absent. Separate diagnostic seated/overhead cameras
-  render screenshots without modifying the application's camera or scene.
-
-Other passing checks: `check-vr-assisted-strikes.mjs`, `check-vr-free-play.mjs`,
-`check-vr-hits.mjs`, `check-xr-drumsticks.mjs`, `check-first-person-camera.mjs`,
-`check-vr-physical-strikes.mjs`, production build, and lint on changed files.
-The repository-wide lint command is blocked by the pre-existing syntax error
-in `scripts/finish-brand-theme.mjs:12`. The existing bundle-size warning remains.
-
-Real headset testing is still required for seated arm comfort across different
-body sizes, actual controller orientation/calibration and reach, headset field
-of view, physical haptic feel, perceived audio latency and sustained headset FPS.
-Synthetic frame-rate inputs and desktop screenshots do not establish hardware
-performance or comfort.
+기존 마우스 소리·중첩 재생·피드백, 자유 연주, 카메라, 컨트롤러 모의 추적,
+하드웨어 인스턴스 렌더링 및 프로덕션 빌드 검사도 수행한다.
+초기 배치의 겹침·비대칭을 새 배치로 개선하지 않는다.
+실제 헤드셋에서의 체감 거리·편안함·지연·FPS는 추가 확인이 필요하다.

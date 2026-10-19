@@ -20,19 +20,25 @@ try {
   });
   await page.waitForFunction(() => !!window.freePlayScene);
   const result = await page.evaluate(async () => {
-    const { VR_DRUM_LAYOUT, VR_FREE_DRUMMING } = await import('/src/components/vrDrumConfig.ts');
+    const { VR_FREE_DRUMMING } = await import('/src/components/vrDrumConfig.ts');
+    const { ORIGINAL_IMPORTED_KIT } = await import('/src/components/originalImportedKit.ts');
+    const { RESTORED_VR_SCALE } = await import('/src/components/restoredVRDrumSet.ts');
     const { createVirtualDrumSet } = await import('/src/components/virtualDrumSet.ts');
     const threeURL = performance.getEntriesByType('resource').find(entry => /\/three\.js\?/.test(entry.name)).name;
     const THREE = await import(threeURL);
     const scene = window.freePlayScene;
     const kit = scene.children.find(child => child.children.some(part => part.userData.drumType === 'snare'));
     scene.updateMatrixWorld(true);
-    const instruments = Object.entries(VR_DRUM_LAYOUT).map(([id, expected]) => {
+    const instruments = Object.entries(ORIGINAL_IMPORTED_KIT.instruments).map(([id, original]) => {
+      const expected = { diameter: original.diameter * RESTORED_VR_SCALE,
+        depth: original.depth && original.depth * RESTORED_VR_SCALE,
+        position: original.position.map(value => value * RESTORED_VR_SCALE) };
       const part = kit.children.find(child => child.userData.drumType === id);
       const shell = part.children.find(child => child.geometry?.type === 'CylinderGeometry' && child.geometry.parameters.openEnded);
       const body = part.children.find(child => child.geometry?.type === 'LatheGeometry');
       const radius = shell ? shell.geometry.parameters.radiusTop : body.geometry.parameters.points.at(-1).x;
-      return { id, diameter: 2 * radius, depth: shell?.geometry.parameters.height,
+      const scale = part.getWorldScale(new THREE.Vector3());
+      return { id, diameter: 2 * radius * scale.x, depth: shell && shell.geometry.parameters.height * scale.y,
         expected, position: part.getWorldPosition(new THREE.Vector3()).toArray(),
         scale: part.getWorldScale(new THREE.Vector3()).toArray() };
     });
@@ -53,15 +59,14 @@ try {
     });
     geometries.forEach(value => value.dispose()); materials.forEach(value => value.dispose()); textures.forEach(value => value.dispose());
     return { instruments, notes, notesEnabled: VR_FREE_DRUMMING.fallingNotes,
-      rootScale: kit.scale.toArray(), rootPosition: kit.position.toArray(), defaultKickDiameter };
+      rootScale: kit.scale.toArray(), rootPosition: kit.position.toArray(), defaultKickDiameter, expectedRootScale: RESTORED_VR_SCALE };
   });
   for (const instrument of result.instruments) {
     assert(Math.abs(instrument.diameter - instrument.expected.diameter) < 1e-8, `${instrument.id} measured diameter`);
     if (instrument.depth) assert(Math.abs(instrument.depth - instrument.expected.depth) < 1e-8);
-    assert.deepEqual(instrument.position, instrument.expected.position, `${instrument.id} seated position`);
-    assert(instrument.scale.every(value => Math.abs(value - 1) < 1e-10), 'No compounded scale');
+    assert(instrument.position.every((value, axis) => Math.abs(value - instrument.expected.position[axis]) < 1e-8), `${instrument.id} original normalized position`);
   }
-  assert.deepEqual(result.rootScale, [1, 1, 1]); assert.deepEqual(result.rootPosition, [0, 0, 0]);
+  assert(result.rootScale.every(value => Math.abs(value - result.expectedRootScale) < 1e-10)); assert.deepEqual(result.rootPosition, [0, 0, 0]);
   assert.deepEqual(result.notes, []); assert.equal(result.notesEnabled, false);
   assert.equal(result.defaultKickDiameter, 0.88, 'Shared default kit remains unchanged');
   await page.screenshot({ path: 'vr-free-play-real-scale.png' });

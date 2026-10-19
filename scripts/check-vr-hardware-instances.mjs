@@ -10,14 +10,13 @@ try {
   await page.locator('.vr-practice-stage canvas').waitFor();
   const result = await page.evaluate(async () => {
     const THREE = await import(performance.getEntriesByType('resource').find(e => /\/three\.js\?/.test(e.name)).name);
-    const { createVirtualDrumSet } = await import('/src/components/virtualDrumSet.ts');
-    const { VR_DRUM_LAYOUT } = await import('/src/components/vrDrumConfig.ts');
+    const { createRestoredVRDrumSet } = await import('/src/components/restoredVRDrumSet.ts');
     const { createVRHardwareInstances } = await import('/src/components/vrHardwareInstances.ts');
     const { createVRDrumInteraction } = await import('/src/components/vrDrumInteraction.ts');
     const scene = new THREE.Scene(); scene.background = new THREE.Color(0x101114);
     scene.add(new THREE.AmbientLight(0xffffff, 1.5));
     const light = new THREE.DirectionalLight(0xffffff, 3); light.position.set(-3, 6, 4); scene.add(light);
-    const kit = createVirtualDrumSet(scene, { layout: VR_DRUM_LAYOUT });
+    const kit = createRestoredVRDrumSet(scene);
     const feedback = createVRDrumInteraction(kit);
     const camera = new THREE.PerspectiveCamera(85, 1.6, 0.03, 30);
     camera.position.set(0, 1.22, 1); camera.rotation.x = -Math.atan2(0.83, 1.45);

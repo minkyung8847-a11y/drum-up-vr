@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { createVirtualDrumSet } from './virtualDrumSet';
+import { createRestoredVRDrumSet } from './restoredVRDrumSet';
 import { createStudioEnvironment } from './studioEnvironment';
 import { createDrumEnvironments, getSavedDrumEnvironment } from './drumEnvironments';
 import type { DrumEnvironmentId } from './drumEnvironments';
@@ -8,7 +8,7 @@ import { EnvironmentSwitcher } from './EnvironmentSwitcher';
 import { createVRDrumInteraction } from './vrDrumInteraction';
 import { createVRHardwareInstances } from './vrHardwareInstances';
 import { createVRAssistedStrikes } from './vrAssistedStrikes';
-import { VR_DRUM_LAYOUT, VR_FREE_DRUMMING } from './vrDrumConfig';
+import { VR_FREE_DRUMMING } from './vrDrumConfig';
 import { createVRSeating } from './vrSeating';
 import { createVirtualDrumsticks } from './virtualDrumsticks';
 import { createVRNoteHighway } from './vrNoteHighway';
@@ -76,8 +76,8 @@ export default function VRPractice() {
     rim.position.set(2, 3, -2);
     scene.add(rim);
 
-    // The shared model builder retains its design/materials; this VR-only layout uses metres.
-    const kit = createVirtualDrumSet(scene, { layout: VR_DRUM_LAYOUT });
+    // Restore initial-Git instrument transforms before caching hit surfaces.
+    const kit = createRestoredVRDrumSet(scene);
     const interaction = createVRDrumInteraction(kit);
     const hardware = createVRHardwareInstances(kit.group);
     let disposed = false;

@@ -36,6 +36,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
   const depthFor = (id, fallback) => layout?.[id]?.depth ?? fallback;
   const group = new THREE.Group();
   const parts = new Map();
+  const layoutSupports = new Map<string, THREE.Object3D[]>();
   let hoveredPart = null;
   const raycastTargets = [];
   
@@ -106,6 +107,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
   scene.add(group);
 
   function createTom(name, position, radius, depth, options = {}) {
+    const supportStart = group.children.length;
     const drum = new THREE.Group();
     drum.position.set(...position);
     drum.rotation.set(layout?.[name]?.tilt?.[0] ?? options.tiltX ?? 0, 0, layout?.[name]?.tilt?.[1] ?? options.tiltZ ?? 0);
@@ -159,6 +161,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
     }
 
     group.add(drum);
+    layoutSupports.set(name, group.children.slice(supportStart).filter(child => child !== drum));
     drum.userData.drumType = name;
     parts.set(name, {
       group: drum,
@@ -183,6 +186,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
   }
 
   function createBassDrum(name, position) {
+    const supportStart = group.children.length;
     const drum = new THREE.Group();
     drum.position.set(...position);
     drum.rotation.x = Math.PI / 2;
@@ -223,6 +227,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
     addBassSpurs(position, radius);
 
     group.add(drum);
+    layoutSupports.set(name, group.children.slice(supportStart).filter(child => child !== drum));
     drum.userData.drumType = name;
     parts.set(name, {
       group: drum,
@@ -247,6 +252,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
   }
 
   function createCymbal(name, position, radius, options = {}) {
+    const supportStart = group.children.length;
     const standHeight = options.standHeight ?? position[1];
     const standX = position[0];
     const standZ = position[2];
@@ -297,6 +303,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
     }
 
     group.add(cymbal);
+    layoutSupports.set(name, group.children.slice(supportStart).filter(child => child !== cymbal));
     cymbal.userData.drumType = name;
     parts.set(name, {
       group: cymbal,
@@ -666,6 +673,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
 
   function createHihatPedal() {
     const pedal = new THREE.Group();
+    pedal.name = 'hihat-pedal';
     pedal.position.set(positions.hihat[0], 0.035, layout ? positions.hihat[2] + 0.16 : 0.52);
 
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.025, 0.34), rubberMat);
@@ -846,6 +854,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
 
   return {
     group,
+    layoutSupports,
     hit,
     update,
     raycastTargets,
