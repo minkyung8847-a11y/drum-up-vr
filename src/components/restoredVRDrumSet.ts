@@ -21,13 +21,13 @@ export const RESTORED_VR_SCALE = VR_DRUM_LAYOUT.kick.diameter / original.instrum
 // Small adjustments on top of the restored kit. Offsets are world metres;
 // +Z is toward the existing seated player. Instrument scales stay untouched.
 export const VR_LAYOUT_ADJUSTMENTS: Record<string, { offset: [number, number, number]; tiltDegrees: number; height?: number }> = {
-  smallTom: { offset: [0, 0.14, 0], tiltDegrees: 5 },
-  middleTom: { offset: [0, 0.14, 0], tiltDegrees: 5 },
-  snare: { offset: [0, 0, 0.04], tiltDegrees: 0, height: 0.75 },
+  smallTom: { offset: [-0.03, 0.16, 0], tiltDegrees: 15 },
+  middleTom: { offset: [0.03, 0.16, 0], tiltDegrees: 15 },
+  snare: { offset: [0, 0, 0.11], tiltDegrees: 0, height: 0.75 },
   floorTom: { offset: [-0.02, 0, 0.14], tiltDegrees: 0, height: 0.75 },
-  hihat: { offset: [0, 0, 0], tiltDegrees: 4, height: 0.80 },
-  crash: { offset: [0, 0, 0], tiltDegrees: 4 },
-  ride: { offset: [0, 0, 0], tiltDegrees: 4 },
+  hihat: { offset: [-0.12, 0, 0], tiltDegrees: 4, height: original.instruments.smallTom.position[1] * RESTORED_VR_SCALE + 0.16 },
+  crash: { offset: [0, 0, 0], tiltDegrees: 4, height: 1.10 },
+  ride: { offset: [0.03, 0, 0], tiltDegrees: 4, height: 1.02 },
 };
 
 export function createRestoredVRDrumSet(scene: THREE.Scene) {
@@ -54,12 +54,12 @@ export function applyCurrentDrumLayout(kit: ReturnType<typeof createVirtualDrumS
       change.multiplyMatrices(part.matrix, before);
       for (const support of kit.layoutSupports.get(id) ?? []) transformSupport(support, change);
     }
-    if (id === 'snare' || id === 'hihat') {
+    if (id === 'snare' || id === 'hihat' || id === 'crash' || id === 'ride') {
       // Extend only the upright. Tripod feet remain on the floor; the snare
-      // basket follows the drum and the hi-hat sleeve follows its height.
+      // basket follows the drum and cymbal sleeves follow their heights.
       const baseY = original.supports[id][0].position[1];
       const topY = id === 'snare' ? original.instruments.snare.position[1] - original.instruments.snare.depth!
-        : baseY + original.supports.hihat[0].bounds![2];
+        : baseY + original.supports[id][0].bounds![2];
       (kit.layoutSupports.get(id) ?? []).forEach((support: THREE.Object3D, index: number) => {
         change.makeTranslation(adjustment.offset[0] / RESTORED_VR_SCALE, 0, adjustment.offset[2] / RESTORED_VR_SCALE);
         if (index === 0) {
@@ -68,6 +68,11 @@ export function applyCurrentDrumLayout(kit: ReturnType<typeof createVirtualDrumS
         } else if (index >= 7) change.elements[13] = lift * (id === 'snare' ? 1 : 0.55);
         transformSupport(support, change);
       });
+      if (id === 'hihat') {
+        const pedal = kit.group.getObjectByName('hihat-pedal')!;
+        pedal.position.x += adjustment.offset[0] / RESTORED_VR_SCALE;
+        pedal.position.z += adjustment.offset[2] / RESTORED_VR_SCALE;
+      }
     }
     if (id === 'floorTom') extendFloorLegs(part, lift);
   }

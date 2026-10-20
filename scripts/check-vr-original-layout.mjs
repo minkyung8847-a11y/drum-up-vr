@@ -50,11 +50,11 @@ try {
     const measurements = [];
     // Independent expected deltas: metres and degrees, relative to initial Git.
     const adjustments = {
-      smallTom: [0, 0.14, 0, 5], middleTom: [0, 0.14, 0, 5],
-      snare: [0, 0, 0.04, 0], floorTom: [-0.02, 0, 0.14, 0],
-      hihat: [0, 0, 0, 4], crash: [0, 0, 0, 4], ride: [0, 0, 0, 4], kick: [0, 0, 0, 0],
+      smallTom: [-0.03, 0.16, 0, 15], middleTom: [0.03, 0.16, 0, 15],
+      snare: [0, 0, 0.11, 0], floorTom: [-0.02, 0, 0.14, 0],
+      hihat: [-0.12, 0, 0, 4], crash: [0, 0, 0, 4], ride: [0.03, 0, 0, 4], kick: [0, 0, 0, 0],
     };
-    const targetHeights = { snare: 0.75, floorTom: 0.75, hihat: 0.80 };
+    const targetHeights = { snare: 0.75, floorTom: 0.75, hihat: 0.8805578947368421, crash: 1.10, ride: 1.02 };
     for (const [id, recorded] of Object.entries(history.instruments)) {
       const old = partFor(original.group, id), now = partFor(fixture.group, id), live = partFor(actual, id);
       const shell = old.children.find(child => child.geometry?.parameters.openEnded);
@@ -102,10 +102,11 @@ try {
     // The historical restoration stays exact; the active factory adds only the
     // requested layout adjustments before collision/feedback caches are built.
     const footPosition = o => new THREE.Vector3().applyMatrix4(o.matrixWorld);
-    const groundSupports = ['snare', 'hihat'].flatMap(id => fixture.layoutSupports.get(id).slice(1, 7));
+    const standIds = ['snare', 'hihat', 'crash', 'ride'];
+    const groundSupports = standIds.flatMap(id => fixture.layoutSupports.get(id).slice(1, 7));
     groundSupports.push(...floorLegs(partFor(fixture.group, 'floorTom')).filter(o => o.geometry.type === 'SphereGeometry'));
     const groundHeights = groundSupports.map(o => footPosition(o).y);
-    const poleEnds = ['snare', 'hihat'].map(id => {
+    const poleEnds = standIds.map(id => {
       const o = fixture.layoutSupports.get(id)[0];
       return { id, object: o, base: footPosition(o).y,
         top: new THREE.Vector3(0, 0, o.geometry.parameters.height).applyMatrix4(o.matrixWorld).y,
@@ -124,11 +125,11 @@ try {
     // A global AABB incorrectly treats the curved bass shell as a solid square.
     // Project every original mesh vertex (including hardware) onto XY axes.
     // A positive separating gap proves the complete convex hulls are disjoint.
-    const vertices = group => {
+    const vertices = (group, excluded = new Set()) => {
       const points = [], point = new THREE.Vector3();
       group.traverse(o => {
         const positions = o.geometry?.attributes.position;
-        if (!positions) return;
+        if (!positions || excluded.has(o)) return;
         for (let i = 0; i < positions.count; i++) {
           point.fromBufferAttribute(positions, i).applyMatrix4(o.matrixWorld); points.push(point.x, point.y, point.z);
         }
@@ -165,6 +166,36 @@ try {
       const x = Math.cos(a) * Math.cos(e), y = Math.sin(e), z = Math.sin(a) * Math.cos(e);
       floorBassGap = Math.max(floorBassGap, project(floorVertices, x, y, z).min - project(bassVertices, x, y, z).max);
     }
+    // All 28 pairs: use complete body, rim and hardware vertices. Exclude only
+    // floor legs/feet and separate stand assemblies, which are not drum bodies.
+    // Positive projection gaps prove separation of every triangle, rather than
+    // inferring non-intersection from a few sampled points or screenshots.
+    const bodies = Object.keys(history.instruments).map(id => {
+      const group = partFor(actual, id);
+      const points = vertices(group, new Set(id === 'floorTom' ? floorLegs(group) : []));
+      const axes = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map(axis => project(points, ...axis));
+      return { id, points, axes, centre: axes.map(({ min, max }) => (min + max) / 2) };
+    });
+    const pairClearances = [];
+    for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
+      const a = bodies[i], b = bodies[j];
+      const gap = (ea, eb) => Math.max(ea.min - eb.max, eb.min - ea.max);
+      let separation = Math.max(...a.axes.map((ea, axis) => gap(ea, b.axes[axis])));
+      const testAxis = axis => { separation = Math.max(separation, gap(project(a.points, ...axis), project(b.points, ...axis))); };
+      if (separation < 0.01) {
+        const axis = new THREE.Vector3(...b.centre).sub(new THREE.Vector3(...a.centre)).normalize();
+        testAxis(axis.toArray());
+      }
+      if (separation < 0.01) {
+        for (let az = 0; az < 180 && separation < 0.01; az += 10) for (let el = -80; el <= 80 && separation < 0.01; el += 10) {
+          const a = az * Math.PI / 180, e = el * Math.PI / 180;
+          testAxis([Math.cos(a) * Math.cos(e), Math.sin(e), Math.sin(a) * Math.cos(e)]);
+        }
+      }
+      pairClearances.push({ a: a.id, b: b.id, separation });
+    }
+    const hihatPedalAligned = Math.abs(actual.getObjectByName('hihat-pedal').getWorldPosition(new THREE.Vector3()).x
+      - partFor(actual, 'hihat').getWorldPosition(new THREE.Vector3()).x) < 1e-8;
     const cymbalTomIntersections = [];
     for (const cymbal of ['hihat', 'crash', 'ride']) for (const tom of ['smallTom', 'middleTom']) {
       if (bounds(cymbal).intersectsBox(bounds(tom))) cymbalTomIntersections.push([cymbal, tom]);
@@ -193,7 +224,7 @@ try {
     const image = renderer.domElement.toDataURL('image/png'); renderer.dispose();
     return { sourceCommit: history.sourceCommit, sourceBlobMatchesGit: history.sourceBlob === blob, factor, measurements,
       unchangedGeometryAndMaterials, maximumSupportError, supportCount, scalesUnchanged, groundHeightError, poleErrors,
-      floorBassGap, clearance, cymbalTomIntersections, postCentred, cases: hits.length, failures,
+      floorBassGap, clearance, pairClearances, hihatPedalAligned, cymbalTomIntersections, postCentred, cases: hits.length, failures,
       rig: rig.position.toArray(), rootPosition: actual.position.toArray(), rootScale: actual.scale.toArray(),
       notes, fallingNotes: VR_FREE_DRUMMING.fallingNotes, image };
   }, { legacyJS, blob });
@@ -213,10 +244,13 @@ try {
   assert(result.groundHeightError < 1e-8, 'Raised drums keep all tripod and floor feet grounded');
   assert(result.poleErrors.every(e => e.base < 1e-8 && e.top < 1e-6), 'Stand tops extend with raised instruments while bases stay fixed');
   assert(result.floorBassGap > 0.005, 'Floor tom body and all its hardware have a separating plane from the bass drum');
+  assert.equal(result.pairClearances.length, 28);
+  assert(result.pairClearances.every(pair => pair.separation > 0.01), `All bodies must have 1cm clearance: ${JSON.stringify(result.pairClearances.filter(pair => pair.separation <= 0.01))}`);
+  assert(result.hihatPedalAligned, 'Hi-hat pedal follows its lateral position');
   assert(result.clearance.every(c => c.bassSeparatingGap > 0.002 && c.aboveBeater > 0.002), 'Raised tom geometry clears bass and beater geometry');
   assert.deepEqual(result.cymbalTomIntersections, [], 'Cymbals do not intersect rack tom bounds');
   assert.deepEqual(result.failures, []); assert.deepEqual(result.rig, [0, 1.22, 1]); assert.deepEqual(result.rootPosition, [0, 0, 0]);
   assert(result.rootScale.every(value => Math.abs(value - result.factor) < 1e-10));
   assert.equal(result.fallingNotes, false); assert.deepEqual(result.notes, []); assert.deepEqual(errors, []);
-  console.log('PASS: exact original restoration plus only requested live offsets/tilts; unchanged sizes, geometry/materials, stand alignment, bass/beater/cymbal clearance; 192 active both-hand hits, seat and notes-disabled state. Headset NOT tested.');
+  console.log('PASS: original restoration and current poses, unchanged geometry/materials/sizes, grounded stands, all 28 body pairs separated by >1cm; 192 active both-hand hits, unchanged seat and disabled notes. Headset NOT tested.');
 } finally { await browser.close(); }
