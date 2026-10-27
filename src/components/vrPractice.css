@@ -78,8 +78,8 @@
 .vr-ar-mode-window span { color: #ff9466; font-size: 10px; font-weight: 700; letter-spacing: .15em; }
 .vr-ar-mode-window strong { display: block; margin-top: 8px; font-size: 15px; }
 .vr-ar-mode-window p { margin: 8px 0 14px; color: #bbc0c9; font-size: 11px; line-height: 1.5; }
-.vr-ar-mode-window a { display: block; padding: 10px 12px; border-radius: 6px; background: #ff6d2d; color: #161616; text-align: center; text-decoration: none; font-size: 12px; font-weight: 800; }
-.vr-ar-mode-window a:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+.vr-ar-mode-window button { display: block; width: 100%; padding: 10px 12px; border: 0; border-radius: 6px; background: #ff6d2d; color: #161616; text-align: center; font-size: 12px; font-weight: 800; cursor: pointer; }
+.vr-ar-mode-window button:focus-visible { outline: 2px solid white; outline-offset: 3px; }
 @media (min-width: 541px) and (max-width: 1000px) {
   .vr-practice-toolbar { padding-inline: 12px; gap: 8px; }
   .vr-practice-toolbar > span { font-size: 10px; letter-spacing: 0.5px; }

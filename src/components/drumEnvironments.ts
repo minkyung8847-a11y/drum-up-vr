@@ -32,15 +32,20 @@ export function createDrumEnvironments(scene: THREE.Scene, initial: DrumEnvironm
   // or restart clocks, and requires no downloads or geometry allocation.
   const environments = new Map<DrumEnvironmentId, Environment>(DRUM_ENVIRONMENTS.map(item => [item.id, item.create(scene)]));
   let selected = initial;
+  let visible = true;
+  const refreshVisibility = () => {
+    environments.forEach((environment, key) => { environment.group.visible = visible && key === selected; });
+  };
   const select = (id: DrumEnvironmentId) => {
     selected = id;
-    environments.forEach((environment, key) => { environment.group.visible = key === selected; });
+    refreshVisibility();
     try { localStorage.setItem('drumup_vr_environment', id); } catch { /* Optional preference. */ }
   };
   select(initial);
   return {
     select,
-    update(seconds: number) { environments.get(selected)?.update(seconds); },
+    setVisible(value: boolean) { visible = value; refreshVisibility(); },
+    update(seconds: number) { if (visible) environments.get(selected)?.update(seconds); },
     dispose() { environments.forEach(environment => environment.dispose()); },
   };
 }

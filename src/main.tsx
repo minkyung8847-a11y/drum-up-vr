@@ -4,7 +4,6 @@ import './index.css'
 import App from './App.tsx'
 
 const VRPractice = lazy(() => import('./components/VRPractice.tsx'))
-const ARPractice = lazy(() => import('./components/ARPractice.tsx'))
 
 export function Entry() {
   const [hash, setHash] = useState(window.location.hash)
@@ -13,9 +12,8 @@ export function Entry() {
     window.addEventListener('hashchange', navigate)
     return () => window.removeEventListener('hashchange', navigate)
   }, [])
-  return hash === '#/vr'
-    ? <Suspense fallback={null}><VRPractice /></Suspense>
-    : hash === '#/ar' ? <Suspense fallback={null}><ARPractice /></Suspense>
+  return hash === '#/vr' || hash === '#/ar'
+    ? <Suspense fallback={null}><VRPractice key={hash} preferredMode={hash === '#/ar' ? 'ar' : 'vr'} /></Suspense>
     : <App />
 }
 
