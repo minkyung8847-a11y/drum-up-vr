@@ -36,6 +36,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
   const depthFor = (id, fallback) => layout?.[id]?.depth ?? fallback;
   const group = new THREE.Group();
   const parts = new Map();
+  const tomVisuals = new Map();
   const layoutSupports = new Map<string, THREE.Object3D[]>();
   let hoveredPart = null;
   const raycastTargets = [];
@@ -150,6 +151,38 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
     addHoop(drum, radius, -depth - 0.006, 0.016, 0.012);
     addLugs(drum, name, radius, depth, options.legStyle === 'floor' || name === 'snare' ? 10 : 8);
 
+    // Keep the playing surface at rest while the visible shell reacts to a hit.
+    // Pivot around the shell centre; fixed legs and mounts stay where they are.
+    let hitHead = topHead;
+    let hitShell = shell;
+    let hitBottom = bottomHead;
+    if (isTom) {
+      const visual = new THREE.Group();
+      visual.name = `${name}-visual`;
+      visual.position.y = -depth / 2;
+      const proxy = (mesh, label) => {
+        const target = new THREE.Mesh(mesh.geometry.clone(), mesh.material);
+        target.name = `${name}-${label}-hit-proxy`;
+        target.position.copy(mesh.position);
+        target.rotation.copy(mesh.rotation);
+        target.scale.copy(mesh.scale);
+        target.visible = false;
+        target.userData.drumType = name;
+        drum.add(target);
+        return target;
+      };
+      hitShell = proxy(shell, 'shell');
+      hitHead = proxy(topHead, 'head');
+      hitBottom = proxy(bottomHead, 'bottom');
+      for (const child of [...drum.children]) {
+        if (child === hitShell || child === hitHead || child === hitBottom) continue;
+        child.position.y += depth / 2;
+        visual.add(child);
+      }
+      drum.add(visual);
+      tomVisuals.set(name, { group: visual, head: topHead });
+    }
+
     if (options.mountToBass) {
       addTomMount(position, radius);
     }
@@ -166,6 +199,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
     parts.set(name, {
       group: drum,
       headMesh: topHead,
+      hitMesh: hitHead,
       hitRadius: radius * 0.968,
       flashMesh: topHead,
       baseGroupY: drum.position.y,
@@ -182,7 +216,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
       isKick: false,
       isTom: name === 'smallTom' || name === 'middleTom' || name === 'floorTom',
     });
-    raycastTargets.push(shell, topHead, bottomHead);
+    raycastTargets.push(hitShell, hitHead, hitBottom);
   }
 
   function createBassDrum(name, position) {
@@ -856,6 +890,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
 
   return {
     group,
+    tomVisuals,
     layoutSupports,
     hit,
     update,
@@ -863,7 +898,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
     // Playing surfaces only: shells, stands and hardware are not VR hit zones.
     // Mesh transforms include the caller's existing kit placement and scale.
     hitSurfaces: [...parts.entries()].map(([id, part]) => ({
-      id, mesh: part.isCymbal ? part.flashMesh : part.headMesh,
+      id, mesh: part.isCymbal ? part.flashMesh : part.hitMesh ?? part.headMesh,
       radius: part.hitRadius, cymbal: part.isCymbal,
       height: part.isKick ? 0.009 : 0,
     })),

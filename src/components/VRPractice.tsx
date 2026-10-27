@@ -382,6 +382,16 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('lostpointercapture', up);
+    const tomKeys: Record<string, string> = { KeyF: 'smallTom', KeyG: 'middleTom', KeyH: 'floorTom' };
+    const hitTomKey = (event: KeyboardEvent) => {
+      const part = tomKeys[event.code];
+      const target = event.target;
+      if (!part || event.repeat || event.altKey || event.ctrlKey || event.metaKey
+        || (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName)))) return;
+      void drumSynth.unlock();
+      if (audioReady) interaction.hit(part);
+    };
+    window.addEventListener('keydown', hitTomKey);
     window.addEventListener('blur', cancelLook);
     const observer = new ResizeObserver(resize);
     observer.observe(host);
@@ -470,6 +480,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       canvas.removeEventListener('pointerup', up);
       canvas.removeEventListener('pointercancel', up);
       canvas.removeEventListener('lostpointercapture', up);
+      window.removeEventListener('keydown', hitTomKey);
       const geometries = new Set<THREE.BufferGeometry>();
       const materials = new Set<THREE.Material>();
       const textures = new Set<THREE.Texture>();
