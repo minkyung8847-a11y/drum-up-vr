@@ -19,6 +19,7 @@ export const ShowroomHeader: React.FC<ShowroomHeaderProps> = ({ onNavigate, onOp
       <button type="button" className={activeTab === "FREE PLAY" ? "active" : undefined} aria-current={activeTab === "FREE PLAY" ? "page" : undefined} onClick={() => { if (activeTab !== "FREE PLAY") onNavigate("FREE PLAY"); }}>FREE PLAY</button>
       <button type="button" className={activeTab === "RUDIMENT" ? "active" : undefined} aria-current={activeTab === "RUDIMENT" ? "page" : undefined} onClick={() => onNavigate("RUDIMENT")}>RUDIMENT</button>
       <button type="button" className={activeTab === "RHYTHM GAME" ? "active" : undefined} aria-current={activeTab === "RHYTHM GAME" ? "page" : undefined} onClick={() => onNavigate("RHYTHM GAME")}>SONG PRACTICE</button>
+      <button type="button" onClick={() => { window.location.hash = '/ar'; }}>AR DRUM</button>
     </nav>
     <div className="showroom-header-tools">
       <button type="button" aria-label="Bluetooth and MIDI devices" onClick={onOpenSettings}><Bluetooth size={19} strokeWidth={1.5} /></button>

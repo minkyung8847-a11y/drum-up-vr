@@ -62,12 +62,31 @@
 .vr-stick-slider input { width: 155px; accent-color: #ff9466; }
 .vr-stick-slider output { width: 42px; font-variant-numeric: tabular-nums; text-align: right; }
 .vr-practice button:disabled { opacity: 0.5; cursor: default; }
+.vr-ar-mode-window {
+  position: absolute;
+  z-index: 4;
+  left: 20px;
+  bottom: 65px;
+  width: min(300px, calc(100vw - 40px));
+  padding: 16px;
+  border: 1px solid #ffffff38;
+  border-radius: 10px;
+  background: #10141cde;
+  box-shadow: 0 12px 36px #0008;
+  backdrop-filter: blur(12px);
+}
+.vr-ar-mode-window span { color: #ff9466; font-size: 10px; font-weight: 700; letter-spacing: .15em; }
+.vr-ar-mode-window strong { display: block; margin-top: 8px; font-size: 15px; }
+.vr-ar-mode-window p { margin: 8px 0 14px; color: #bbc0c9; font-size: 11px; line-height: 1.5; }
+.vr-ar-mode-window a { display: block; padding: 10px 12px; border-radius: 6px; background: #ff6d2d; color: #161616; text-align: center; text-decoration: none; font-size: 12px; font-weight: 800; }
+.vr-ar-mode-window a:focus-visible { outline: 2px solid white; outline-offset: 3px; }
 @media (min-width: 541px) and (max-width: 1000px) {
   .vr-practice-toolbar { padding-inline: 12px; gap: 8px; }
   .vr-practice-toolbar > span { font-size: 10px; letter-spacing: 0.5px; }
   .vr-practice-toolbar .vr-demo-label { display: none; }
 }
 @media (max-width: 540px) {
+  .vr-ar-mode-window { left: 10px; bottom: 65px; width: min(240px, calc(100vw - 20px)); padding: 11px; }
   .vr-practice-toolbar { flex-wrap: wrap; }
   .vr-practice-actions { width: 100%; justify-content: center; }
   .vr-practice-stage { top: 108px; }

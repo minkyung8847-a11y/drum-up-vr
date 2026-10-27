@@ -17,6 +17,7 @@ import type { StickPose } from './xrDrumstickControllers';
 import type { StickHand } from './virtualDrumsticks';
 import { StickControllerPanel } from './StickControllerPanel';
 import { drumSynth } from '../utils/synth';
+import { createVRARModeWindow } from './vrARModeWindow';
 import './vrPractice.css';
 
 export default function VRPractice() {
@@ -117,6 +118,17 @@ export default function VRPractice() {
     const sticks = createVirtualDrumsticks(camera);
     for (const hand of ['left', 'right'] as const) applyStickPose(sticks.offsets[hand], DEFAULT_GRIP_OFFSETS[hand]);
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
+    let changingToAR = false;
+    const arModeWindow = createVRARModeWindow(camera, renderer.xr, rig, () => {
+      if (changingToAR) return;
+      changingToAR = true;
+      const session = renderer.xr.getSession();
+      if (!session) { window.location.hash = '/ar'; return; }
+      void session.end().then(() => { window.location.hash = '/ar'; }).catch(error => {
+        changingToAR = false;
+        if (!disposed) setXRMessage(`Could not switch to AR: ${error instanceof Error ? error.message : 'Session unavailable'}`);
+      });
+    });
     const collisions = createVRAssistedStrikes(kit.hitSurfaces, (id, hand, velocity) => {
       if (audioReady && interaction.hit(id, velocity)) controllers.pulse(hand, velocity);
     });
@@ -153,6 +165,7 @@ export default function VRPractice() {
       camera.quaternion.identity();
       sticks.grips.left.visible = sticks.grips.right.visible = false;
       controllers.setActive(true);
+      arModeWindow.show();
       collisions.reset();
       setImmersive(true);
       setXRMessage('VR free play — flick either wrist toward a nearby instrument. Lift back to strike again.');
@@ -160,6 +173,7 @@ export default function VRPractice() {
     const endXR = () => {
       cancelLook();
       controllers.setActive(false);
+      arModeWindow.hide();
       seating.exit();
       collisions.reset();
       rig.position.copy(desktopPose.rig);
@@ -412,6 +426,7 @@ export default function VRPractice() {
       const session = renderer.xr.getSession();
       if (session) void session.end().catch(() => {});
       controllers.dispose();
+      arModeWindow.dispose();
       poseRef.current = () => {};
       xrActionRef.current = async () => {};
       unsubscribeKit();
@@ -467,6 +482,12 @@ export default function VRPractice() {
           <EnvironmentSwitcher selected={background} onSelect={id => { backgroundRef.current(id); setBackground(id); }} />
         </div>
       </header>
+      {!immersive && <aside className="vr-ar-mode-window" aria-label="AR mode selection">
+        <span>VIEW MODE</span>
+        <strong>실제 배경에서 연주하기</strong>
+        <p>AR 모드는 카메라 또는 헤드셋의 패스스루 화면에 드럼만 표시합니다.</p>
+        <a href="#/ar">AR 버전 열기 →</a>
+      </aside>}
       <StickControllerPanel immersive={immersive} onChange={(mode, hand, pose) => poseRef.current(mode, hand, pose)} />
       <p className="vr-xr-status">{xrMessage}</p>
       <p className="vr-practice-hint" role="status">{audioStatus}</p>
