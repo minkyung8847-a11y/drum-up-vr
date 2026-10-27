@@ -104,6 +104,12 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
       } catch { /* Haptics are optional. */ }
     },
     resetSamples() { tipSamples.left.valid = tipSamples.right.valid = false; },
+    setRightPointerActive(enabled: boolean) {
+      if (enabled) {
+        sticks.grips.right.visible = false;
+        tipSamples.right.valid = false;
+      }
+    },
     update(frame?: XRFrame) {
       rig.updateWorldMatrix(true, true);
       const reference = xr.getReferenceSpace?.();

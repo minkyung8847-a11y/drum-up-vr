@@ -393,6 +393,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     const referenceReset = () => { controllers.resetSamples(); collisions.reset(); };
     let referenceSpace: XRReferenceSpace | null = null;
     let audioSession: XRSession | null = null;
+    let rightPointerWasActive = false;
     renderer.setAnimationLoop((time, frame) => {
       const frameDelta = previousTime === null ? 0 : (time - previousTime) / 1000;
       const delta = Math.min(frameDelta, 0.05);
@@ -420,11 +421,16 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       }
       if (renderer.xr.isPresenting && frame && reference) seating.update(frame, reference);
       controllers.update(frame);
+      const rightPointerActive = arModeWindow.update(session);
+      controllers.setRightPointerActive(rightPointerActive);
+      if (rightPointerActive && !rightPointerWasActive) collisions.reset('right');
+      rightPointerWasActive = rightPointerActive;
       const viewer = frame && reference ? frame.getViewerPose(reference) : null;
       if (renderer.xr.isPresenting && frame && viewer && audioReady) {
         const p = viewer.transform.position;
         headPosition.set(p.x, p.y, p.z).applyMatrix4(rig.matrixWorld);
         for (const hand of ['left', 'right'] as const) {
+          if (hand === 'right' && rightPointerActive) continue;
           collisions.update(hand, controllers.tipSamples[hand], frameDelta, time / 1000, headPosition);
         }
       } else collisions.suspend();
