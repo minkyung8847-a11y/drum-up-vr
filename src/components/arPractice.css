@@ -53,7 +53,7 @@
 .ar-start button { display: block; width: 100%; margin-top: 24px; }
 .ar-start button.ar-secondary { margin-top: 10px; border: 1px solid #ffffff55; background: #ffffff14; color: white; }
 .ar-start button:disabled { opacity: .6; cursor: default; }
-.ar-actions { position: absolute; z-index: 2; right: 20px; bottom: max(70px, calc(env(safe-area-inset-bottom) + 60px)); }
+.ar-actions { position: absolute; z-index: 2; right: 20px; bottom: max(70px, calc(env(safe-area-inset-bottom) + 60px)); display: flex; gap: 8px; }
 .ar-actions button { background: #16191ee8; border: 1px solid #ffffff55; color: white; }
 .ar-status {
   position: absolute;

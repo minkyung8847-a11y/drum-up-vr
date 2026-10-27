@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { createRestoredVRDrumSet } from './restoredVRDrumSet';
 import { createVRDrumInteraction } from './vrDrumInteraction';
 import { createStudioEnvironment } from './studioEnvironment';
+import { placeARKitInFront } from './arPlacement';
 import { drumSynth } from '../utils/synth';
 import './arPractice.css';
 
@@ -15,6 +16,7 @@ export default function ARPractice() {
   const startCameraRef = useRef<() => Promise<void>>(async () => {});
   const stopCameraRef = useRef<() => void>(() => {});
   const toggleXRRef = useRef<() => Promise<void>>(async () => {});
+  const recenterRef = useRef<() => void>(() => {});
   const [mode, setMode] = useState<ViewMode>('idle');
   const [message, setMessage] = useState('카메라를 켜면 실제 배경 위에 드럼이 표시됩니다.');
   const [xrAvailable, setXRAvailable] = useState(false);
@@ -63,8 +65,8 @@ export default function ARPractice() {
     camera.lookAt(0, 0.7, 0);
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    const direction = new THREE.Vector3();
     const viewerPosition = new THREE.Vector3();
+    const viewerOrientation = new THREE.Quaternion();
     let lastTime = 0;
 
     const setCurrentMode = (next: ViewMode) => {
@@ -105,19 +107,17 @@ export default function ARPractice() {
       }
     };
 
-    const placeKitInFront = () => {
-      const xrCamera = renderer.xr.getCamera();
-      xrCamera.getWorldPosition(viewerPosition);
-      xrCamera.getWorldDirection(direction);
-      direction.y = 0;
-      if (direction.lengthSq() < 0.001) direction.set(0, 0, -1);
-      direction.normalize();
-      kit.group.position.copy(viewerPosition).addScaledVector(direction, 1.8);
-      kit.group.position.y = viewerPosition.y - 1.05;
-      kit.group.rotation.y = Math.atan2(-direction.x, -direction.z);
-      kit.group.updateWorldMatrix(true, true);
+    const placeKitInFront = (frame: XRFrame) => {
+      const reference = renderer.xr.getReferenceSpace();
+      const pose = reference && frame.getViewerPose(reference);
+      if (!pose) return;
+      const { position, orientation } = pose.transform;
+      viewerPosition.set(position.x, position.y, position.z);
+      viewerOrientation.set(orientation.x, orientation.y, orientation.z, orientation.w);
+      placeARKitInFront(kit.group, viewerPosition, viewerOrientation);
       placedInXR = true;
     };
+    recenterRef.current = () => { placedInXR = false; };
     const onSessionEnd = () => {
       xrSession?.removeEventListener('end', onSessionEnd);
       xrSession = null;
@@ -142,7 +142,7 @@ export default function ARPractice() {
         session.addEventListener('end', onSessionEnd);
         await renderer.xr.setSession(session);
         setCurrentMode('xr');
-        setMessage('실제 공간에 드럼을 배치했습니다. 컨트롤러로 드럼을 선택해 연주하세요.');
+        setMessage('바라보는 방향의 앉은 자리 앞에 드럼을 배치합니다. 위치가 어긋나면 내 앞에 다시 배치를 누르세요.');
         void drumSynth.unlock();
       } catch (error) {
         if (xrSession) await xrSession.end().catch(() => {});
@@ -202,10 +202,10 @@ export default function ARPractice() {
     const observer = new ResizeObserver(resize);
     observer.observe(host);
     resize();
-    renderer.setAnimationLoop(time => {
+    renderer.setAnimationLoop((time, frame) => {
       const delta = lastTime ? Math.min((time - lastTime) / 1000, 0.05) : 0;
       lastTime = time;
-      if (renderer.xr.isPresenting && !placedInXR) placeKitInFront();
+      if (renderer.xr.isPresenting && !placedInXR && frame) placeKitInFront(frame);
       interaction.update(delta);
       if (currentMode !== 'idle') renderer.render(scene, camera);
     });
@@ -240,6 +240,7 @@ export default function ARPractice() {
       startCameraRef.current = async () => {};
       stopCameraRef.current = () => {};
       toggleXRRef.current = async () => {};
+      recenterRef.current = () => {};
     };
   }, []);
 
@@ -261,7 +262,8 @@ export default function ARPractice() {
       </div>}
       {mode !== 'idle' && <div className="ar-actions">
         {mode === 'camera' ? <button onClick={() => stopCameraRef.current()}>카메라 종료</button>
-          : <button onClick={() => { void toggleXRRef.current(); }}>AR 종료</button>}
+          : <><button onClick={() => recenterRef.current()}>내 앞에 다시 배치</button>
+            <button onClick={() => { void toggleXRRef.current(); }}>AR 종료</button></>}
       </div>}
       <p className="ar-status" role="status">{message}</p>
     </main>
