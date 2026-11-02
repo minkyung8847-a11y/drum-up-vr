@@ -17,7 +17,7 @@ const original = ORIGINAL_IMPORTED_KIT as {
 // Baseline diameter/depth ratios and placements come from the initial Git
 // model. Existing geometry, textures and materials are never regenerated.
 export const RESTORED_VR_SCALE = VR_DRUM_LAYOUT.kick.diameter / original.instruments.kick.diameter;
-const KNEE_HEIGHT = 0.52; // Seated player's approximate knee height above the floor, in metres.
+const KNEE_HEIGHT = 0.57; // Seated player's approximate knee height above the floor, in metres.
 
 // Small adjustments on top of the restored kit. Offsets are world metres;
 // +Z is toward the existing seated player. Instrument scales stay untouched.
