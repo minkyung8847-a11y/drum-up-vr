@@ -114,6 +114,10 @@ class DrumSynth {
   }
 
   // Let interactive views finish loading before accepting timing-sensitive hits.
+  public isAudioRunning(): boolean {
+    return this.ctx?.state === 'running';
+  }
+
   public async unlock(): Promise<boolean> {
     this.init();
     if (!this.ctx) return false;
