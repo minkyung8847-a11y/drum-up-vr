@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
-// The VR kit already uses a measured seated layout; no second kit translation or
-// artificial eye height is needed. Physical local-floor height stays untouched.
-export const VR_SEATING = { playerZ: 1.0, eyeLift: 0, kitForward: 0 } as const;
+// Raise the seated virtual eye and hands slightly so the complete kit sits
+// lower relative to the player without sinking the bass drum or pedals below the floor.
+export const VR_SEATING = { playerZ: 1.0, eyeLift: 0.08, kitForward: 0 } as const;
 
 export function createVRSeating(rig: THREE.Group, kit: THREE.Group, refreshHits: () => void) {
   const desktopRig = rig.position.clone();

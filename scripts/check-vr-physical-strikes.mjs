@@ -233,15 +233,15 @@ const seatCollision = createVRStickCollision([{ ...surface, mesh: seatHead }], i
 const seat = createVRSeating(seatRig, seatKit, () => seatCollision.refreshSurfaces());
 seat.enter(); seat.enter();
 assert.deepEqual(seatKit.position.toArray(), [0, 0, 0], 'Measured layout needs no cumulative translation');
-assert.deepEqual(seatRig.position.toArray(), [0, 0, 1]);
+assert.deepEqual(seatRig.position.toArray(), [0, 0.08, 1]);
 seat.update({ getViewerPose: () => null }, {});
 seat.update({ getViewerPose: () => ({ transform: { position: { x: 0.3, y: 1.48, z: -0.4 } } }) }, {});
-assert.deepEqual(seatRig.position.toArray(), [-0.3, 0, 1.4]);
+assert.deepEqual(seatRig.position.toArray(), [-0.3, 0.08, 1.4]);
 const anchoredRig = seatRig.position.clone();
 seat.update({ getViewerPose: () => ({ transform: { position: { x: 0.8, y: 1.7, z: 0.1 } } }) }, {});
 assert(seatRig.position.equals(anchoredRig), 'Do not follow/recenter subsequent headset movement');
 assert(camera.quaternion.equals(cameraOrientation), 'No imposed camera rotation');
-assert.equal(1.48 + seatRig.position.y, 1.48, 'Preserve physical floor-relative eye height');
+assert.equal(1.48 + seatRig.position.y, 1.56, 'Calibrate seated eye height');
 seatHead.updateMatrix();
 assert(seatHead.matrix.equals(localHead), 'Instrument local arrangement and scale remain unchanged');
 assert.equal(seatHead.material, originalMaterial);
