@@ -12,11 +12,23 @@ export const VR_SOUND_IDS: Record<string, DrumPadId> = {
 interface DrumKitScene {
   hitSurfaces: DrumHitSurface[];
   tomVisuals?: Map<string, { group: THREE.Group; head: THREE.Mesh }>;
+  hiHatLower?: THREE.Mesh | null;
+  kickMechanism?: { board: THREE.Object3D | null; beater: THREE.Object3D | null };
 }
 
 // Shared by real controller collisions and existing desktop clicks.
 export function createVRDrumInteraction(kit: DrumKitScene) {
   const silver = new THREE.Color(0xeef4ff);
+  // Animate only the existing local mechanism; snapshot the restored resting
+  // transforms instead of calling the old full-kit deformation update().
+  const mechanism = [kit.kickMechanism?.board, kit.kickMechanism?.beater]
+    .map((object, index) => object ? { object, rotation: object.rotation.clone(), quaternion: object.quaternion.clone(), amount: index === 0 ? -0.06 : -0.12 } : null)
+    .filter(target => target !== null);
+  let kickAge = Infinity, kickVelocity = 1;
+  let hiHatClosed = false;
+  const lowerHiHatRest = kit.hiHatLower?.position.y ?? -0.035;
+  const placeHiHat = () => { if (kit.hiHatLower) kit.hiHatLower.position.y = lowerHiHatRest - (hiHatClosed ? 0 : 0.035); };
+  placeHiHat();
   const states = kit.hitSurfaces.map(surface => {
     const tom = kit.tomVisuals?.get(surface.id);
     const meshes = tom ? [tom.head] : surface.cymbal
@@ -42,20 +54,33 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
     const state = states.find(item => item.id === partId);
     if (!state || !VR_SOUND_IDS[partId]) return false;
     // Each trigger creates an overlapping Web Audio voice from preloaded samples.
-    drumSynth.trigger(VR_SOUND_IDS[partId], velocity);
+    drumSynth.trigger(partId === 'hihat' && !hiHatClosed ? 'hihat-open' : VR_SOUND_IDS[partId], velocity);
     if (state.tom) state.startScale = state.tom.group.scale.x;
     state.age = 0;
     state.velocity = THREE.MathUtils.clamp(velocity, 0, 1);
+    if (partId === 'kick') { kickAge = 0; kickVelocity = state.velocity; }
     return true;
   }
 
   function update(delta: number) {
+    if (kickAge !== Infinity) {
+      kickAge += delta;
+      const amount = kickAge < 0.16 ? Math.sin(Math.PI * kickAge / 0.16) * kickVelocity : 0;
+      for (const target of mechanism) {
+        if (amount === 0) target.object.quaternion.copy(target.quaternion);
+        else { target.object.rotation.copy(target.rotation); target.object.rotation.x += target.amount * amount; }
+      }
+      if (kickAge >= 0.16) kickAge = Infinity;
+    }
     for (const state of states) {
       if (state.age === Infinity) continue;
       state.age += delta;
       const { age, velocity, cymbal } = state;
-      const duration = cymbal ? 0.55 : 0.22;
-      const response = age < duration ? Math.sin(age * (cymbal ? 34 : 95)) * Math.exp(-age * (cymbal ? 10 : 23)) * velocity : 0;
+      const crash = state.id === 'crash';
+      const duration = crash ? 0.8 : cymbal ? 0.55 : 0.22;
+      const response = age < duration
+        ? Math.sin(age * (crash ? 26 : cymbal ? 34 : 95)) * Math.exp(-age * (crash ? 6 : cymbal ? 10 : 23)) * velocity
+        : 0;
       if (state.tom) {
         const rise = 0.035;
         const end = 0.18;
@@ -73,8 +98,8 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
         target.mesh.position.copy(target.position);
         target.mesh.rotation.copy(target.rotation);
         if (cymbal) {
-          target.mesh.rotation.x += response * 0.025;
-          target.mesh.rotation.z += response * 0.012;
+          target.mesh.rotation.x += response * (crash ? 0.09 : 0.025);
+          target.mesh.rotation.z += response * (crash ? 0.045 : 0.012);
         } else target.mesh.position.y -= response * 0.0025;
         for (const { material, color, emissive, intensity } of target.materials) {
           const glow = cymbal ? Math.max(0, 1 - age / 0.085) * velocity : 0;
@@ -88,10 +113,19 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
       }
       if (age >= duration) state.age = Infinity;
     }
+    placeHiHat();
   }
 
   return {
     hit, update,
+    setHiHatClosed(pressed: boolean) {
+      if (hiHatClosed === pressed) return true;
+      hiHatClosed = pressed;
+      placeHiHat();
+      if (pressed && drumSynth.isAudioRunning()) drumSynth.trigger('hihat-pedal');
+      return true;
+    },
+    isHiHatClosed: () => hiHatClosed,
     dispose() {
       update(1);
       for (const state of states) for (const target of state.targets) {

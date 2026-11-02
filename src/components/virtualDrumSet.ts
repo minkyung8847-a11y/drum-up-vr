@@ -37,6 +37,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
   const group = new THREE.Group();
   const parts = new Map();
   const tomVisuals = new Map();
+  let hiHatLower = null;
   const layoutSupports = new Map<string, THREE.Object3D[]>();
   let hoveredPart = null;
   const raycastTargets = [];
@@ -156,9 +157,10 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
     let hitHead = topHead;
     let hitShell = shell;
     let hitBottom = bottomHead;
-    if (isTom) {
+    if (isTom || name === 'snare') {
       const visual = new THREE.Group();
       visual.name = `${name}-visual`;
+      visual.userData.drumType = name;
       visual.position.y = -depth / 2;
       const proxy = (mesh, label) => {
         const target = new THREE.Mesh(mesh.geometry.clone(), mesh.material);
@@ -260,12 +262,39 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
     addBassLugs(drum, radius, depth);
     addBassSpurs(position, radius);
 
+    // Animate the complete bass drum around its centre, while the fixed
+    // proxies keep stick and pointer hit detection at the resting position.
+    const visual = new THREE.Group();
+    visual.name = 'kick-visual';
+    visual.userData.drumType = name;
+    const proxy = (mesh, label) => {
+      const target = new THREE.Mesh(mesh.geometry.clone(), mesh.material);
+      target.name = `kick-${label}-hit-proxy`;
+      target.position.copy(mesh.position);
+      target.rotation.copy(mesh.rotation);
+      target.scale.copy(mesh.scale);
+      target.visible = false;
+      target.userData.drumType = name;
+      drum.add(target);
+      return target;
+    };
+    const hitShell = proxy(shell, 'shell');
+    const hitHead = proxy(frontHead, 'head');
+    const hitRear = proxy(rearHead, 'rear');
+    for (const child of [...drum.children]) {
+      if (child === hitShell || child === hitHead || child === hitRear) continue;
+      visual.add(child);
+    }
+    drum.add(visual);
+    tomVisuals.set(name, { group: visual, head: frontHead });
+
     group.add(drum);
     layoutSupports.set(name, group.children.slice(supportStart).filter(child => child !== drum));
     drum.userData.drumType = name;
     parts.set(name, {
       group: drum,
       headMesh: frontHead,
+      hitMesh: hitHead,
       hitRadius: radius * 0.93,
       flashMesh: frontHead,
       baseGroupY: drum.position.y,
@@ -282,7 +311,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
       isKick: true,
       isTom: false,
     });
-    raycastTargets.push(shell, frontHead, rearHead);
+    raycastTargets.push(hitShell, hitHead, hitRear);
   }
 
   function createCymbal(name, position, radius, options = {}) {
@@ -333,6 +362,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
       lower.rotation.x = Math.PI;
       lower.userData.drumType = name;
       cymbal.add(lower);
+      hiHatLower = lower;
       raycastTargets.push(lower);
     }
 
@@ -891,6 +921,8 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
   return {
     group,
     tomVisuals,
+    hiHatLower,
+    kickMechanism: { board: kickPedalBoard, beater: kickBeaterGroup },
     layoutSupports,
     hit,
     update,
@@ -907,7 +939,7 @@ export function createVirtualDrumSet(scene, options: { layout?: Record<string, {
 }
 
 function createCymbalSurface() {
-  const size=1024;
+  const size=512;
   const normal=new Uint8Array(size*size*4), direction=new Uint8Array(size*size*4), color=new Uint8Array(size*size*4);
   for(let y=0;y<size;y++) for(let x=0;x<size;x++) {
     const u=(x-size/2)/(size/2),v=(y-size/2)/(size/2);

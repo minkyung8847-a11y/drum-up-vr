@@ -5,7 +5,7 @@ import * as THREE from 'three';
 // Heads, cymbals, shells, pedals and all animated feedback remain independent.
 export function createVRHardwareInstances(kit: THREE.Group) {
   kit.updateWorldMatrix(true, true);
-  const batches = new Map<string, THREE.Mesh[]>();
+  const batches = new Map<string, { anchor: THREE.Group; meshes: THREE.Mesh[] }>();
   const geometryKeys = new Map<THREE.BufferGeometry, string>();
   const attributesKey = (geometry: THREE.BufferGeometry) => {
     let key = geometryKeys.get(geometry);
@@ -23,15 +23,18 @@ export function createVRHardwareInstances(kit: THREE.Group) {
   kit.traverse(object => {
     if (!(object instanceof THREE.Mesh) || Array.isArray(object.material) || !object.visible) return;
     const parent = object.parent;
-    if (!(parent instanceof THREE.Group) || !parent.userData.drumType || parent.userData.drumType !== parent.parent?.userData.drumType) return;
-    const key = `${object.material.uuid}:${object.castShadow}:${object.receiveShadow}:${attributesKey(object.geometry)}`;
-    const meshes = batches.get(key) ?? [];
-    meshes.push(object); batches.set(key, meshes);
+    const anchor = parent?.parent;
+    if (!(parent instanceof THREE.Group) || !(anchor instanceof THREE.Group)
+      || !parent.userData.drumType || parent.userData.drumType !== anchor.userData.drumType) return;
+    const key = `${anchor.uuid}:${object.material.uuid}:${object.castShadow}:${object.receiveShadow}:${attributesKey(object.geometry)}`;
+    const batch = batches.get(key) ?? { anchor, meshes: [] as THREE.Mesh[] };
+    batch.meshes.push(object); batches.set(key, batch);
   });
   const root = new THREE.Group(); root.name = 'vr-static-hardware-instances';
-  const inverse = kit.matrixWorld.clone().invert(), matrix = new THREE.Matrix4();
+  const matrix = new THREE.Matrix4();
   const hidden: THREE.Mesh[] = [];
-  for (const meshes of batches.values()) {
+  const instanceMeshes: THREE.InstancedMesh[] = [];
+  for (const { anchor, meshes } of batches.values()) {
     if (meshes.length < 3) continue;
     const first = meshes[0];
     // Hashes only group candidates. Verify equal buffers before sharing them.
@@ -46,6 +49,7 @@ export function createVRHardwareInstances(kit: THREE.Group) {
     const instances = new THREE.InstancedMesh(first.geometry, first.material, meshes.length);
     instances.name = 'vr-lug-hardware';
     instances.castShadow = first.castShadow; instances.receiveShadow = first.receiveShadow;
+    const inverse = anchor.matrixWorld.clone().invert();
     meshes.forEach((mesh, index) => {
       matrix.multiplyMatrices(inverse, mesh.matrixWorld);
       instances.setMatrixAt(index, matrix);
@@ -53,15 +57,17 @@ export function createVRHardwareInstances(kit: THREE.Group) {
     });
     instances.instanceMatrix.needsUpdate = true;
     instances.computeBoundingSphere();
-    root.add(instances);
+    anchor.add(instances);
+    instanceMeshes.push(instances);
   }
   kit.add(root);
   return {
     instances: root,
+    instanceMeshes,
     sourceMeshes: hidden,
     dispose() {
       hidden.forEach(mesh => { mesh.visible = true; });
-      root.traverse(object => { if (object instanceof THREE.InstancedMesh) object.dispose(); });
+      instanceMeshes.forEach(mesh => { mesh.removeFromParent(); mesh.dispose(); });
       root.removeFromParent();
     },
   };

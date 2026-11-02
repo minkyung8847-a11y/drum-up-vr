@@ -17,15 +17,16 @@ const original = ORIGINAL_IMPORTED_KIT as {
 // Baseline diameter/depth ratios and placements come from the initial Git
 // model. Existing geometry, textures and materials are never regenerated.
 export const RESTORED_VR_SCALE = VR_DRUM_LAYOUT.kick.diameter / original.instruments.kick.diameter;
+const KNEE_HEIGHT = 0.52; // Seated player's approximate knee height above the floor, in metres.
 
 // Small adjustments on top of the restored kit. Offsets are world metres;
 // +Z is toward the existing seated player. Instrument scales stay untouched.
 export const VR_LAYOUT_ADJUSTMENTS: Record<string, { offset: [number, number, number]; tiltDegrees: number; height?: number }> = {
   smallTom: { offset: [-0.03, 0.16, 0], tiltDegrees: 15 },
   middleTom: { offset: [0.03, 0.16, 0], tiltDegrees: 15 },
-  snare: { offset: [0, 0, 0.11], tiltDegrees: 0, height: 0.75 },
-  floorTom: { offset: [-0.02, 0, 0.14], tiltDegrees: 0, height: 0.75 },
-  hihat: { offset: [-0.12, 0, 0], tiltDegrees: 4, height: original.instruments.smallTom.position[1] * RESTORED_VR_SCALE + 0.16 },
+  snare: { offset: [0, 0, 0.23], tiltDegrees: 0, height: KNEE_HEIGHT },
+  floorTom: { offset: [-0.02, 0, 0.26], tiltDegrees: 0, height: KNEE_HEIGHT },
+  hihat: { offset: [-0.12, 0, 0.05], tiltDegrees: 4, height: original.instruments.smallTom.position[1] * RESTORED_VR_SCALE + 0.12 },
   crash: { offset: [0, 0, 0], tiltDegrees: 4, height: 1.10 },
   ride: { offset: [0.03, 0, 0], tiltDegrees: 4, height: 1.02 },
 };
