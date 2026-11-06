@@ -8,10 +8,9 @@ import { EnvironmentSwitcher } from './EnvironmentSwitcher';
 import { createVRDrumInteraction } from './vrDrumInteraction';
 import { createVRHardwareInstances } from './vrHardwareInstances';
 import { createVRAssistedStrikes } from './vrAssistedStrikes';
-import { VR_FREE_DRUMMING } from './vrDrumConfig';
-import { createVRSeating } from './vrSeating';
+import { createVRSeating, VR_SEATING } from './vrSeating';
 import { createVirtualDrumsticks } from './virtualDrumsticks';
-import { createVRNoteHighway } from './vrNoteHighway';
+import { captureRhythmSurfaces, createVRNoteHighway } from './vrNoteHighway';
 import { applyStickPose, createXRDrumstickControllers, DEFAULT_GRIP_OFFSETS } from './xrDrumstickControllers';
 import type { StickPose } from './xrDrumstickControllers';
 import type { StickHand } from './virtualDrumsticks';
@@ -27,8 +26,6 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
   const hostRef = useRef<HTMLDivElement>(null);
   const resetRef = useRef<() => void>(() => {});
   const [audioStatus, setAudioStatus] = useState('Loading drum sounds…');
-  const [demoPaused, setDemoPaused] = useState(false);
-  const demoRef = useRef<{ toggle: () => boolean; restart: () => void }>({ toggle: () => false, restart: () => {} });
   const [xrSupported, setXRSupported] = useState(false);
   const [arSupported, setArSupported] = useState(false);
   const [immersive, setImmersive] = useState(false);
@@ -86,10 +83,16 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
 
     // Restore initial-Git instrument transforms before caching hit surfaces.
     const kit = createRestoredVRDrumSet(scene);
+    const rhythmSurfaces = captureRhythmSurfaces(kit.hitSurfaces);
     const interaction = createVRDrumInteraction(kit);
     const hardware = createVRHardwareInstances(kit.group);
     let disposed = false;
     let audioReady = false;
+    let highway: ReturnType<typeof createVRNoteHighway> | null = null;
+    let rhythmActive = false;
+    let sessionMode: XRMode = preferredMode;
+    let previousTime: number | null = null;
+    const isVisibleVR = () => sessionMode === 'vr' && renderer.xr.getSession()?.visibilityState === 'visible';
     let audioPreparation = 0;
     const prepareAudio = async () => {
       const preparation = ++audioPreparation;
@@ -127,9 +130,24 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
     const arModeWindow = createVRARModeWindow(camera, renderer.xr, rig, mode => {
       void xrActionRef.current(mode);
+    }, action => {
+      if (!isVisibleVR()) return;
+      highway ??= createVRNoteHighway(scene, rhythmSurfaces, new THREE.Vector3(0, 1.35, VR_SEATING.playerZ),
+        (state, judgment) => {
+          const active = state === 'playing' || state === 'paused';
+          if (rhythmActive !== active) {
+            rhythmActive = active;
+            backgrounds.setVisible(!active);
+          }
+          arModeWindow.setRhythmStatus(state, judgment);
+        });
+      highway[action](performance.now());
     });
     const collisions = createVRAssistedStrikes(kit.hitSurfaces, (id, hand, velocity) => {
-      if (audioReady && interaction.hit(id, velocity)) controllers.pulse(hand, velocity);
+      if (audioReady && interaction.hit(id, velocity)) {
+        if (highway && previousTime !== null && isVisibleVR()) highway.strike(id, previousTime);
+        controllers.pulse(hand, velocity);
+      }
     });
     const seating = createVRSeating(rig, kit.group, () => {
       interaction.update(1);
@@ -146,7 +164,10 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     };
     const desktopPose = { rig: rig.position.clone(), cameraPosition: camera.position.clone(), cameraScale: camera.scale.clone(),
       cameraQuaternion: camera.quaternion.clone(), yaw: 0, pitch: seatedPitch };
-    let sessionMode: XRMode = preferredMode;
+    let rhythmSession: XRSession | null = null;
+    const pauseHiddenRhythm = () => {
+      if (rhythmSession?.visibilityState !== 'visible') highway?.pause(performance.now());
+    };
     const setPassthrough = (enabled: boolean) => {
       scene.background = enabled ? null : vrBackground;
       backgrounds.setVisible(!enabled);
@@ -171,6 +192,8 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       sticks.grips.left.visible = sticks.grips.right.visible = false;
       controllers.setActive(true);
       setPassthrough(sessionMode === 'ar');
+      rhythmSession = renderer.xr.getSession();
+      rhythmSession?.addEventListener('visibilitychange', pauseHiddenRhythm);
       arModeWindow.setTarget(sessionMode === 'ar' ? 'vr' : 'ar');
       arModeWindow.show();
       collisions.reset();
@@ -182,6 +205,11 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     };
     const endXR = () => {
       cancelLook();
+      rhythmSession?.removeEventListener('visibilitychange', pauseHiddenRhythm);
+      rhythmSession = null;
+      highway?.stop();
+      highway?.dispose();
+      highway = null;
       controllers.setActive(false);
       arModeWindow.hide();
       setPassthrough(false);
@@ -242,19 +270,6 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
         if (!disposed) setXRBusy(false);
       }
     };
-    const highway = VR_FREE_DRUMMING.fallingNotes ? createVRNoteHighway(scene) : null;
-    const seatedOrientation = new THREE.Quaternion().setFromEuler(new THREE.Euler(seatedPitch, 0, 0));
-    let demoEpoch = performance.now();
-    let demoPauseTime: number | null = null;
-    demoRef.current = {
-      toggle() {
-        const now = performance.now();
-        if (demoPauseTime === null) demoPauseTime = now;
-        else { demoEpoch += now - demoPauseTime; demoPauseTime = null; }
-        return demoPauseTime !== null;
-      },
-      restart() { demoEpoch = performance.now(); demoPauseTime = null; },
-    };
 
     const corners: THREE.Vector3[] = [];
     kit.group.updateMatrixWorld(true);
@@ -303,7 +318,6 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(tangent / 0.9));
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
-      highway?.layout(camera, rig.position, seatedOrientation);
     };
 
     let pointerId: number | null = null;
@@ -398,7 +412,6 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     resize();
 
     const headPosition = new THREE.Vector3();
-    let previousTime: number | null = null;
     const unlockControllerAudio = () => { void drumSynth.unlock(); };
     const referenceReset = () => { controllers.resetSamples(); collisions.reset(); };
     let referenceSpace: XRReferenceSpace | null = null;
@@ -436,16 +449,19 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       if (rightPointerActive && !rightPointerWasActive) collisions.reset('right');
       rightPointerWasActive = rightPointerActive;
       const viewer = frame && reference ? frame.getViewerPose(reference) : null;
-      if (renderer.xr.isPresenting && frame && viewer && audioReady) {
+      if (renderer.xr.isPresenting && viewer) {
         const p = viewer.transform.position;
         headPosition.set(p.x, p.y, p.z).applyMatrix4(rig.matrixWorld);
+        if (rhythmActive && !isVisibleVR()) highway?.pause(time);
+        highway?.update(time, headPosition);
+      }
+      if (renderer.xr.isPresenting && frame && viewer && audioReady) {
         for (const hand of ['left', 'right'] as const) {
           if (hand === 'right' && rightPointerActive) continue;
           collisions.update(hand, controllers.tipSamples[hand], frameDelta, time / 1000, headPosition);
         }
       } else collisions.suspend();
       interaction.update(delta);
-      highway?.update(((demoPauseTime ?? performance.now()) - demoEpoch) / 1000);
       renderer.render(scene, camera);
     });
 
@@ -458,6 +474,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       backgroundRef.current = () => {};
       renderer.xr.removeEventListener('sessionstart', startXR);
       renderer.xr.removeEventListener('sessionend', endXR);
+      rhythmSession?.removeEventListener('visibilitychange', pauseHiddenRhythm);
       const session = renderer.xr.getSession();
       if (session) void session.end().catch(() => {});
       controllers.dispose();
@@ -468,7 +485,6 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       interaction.dispose();
       hardware.dispose();
       highway?.dispose();
-      demoRef.current = { toggle: () => false, restart: () => {} };
       renderer.setAnimationLoop(null);
       observer.disconnect();
       resetRef.current = () => {};
@@ -510,9 +526,6 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
         <a href="#/">Back to DRUM UP</a>
         <span>{xrMode === 'ar' || (!immersive && preferredMode === 'ar') ? 'AR' : 'VR'} PRACTICE · {immersive ? 'HEADSET VIEW' : 'DESKTOP VIEW'}</span>
         <div className="vr-practice-actions">
-          {VR_FREE_DRUMMING.fallingNotes && <><span className="vr-demo-label">120 BPM · VISUAL DEMO</span>
-          <button onClick={() => setDemoPaused(demoRef.current.toggle())}>{demoPaused ? 'Resume demo' : 'Pause demo'}</button>
-          <button onClick={() => { demoRef.current.restart(); setDemoPaused(false); }}>Restart demo</button></>}
           <button onClick={() => resetRef.current()}>Reset view</button>
           <button disabled={!xrSupported || xrBusy} title={xrMessage} onClick={() => { void xrActionRef.current('vr'); }}>{xrBusy ? 'Connecting…' : xrMode === 'vr' ? 'Exit VR' : xrSupported ? 'Enter VR' : 'VR unavailable'}</button>
           {xrMode !== 'ar' && <EnvironmentSwitcher selected={background} onSelect={id => { backgroundRef.current(id); setBackground(id); }} />}

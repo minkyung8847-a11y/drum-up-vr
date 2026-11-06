@@ -1,140 +1,229 @@
 import * as THREE from 'three';
+import type { DrumHitSurface } from './vrStickCollision';
 
-export const DEMO_DURATION = 20;
-export const NOTE_TRAVEL_SECONDS = 3;
-export const HIGHWAY_LANES = [
-  { id: 'crash', label: 'CRASH', color: 0xead49a },
-  { id: 'hihat', label: 'HI-HAT', color: 0xdcd6a6 },
-  { id: 'snare', label: 'SNARE', color: 0xe9a5c8 },
-  { id: 'kick', label: 'KICK', color: 0xeda782 },
-  { id: 'tom1', label: 'TOM 1', color: 0x95d8e5 },
-  { id: 'tom2', label: 'TOM 2', color: 0xa1dfc6 },
-  { id: 'floor', label: 'FLOOR', color: 0xc2ace6 },
-  { id: 'ride', label: 'RIDE', color: 0xe5b882 },
-] as const;
-type LaneId = typeof HIGHWAY_LANES[number]['id'];
+export const RHYTHM_BPM = 100;
+const TRAVEL_MS = 3000;
+const PERFECT_MS = 50;
+const GOOD_MS = 120;
+const FLASH_MS = 230;
 
-// Authored 120 BPM fixture. Times are seconds at the hit line, including chords.
-export const HIGHWAY_PATTERN: readonly { time: number; lane: LaneId }[] = [
-  { time: 3, lane: 'kick' }, { time: 3, lane: 'crash' },
-  { time: 3.5, lane: 'hihat' }, { time: 4, lane: 'snare' },
-  { time: 4, lane: 'hihat' }, { time: 4.5, lane: 'hihat' },
-  { time: 5, lane: 'kick' }, { time: 5, lane: 'hihat' },
-  { time: 5.5, lane: 'hihat' }, { time: 6, lane: 'snare' },
-  { time: 6, lane: 'hihat' }, { time: 6.5, lane: 'hihat' },
-  { time: 7, lane: 'tom1' }, { time: 7.5, lane: 'tom2' },
-  { time: 8, lane: 'floor' }, { time: 8.5, lane: 'ride' },
-  { time: 9, lane: 'kick' }, { time: 9, lane: 'crash' },
-  { time: 9.5, lane: 'ride' }, { time: 10, lane: 'snare' },
-  { time: 10, lane: 'ride' }, { time: 10.5, lane: 'ride' },
-  { time: 11, lane: 'kick' }, { time: 11.5, lane: 'ride' },
-  { time: 12, lane: 'snare' }, { time: 12.5, lane: 'hihat' },
-  { time: 13, lane: 'kick' }, { time: 13, lane: 'hihat' },
-  { time: 13.5, lane: 'hihat' }, { time: 14, lane: 'snare' },
-  { time: 14.5, lane: 'tom1' }, { time: 15, lane: 'tom2' },
-  { time: 15.5, lane: 'floor' }, { time: 16, lane: 'kick' },
-  { time: 16, lane: 'crash' }, { time: 17, lane: 'ride' },
+const COLORS: Record<string, number> = {
+  crash: 0xffa570, hihat: 0x8fffc9, snare: 0xff78be, kick: 0xff8d58,
+  smallTom: 0x73e8ff, middleTom: 0x7fffe1, floorTom: 0xf49de9, ride: 0x9bccff,
+};
+const PATTERN = [
+  ['kick', 'crash'], ['hihat'], ['snare', 'hihat'], ['hihat'],
+  ['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat'],
+  ['smallTom'], ['middleTom'], ['floorTom'], ['ride'],
+  ['kick', 'crash'], ['ride'], ['snare', 'ride'], ['ride'],
+  ['kick'], ['ride'], ['snare'], ['hihat'],
+  ['kick', 'hihat'], ['hihat'], ['snare'], ['smallTom'],
+  ['middleTom'], ['floorTom'], ['kick', 'crash'], ['ride'],
 ];
 
-export function createVRNoteHighway(scene: THREE.Scene) {
+export type RhythmState = 'idle' | 'playing' | 'paused' | 'finished';
+export type RhythmJudgment = 'Perfect' | 'Good' | 'Miss';
+export type RhythmAction = 'toggle' | 'restart';
+
+type RhythmSurface = Omit<DrumHitSurface, 'mesh'> & { world: THREE.Matrix4 };
+
+export function captureRhythmSurfaces(surfaces: DrumHitSurface[]): RhythmSurface[] {
+  return surfaces.map(({ mesh, ...surface }) => ({ ...surface, world: mesh.matrixWorld.clone() }));
+}
+
+export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[],
+  eye: THREE.Vector3, onStatus: (state: RhythmState, judgment?: RhythmJudgment) => void) {
   const anchor = new THREE.Group();
   anchor.name = 'note-highway-anchor';
-  const road = new THREE.Group();
-  road.name = 'note-highway';
-  anchor.add(road);
+  anchor.visible = false;
   scene.add(anchor);
-  const width = 3.2;
-  const laneWidth = width / HIGHWAY_LANES.length;
-  let length = 1;
-  const surface = new THREE.Mesh(new THREE.PlaneGeometry(width, 1),
-    new THREE.MeshBasicMaterial({ color: 0x151a24, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide }));
-  surface.name = 'highway-surface';
-  road.add(surface);
-  const strips: THREE.Mesh[] = [];
-  for (let i = 0; i <= HIGHWAY_LANES.length; i++) {
-    const line = new THREE.Mesh(new THREE.PlaneGeometry(0.006, 1),
-      new THREE.MeshBasicMaterial({ color: 0xe4e8ef, transparent: true, opacity: i === 0 || i === 8 ? 0.28 : 0.18, depthWrite: false, side: THREE.DoubleSide }));
-    line.position.set(i * laneWidth - width / 2, 0.5, 0.005);
-    road.add(line);
-    strips.push(line);
-  }
-  const hitLine = new THREE.Mesh(new THREE.PlaneGeometry(width + 0.03, 0.012),
-    new THREE.MeshBasicMaterial({ color: 0xf1e7da, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide }));
-  hitLine.name = 'highway-hit-line';
-  hitLine.position.z = 0.03;
-  road.add(hitLine);
-  // One shared, hollow ring texture includes its soft halo: one quad per note,
-  // no bloom pass, particles, lights, or additional glow geometry.
-  const ringCanvas = document.createElement('canvas');
-  ringCanvas.width = ringCanvas.height = 128;
-  const ringContext = ringCanvas.getContext('2d')!;
-  const halo = ringContext.createRadialGradient(64, 64, 0, 64, 64, 64);
-  for (const [stop, alpha] of [[0, 0], [0.48, 0], [0.55, 0.06], [0.61, 0.25],
-    [0.64, 1], [0.71, 1], [0.76, 0.30], [0.86, 0.05], [1, 0]]) {
+
+  // One shared alpha texture supplies both the thin ring and its soft halo.
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const context = canvas.getContext('2d')!;
+  const halo = context.createRadialGradient(64, 64, 0, 64, 64, 64);
+  for (const [stop, alpha] of [[0, 0], [0.50, 0], [0.56, 0.08], [0.62, 0.32],
+    [0.65, 1], [0.70, 1], [0.74, 0.32], [0.83, 0.08], [1, 0]]) {
     halo.addColorStop(stop, `rgba(255,255,255,${alpha})`);
   }
-  ringContext.fillStyle = halo;
-  ringContext.fillRect(0, 0, 128, 128);
-  const ringTexture = new THREE.CanvasTexture(ringCanvas);
-  ringTexture.colorSpace = THREE.SRGBColorSpace;
-  const noteGeometry = new THREE.PlaneGeometry(laneWidth * 0.86, laneWidth * 0.86);
-  const notes = HIGHWAY_PATTERN.map(note => {
-    const lane = HIGHWAY_LANES.findIndex(item => item.id === note.lane);
-    const mesh = new THREE.Mesh(noteGeometry, new THREE.MeshBasicMaterial({
-      color: new THREE.Color(HIGHWAY_LANES[lane].color).multiplyScalar(1.5), map: ringTexture, transparent: true,
-      blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide,
-    }));
-    mesh.name = `note-${note.lane}-${note.time}`;
-    mesh.position.set((lane + 0.5) * laneWidth - width / 2, 0, 0.035);
-    mesh.userData.hitTime = note.time;
-    road.add(mesh);
-    return { ...note, mesh };
+  context.fillStyle = halo;
+  context.fillRect(0, 0, 128, 128);
+  const texture = new THREE.CanvasTexture(canvas);
+  const ringGeometry = new THREE.PlaneGeometry(1, 1);
+  const material = (color: number) => new THREE.MeshBasicMaterial({
+    color, map: texture, transparent: true, blending: THREE.AdditiveBlending,
+    depthWrite: false, toneMapped: false, side: THREE.DoubleSide,
   });
 
+  const linePoints: THREE.Vector3[] = [];
+  const lanes = new Map(surfaces.map(({ id, world, radius, height, cymbal }) => {
+    const normal = new THREE.Vector3(0, 1, 0).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(world));
+    const bow = cymbal ? radius * 0.35 : 0;
+    const target = new THREE.Vector3(0, cymbal ? 0.008 : height, bow).applyMatrix4(world)
+      .addScaledVector(normal, 0.012);
+    // Each ray starts on the instrument and points toward a shared vanishing
+    // point above the kit in the nominal seated view. It stays world-locked.
+    const nearDepth = eye.z - target.z;
+    const farDepth = 3.6;
+    const nearX = (target.x - eye.x) / nearDepth;
+    const nearY = (target.y - eye.y) / nearDepth;
+    const farY = 0.13;
+    const edgeSpacing = id === 'crash' ? -0.045 : id === 'ride' ? 0.045 : 0;
+    const farX = nearX * (0.42 - farY) / (0.42 - nearY) + edgeSpacing;
+    function positionAt(progress: number, out: THREE.Vector3) {
+      // Keep the last section above the playing surfaces. The vertical kick
+      // head is approached from the player side of the bass drum shell.
+      const clearance = id === 'kick' ? 0.24 * Math.sin(Math.PI * progress) : 0;
+      const depth = nearDepth + (farDepth - nearDepth) * progress ** 3 - clearance;
+      return out.set(eye.x + THREE.MathUtils.lerp(nearX, farX, progress) * depth,
+        eye.y + THREE.MathUtils.lerp(nearY, farY, progress) * depth, eye.z - depth);
+    }
+    for (let i = 0; i < 16; i++) {
+      linePoints.push(positionAt(i / 16, new THREE.Vector3()), positionAt((i + 1) / 16, new THREE.Vector3()));
+    }
+    const noteMaterial = material(COLORS[id]);
+    const burst = new THREE.Mesh(ringGeometry, material(COLORS[id]));
+    burst.name = `rhythm-burst-${id}`;
+    const rim = new THREE.Mesh(ringGeometry, material(COLORS[id]));
+    rim.name = `rhythm-rim-${id}`;
+    // The same ring texture traces the actual rim in the playing surface's plane.
+    rim.position.set(0, cymbal ? 0 : height, 0).applyMatrix4(world).addScaledVector(normal, 0.007);
+    rim.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+    rim.scale.set(2 * radius * new THREE.Vector3().setFromMatrixColumn(world, 0).length() / 0.675,
+      2 * radius * new THREE.Vector3().setFromMatrixColumn(world, 2).length() / 0.675, 1);
+    rim.visible = burst.visible = false;
+    anchor.add(rim, burst);
+    const lane = { positionAt, noteMaterial, burst, rim, flashAt: -Infinity };
+    return [id, lane] as const;
+  }));
+  const lines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(linePoints),
+    new THREE.LineBasicMaterial({ color: 0xc3cbd8, transparent: true, opacity: 0.32, depthWrite: false }));
+  lines.name = 'rhythm-lanes';
+  anchor.add(lines);
+
+  const notes = PATTERN.flatMap((parts, beat) => parts.map(id => {
+    const lane = lanes.get(id)!;
+    const arrival = TRAVEL_MS + beat * (60_000 / RHYTHM_BPM);
+    const mesh = new THREE.Mesh(ringGeometry, lane.noteMaterial);
+    mesh.name = `note-${id}-${arrival}`;
+    mesh.visible = false;
+    anchor.add(mesh);
+    return { id, lane, arrival, mesh, resolved: false };
+  }));
+  let state: RhythmState = 'idle';
+  let epoch = 0;
+  let pauseAt = 0;
+  const lastArrival = notes[notes.length - 1].arrival;
+  const noteScale = (progress: number) => THREE.MathUtils.lerp(0.12, 0.15, 1 - progress);
+
+  function setState(next: RhythmState) {
+    state = next;
+    anchor.visible = state === 'playing' || state === 'paused';
+    onStatus(state);
+  }
+
+  function clear() {
+    for (const note of notes) {
+      note.resolved = false;
+      note.mesh.visible = false;
+    }
+    for (const lane of lanes.values()) {
+      lane.flashAt = -Infinity;
+      lane.rim.visible = lane.burst.visible = false;
+    }
+  }
+
+  function restart(now: number) {
+    clear();
+    epoch = now;
+    setState('playing');
+  }
+
+  function pause(now: number) {
+    if (state !== 'playing') return;
+    pauseAt = now;
+    setState('paused');
+  }
+
   return {
-    anchor, notes, hitLine,
-    // Anchor in world space using the original seated pose; never move the camera.
-    layout(camera: THREE.PerspectiveCamera, position: THREE.Vector3, orientation: THREE.Quaternion) {
-      anchor.position.copy(position);
-      anchor.quaternion.copy(orientation);
-      const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-      // Extend down toward the playing area, behind the kit. Depth testing lets
-      // the original drum surfaces occlude the highway naturally.
-      const near = new THREE.Vector3(0, 0.22 * tangent * 2, -2);
-      const far = new THREE.Vector3(0, 0.95 * tangent * 7, -7);
-      const direction = far.clone().sub(near);
-      length = direction.length();
-      road.position.copy(near);
-      road.rotation.x = Math.atan2(direction.z, direction.y);
-      // Fit the highway horizontally on narrow screens without altering the kit.
-      road.scale.x = Math.min(1, 4 * tangent * camera.aspect * 0.82 / width);
-      surface.scale.y = length;
-      surface.position.y = length / 2;
-      for (const strip of strips) { strip.scale.y = length; strip.position.y = length / 2; }
+    restart,
+    toggle(now: number) {
+      if (state === 'playing') pause(now);
+      else if (state === 'paused') {
+        epoch += now - pauseAt;
+        setState('playing');
+      } else restart(now);
     },
-    update(elapsedSeconds: number) {
-      const time = ((elapsedSeconds % DEMO_DURATION) + DEMO_DURATION) % DEMO_DURATION;
+    pause,
+    stop() {
+      clear();
+      setState('idle');
+    },
+    strike(id: string, now: number) {
+      if (state !== 'playing' || !lanes.has(id)) return;
+      const elapsed = now - epoch;
+      let closest: typeof notes[number] | undefined;
+      let distance = Infinity;
       for (const note of notes) {
-        // Absolute chart time determines position: constant world speed, no drift.
-        const untilHit = note.time - time;
-        note.mesh.position.y = untilHit * length / NOTE_TRAVEL_SECONDS;
-        note.mesh.visible = untilHit <= NOTE_TRAVEL_SECONDS && untilHit >= -0.12;
-        note.mesh.material.opacity = THREE.MathUtils.lerp(0.95, 0.5,
-          THREE.MathUtils.clamp(untilHit / NOTE_TRAVEL_SECONDS, 0, 1));
+        if (note.resolved || note.id !== id) continue;
+        const offset = Math.abs(elapsed - note.arrival);
+        if (offset < distance) { closest = note; distance = offset; }
+      }
+      if (!closest || distance > GOOD_MS) {
+        onStatus(state, 'Miss');
+        return;
+      }
+      closest.resolved = true;
+      closest.mesh.visible = false;
+      const lane = closest.lane;
+      const progress = (closest.arrival - elapsed) / TRAVEL_MS;
+      lane.positionAt(progress, lane.burst.position);
+      lane.flashAt = elapsed;
+      onStatus(state, distance <= PERFECT_MS ? 'Perfect' : 'Good');
+    },
+    update(now: number, viewer: THREE.Vector3) {
+      if (!anchor.visible) return;
+      const elapsed = (state === 'paused' ? pauseAt : now) - epoch;
+      if (state === 'playing' && elapsed > lastArrival + GOOD_MS + FLASH_MS) {
+        setState('finished');
+        return;
+      }
+      for (const note of notes) {
+        const remaining = note.arrival - elapsed;
+        if (!note.resolved && remaining < -GOOD_MS) {
+          note.resolved = true;
+          onStatus(state, 'Miss');
+        }
+        note.mesh.visible = !note.resolved && remaining <= TRAVEL_MS;
+        if (!note.mesh.visible) continue;
+        const progress = remaining / TRAVEL_MS;
+        note.lane.positionAt(progress, note.mesh.position);
+        note.mesh.scale.setScalar(noteScale(progress));
+        note.mesh.lookAt(viewer);
+      }
+      for (const lane of lanes.values()) {
+        const age = (elapsed - lane.flashAt) / FLASH_MS;
+        lane.rim.visible = lane.burst.visible = age >= 0 && age < 1;
+        if (!lane.burst.visible) continue;
+        const fade = (1 - age) ** 2;
+        lane.rim.material.opacity = 0.7 * fade;
+        lane.burst.material.opacity = fade;
+        lane.burst.scale.setScalar(0.15 + 0.14 * age);
+        lane.burst.lookAt(viewer);
       }
     },
     dispose() {
-      const geometries = new Set<THREE.BufferGeometry>();
-      const materials = new Set<THREE.Material>();
-      anchor.traverse(object => {
-        if (!(object instanceof THREE.Mesh) && !(object instanceof THREE.Sprite)) return;
-        if (object instanceof THREE.Mesh) geometries.add(object.geometry);
-        for (const material of Array.isArray(object.material) ? object.material : [object.material]) materials.add(material);
-      });
-      geometries.forEach(geometry => geometry.dispose());
-      materials.forEach(material => material.dispose());
-      ringTexture.dispose();
       anchor.removeFromParent();
+      lines.geometry.dispose();
+      lines.material.dispose();
+      ringGeometry.dispose();
+      texture.dispose();
+      for (const lane of lanes.values()) {
+        lane.noteMaterial.dispose();
+        lane.burst.material.dispose();
+        lane.rim.material.dispose();
+      }
     },
   };
 }

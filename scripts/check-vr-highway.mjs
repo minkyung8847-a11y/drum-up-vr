@@ -1,71 +1,180 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { createServer } from 'vite';
+import { installMockWebXR } from './helpers/mock-webxr.mjs';
 
-const browser = await chromium.launch({ headless: true, channel: 'msedge' });
+const vite = await createServer({ server: { host: '127.0.0.1', port: 0 } });
+await vite.listen();
+let browser;
 try {
+  browser = await chromium.launch({ channel: 'msedge', headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto(`${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);
-  await page.locator('.vr-practice-stage canvas').waitFor();
-  await page.waitForTimeout(1200);
-  await page.getByRole('button', { name: 'Pause demo', exact: true }).click();
-  await page.screenshot({ path: 'vr-highway-desktop.png' });
-  const result = await page.evaluate(async () => {
-    const url = performance.getEntriesByType('resource').find(entry => entry.name.includes('/src/components/vrNoteHighway.ts')).name;
-    const { createVRNoteHighway, HIGHWAY_LANES, HIGHWAY_PATTERN, DEMO_DURATION } = await import(url);
-    const threeURL = performance.getEntriesByType('resource').find(entry => /\/three\.js\?/.test(entry.name)).name;
-    const THREE = await import(threeURL);
-    const update = THREE.Object3D.prototype.updateMatrixWorld;
-    THREE.Object3D.prototype.updateMatrixWorld = function (...args) {
-      if (this.name === 'note-highway-anchor') window.liveHighway = this;
-      return update.apply(this, args);
+  await page.addInitScript(installMockWebXR, { mode: 'switchable' });
+  await page.goto(`${vite.resolvedUrls.local[0]}#/vr`);
+  await page.getByRole('status').filter({ hasText: 'Click to play' }).waitFor();
+  await page.evaluate(async () => {
+    const url = performance.getEntriesByType('resource').find(entry => /\/three\.js\?/.test(entry.name)).name;
+    const THREE = await import(url);
+    window.THREE = THREE;
+    const original = THREE.Scene.prototype.updateMatrixWorld;
+    THREE.Scene.prototype.updateMatrixWorld = function (...args) {
+      if (this.getObjectByName('player-rig')) window.scene = this;
+      return original.apply(this, args);
     };
-    window.noteSnapshot = () => {
-      const values = [];
-      window.liveHighway.traverse(object => {
-        if (typeof object.userData.hitTime === 'number') values.push([object.name, object.position.y, object.visible]);
-      });
-      return values;
-    };
-    const scene = new THREE.Scene();
-    const road = createVRNoteHighway(scene);
-    const camera = new THREE.PerspectiveCamera(85, 1.8, 0.03, 30);
-    road.layout(camera, new THREE.Vector3(0, 1.55, 1.6), new THREE.Quaternion());
-    const note = road.notes[0].mesh;
-    road.update(1); const first = note.position.y;
-    road.update(1.5); const second = note.position.y;
-    road.update(2); const third = note.position.y;
-    road.update(3); const atHit = note.position.y;
-    const chord = road.notes[1].mesh.position.y;
-    road.update(3.2); const passedHidden = !note.visible;
-    road.update(1); const seekRestored = note.visible && note.position.y === first;
-    road.update(DEMO_DURATION + 1); const loopMatches = note.position.y === first;
-    const names = new Set(HIGHWAY_LANES.map(lane => lane.id));
-    road.dispose();
-    return { constantSpeed: Math.abs((first - second) - (second - third)) < 1e-10,
-      atHit, chord, passedHidden, seekRestored, loopMatches,
-      laneCount: HIGHWAY_LANES.length, colors: new Set(HIGHWAY_LANES.map(lane => lane.color)).size,
-      validPattern: HIGHWAY_PATTERN.every(note => names.has(note.lane)), disposed: scene.children.length === 0 };
+    const { drumSynth } = await import('/src/utils/synth.ts');
+    const trigger = drumSynth.trigger.bind(drumSynth);
+    window.hits = [];
+    drumSynth.trigger = (id, velocity) => { window.hits.push(id); return trigger(id, velocity); };
   });
-  assert(result.constantSpeed && result.seekRestored && result.loopMatches);
-  assert.equal(result.atHit, 0); assert.equal(result.chord, 0);
-  assert(result.passedHidden && result.validPattern && result.disposed);
-  assert.equal(result.laneCount, 8); assert.equal(result.colors, 8);
-  const canvas = page.locator('.vr-practice-stage canvas');
-  await page.waitForFunction(() => !!window.liveHighway);
-  const paused = await page.evaluate(() => window.noteSnapshot());
-  await page.waitForTimeout(400);
-  assert.deepEqual(await page.evaluate(() => window.noteSnapshot()), paused, 'Pause freezes notes while venue lights continue moving');
-  await page.getByRole('button', { name: 'Resume demo', exact: true }).click();
-  await page.waitForTimeout(700);
-  assert.notDeepEqual(await page.evaluate(() => window.noteSnapshot()), paused, 'Resume moves notes');
-  await page.getByRole('button', { name: 'Restart demo', exact: true }).click();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: 'vr-highway-mobile.png' });
+  await page.waitForFunction(() => window.scene);
+  assert(await page.evaluate(() => !window.scene.getObjectByName('note-highway-anchor')
+    && !window.scene.getObjectByName('vr-rhythm-controls').visible), 'Desktop preview is unaffected');
+  await page.getByRole('button', { name: 'Change background' }).click();
+  await page.getByRole('menuitemradio', { name: /Concert Arena/ }).click();
+  await page.getByRole('button', { name: 'Enter VR', exact: true }).click();
+  await page.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
+
+  const immersive = await page.evaluate(() => {
+    const T = window.THREE;
+    const scene = window.scene;
+    const session = window.testXR;
+    const source = session.connect('right');
+    const rig = scene.getObjectByName('player-rig');
+    const panel = scene.getObjectByName('vr-rhythm-controls');
+    const environment = scene.getObjectByName('concert-stage-environment');
+    const get = name => scene.getObjectByName(name);
+    const point = x => {
+      const origin = panel.localToWorld(new T.Vector3(x, .005, .5));
+      source.gripSpace.position = rig.worldToLocal(origin).toArray();
+      source.gripSpace.quaternion = [0, 0, 0, 1];
+      session.step(3);
+    };
+    const select = () => session.emit('select', { inputSource: source, frame: session.frame() });
+    const showCursor = () => {
+      source.gamepad.buttons[4].pressed = true;
+      session.step();
+      source.gamepad.buttons[4].pressed = false;
+      session.step();
+    };
+    session.step(3);
+    point(-.124);
+    showCursor();
+    select();
+    const active = get('note-highway-anchor').visible && !environment.visible;
+    const kick = get('note-kick-3000');
+    let eyeDraws = 0;
+    kick.onBeforeRender = () => eyeDraws++;
+    session.time = performance.now() + 850;
+    session.step();
+    const moved = kick.position.clone();
+    const eightLanes = get('rhythm-lanes').geometry.attributes.position.count === 8 * 16 * 2;
+    showCursor();
+    select();
+    session.step();
+    const paused = kick.position.clone();
+    session.step(30);
+    const froze = kick.position.equals(paused);
+    select();
+    session.step(25);
+    const resumed = !kick.position.equals(paused);
+    point(.124);
+    showCursor();
+    select();
+    session.time = performance.now();
+    session.step();
+    const restarted = kick.visible && kick.position.distanceTo(moved) > .2;
+
+    // Swing a tracked stick into the existing assisted snare target on beat 3.
+    const kit = get('kick-pedal').parent;
+    const snare = kit.children.find(object => object.userData.drumType === 'snare');
+    const mesh = snare.children.find(object => object.isMesh && object.userData.drumType === 'snare' && object.position.y > 0);
+    const normal = new T.Vector3(0, 1, 0).transformDirection(mesh.matrixWorld);
+    const target = mesh.getWorldPosition(new T.Vector3()).addScaledVector(normal, .12);
+    const offset = new T.Vector3(0, 0, -.31).applyAxisAngle(new T.Vector3(1, 0, 0), 12 * Math.PI / 180);
+    source.gripSpace.tracked = false;
+    session.time += 4090;
+    session.step();
+    source.gripSpace.position = rig.worldToLocal(target).sub(offset).toArray();
+    source.gripSpace.tracked = true;
+    session.step(6);
+    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), -.05).toArray();
+    session.step(2);
+    return { active, eightLanes, froze, resumed, restarted, eyeDraws,
+      snareBurst: get('rhythm-burst-snare').visible, snareRim: get('rhythm-rim-snare').visible,
+      snareRemoved: !get('note-snare-4200').visible, hits: window.hits };
+  });
+  assert(immersive.eyeDraws >= 2, 'A note is submitted in the stereo render loop');
+  for (const check of ['active', 'eightLanes', 'froze', 'resumed', 'restarted', 'snareBurst', 'snareRim', 'snareRemoved']) {
+    assert(immersive[check], check);
+  }
+  assert.deepEqual(immersive.hits, ['snare']);
+  console.log('PASS: immersive controls, 8 lanes, stereo submission, tracked stick judgment, effects and drum sound path');
+
+  const checks = await page.evaluate(async () => {
+    const T = window.THREE;
+    const { captureRhythmSurfaces, createVRNoteHighway, RHYTHM_BPM } = await import('/src/components/vrNoteHighway.ts');
+    const { createRestoredVRDrumSet } = await import('/src/components/restoredVRDrumSet.ts');
+    const scene = new T.Scene();
+    const kit = createRestoredVRDrumSet(scene);
+    const eye = new T.Vector3(0, 1.35, 1);
+    const statuses = [];
+    const road = createVRNoteHighway(scene, captureRhythmSurfaces(kit.hitSurfaces), eye,
+      (state, judgment) => statuses.push(judgment ?? state));
+    const get = name => scene.getObjectByName(name);
+    const kick = get('note-kick-3000');
+    const crash = get('note-crash-3000');
+    const judge = (id, time) => { road.strike(id, time); return statuses.at(-1); };
+    const windows = [-121, -120, -51, -50, 50, 51, 120, 121].map(offset => {
+      road.restart(1000);
+      return judge('kick', 4000 + offset);
+    });
+    road.restart(1000);
+    road.update(1800, eye);
+    const before = kick.position.clone(), beforeSize = kick.scale.x;
+    road.update(2200, eye);
+    const moved = !kick.position.equals(before);
+    road.update(1800, eye);
+    const independent = kick.position.equals(before);
+    road.update(4000, eye);
+    const surface = kit.hitSurfaces.find(surface => surface.id === 'kick');
+    const local = surface.mesh.worldToLocal(kick.position.clone());
+    const aligned = Math.abs(local.x) < 1e-8 && Math.abs(local.z) < 1e-8 && Math.abs(local.y - surface.height) < .02;
+    const grows = kick.scale.x > beforeSize;
+    const chord = [judge('kick', 4000), judge('kick', 4001), judge('crash', 4001)];
+    road.update(4010, eye);
+    const effects = !kick.visible && !crash.visible && get('rhythm-burst-kick').visible && get('rhythm-rim-crash').visible;
+    road.update(4250, eye);
+    const effectsFade = !get('rhythm-burst-kick').visible && !get('rhythm-rim-crash').visible;
+    road.restart(1000);
+    road.update(4120, eye);
+    const atBoundary = kick.visible;
+    road.update(4121, eye);
+    const expired = !kick.visible && statuses.at(-1) === 'Miss';
+    road.update(22000, eye);
+    const finished = statuses.at(-1) === 'finished' && !get('note-highway-anchor').visible;
+    road.dispose();
+    return { bpm: RHYTHM_BPM, windows, chord, moved, independent, aligned, grows, effects, effectsFade, atBoundary, expired,
+      finished, disposed: !get('note-highway-anchor') };
+  });
+  assert.equal(checks.bpm, 100);
+  assert.deepEqual(checks.windows, ['Miss', 'Good', 'Good', 'Perfect', 'Perfect', 'Good', 'Good', 'Miss']);
+  assert.deepEqual(checks.chord, ['Perfect', 'Miss', 'Perfect']);
+  for (const check of ['moved', 'independent', 'aligned', 'grows', 'effects', 'effectsFade', 'atBoundary', 'expired', 'finished', 'disposed']) {
+    assert(checks[check], check);
+  }
+  await page.getByRole('button', { name: 'Exit VR', exact: true }).click();
+  await page.getByRole('button', { name: 'Enter VR', exact: true }).waitFor();
+  const exit = await page.evaluate(() => ({
+    highway: !!window.scene.getObjectByName('note-highway-anchor'),
+    concert: window.scene.getObjectByName('concert-stage-environment').visible,
+    controls: window.scene.getObjectByName('vr-rhythm-controls').visible,
+  }));
+  assert.deepEqual(exit, { highway: false, concert: true, controls: false }, 'XR exit restores free play');
   assert.deepEqual(errors, []);
-  console.log('PASS: 8 distinct lanes; exact hit times/chords; constant speed; deterministic seek/loop; pause/resume/restart; disposal; desktop/mobile rendering; no runtime errors.');
+  console.log('PASS: 100 BPM chart, time-based positions, target alignment, judgment boundaries, chords, misses, cleanup and no page errors');
 } finally {
-  await browser.close();
+  await browser?.close();
+  await vite.close();
 }

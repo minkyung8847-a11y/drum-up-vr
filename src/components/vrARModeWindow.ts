@@ -1,8 +1,10 @@
 import * as THREE from 'three';
+import { RHYTHM_BPM } from './vrNoteHighway';
+import type { RhythmAction, RhythmJudgment, RhythmState } from './vrNoteHighway';
 
 // A head-locked button remains visible when the browser hides page DOM in immersive VR.
 export function createVRARModeWindow(camera: THREE.Camera, xr: THREE.WebXRManager, rig: THREE.Group,
-  onSelectMode: (mode: 'vr' | 'ar') => void) {
+  onSelectMode: (mode: 'vr' | 'ar') => void, onRhythmAction: (action: RhythmAction) => void) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 256;
@@ -41,6 +43,48 @@ export function createVRARModeWindow(camera: THREE.Camera, xr: THREE.WebXRManage
   panel.renderOrder = 1000;
   panel.visible = false;
   camera.add(panel);
+
+  const rhythmCanvas = document.createElement('canvas');
+  rhythmCanvas.width = 512;
+  rhythmCanvas.height = 224;
+  const rhythmContext = rhythmCanvas.getContext('2d')!;
+  const rhythmTexture = new THREE.CanvasTexture(rhythmCanvas);
+  rhythmTexture.colorSpace = THREE.SRGBColorSpace;
+  const rhythmPanel = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.228),
+    new THREE.MeshBasicMaterial({ map: rhythmTexture, transparent: true, depthTest: false, depthWrite: false, toneMapped: false }));
+  rhythmPanel.name = 'vr-rhythm-controls';
+  rhythmPanel.position.set(-0.28, 0.25, -1);
+  rhythmPanel.renderOrder = panel.renderOrder;
+  rhythmPanel.visible = false;
+  camera.add(rhythmPanel);
+  let rhythmState: RhythmState = 'idle';
+  let rhythmJudgment: RhythmJudgment | undefined;
+  const drawRhythm = () => {
+    rhythmContext.fillStyle = '#111820';
+    rhythmContext.fillRect(0, 0, 512, 224);
+    rhythmContext.strokeStyle = '#64717f';
+    rhythmContext.lineWidth = 4;
+    rhythmContext.strokeRect(3, 3, 506, 218);
+    rhythmContext.fillStyle = '#d9e1e9';
+    rhythmContext.font = '600 27px Arial';
+    rhythmContext.fillText(`RHYTHM  /  ${RHYTHM_BPM} BPM`, 24, 45);
+    rhythmContext.fillStyle = '#87e9dd';
+    rhythmContext.fillRect(24, 70, 220, 72);
+    rhythmContext.fillStyle = '#243441';
+    rhythmContext.fillRect(268, 70, 220, 72);
+    rhythmContext.font = 'bold 31px Arial';
+    rhythmContext.textAlign = 'center';
+    rhythmContext.fillStyle = '#111820';
+    rhythmContext.fillText(rhythmState === 'playing' ? 'Pause' : rhythmState === 'paused' ? 'Resume' : 'Start', 134, 117);
+    rhythmContext.fillStyle = '#f1f5fa';
+    rhythmContext.fillText('Restart', 378, 117);
+    rhythmContext.font = '600 27px Arial';
+    rhythmContext.fillStyle = rhythmJudgment === 'Miss' ? '#ffad89' : '#9cf7e7';
+    rhythmContext.fillText(rhythmJudgment ?? (rhythmState === 'finished' ? 'Pattern complete' : 'A: cursor   ·   Trigger: select'), 256, 190);
+    rhythmContext.textAlign = 'start';
+    rhythmTexture.needsUpdate = true;
+  };
+  drawRhythm();
 
   const raycaster = new THREE.Raycaster();
   const rotation = new THREE.Matrix4();
@@ -84,18 +128,31 @@ export function createVRARModeWindow(camera: THREE.Camera, xr: THREE.WebXRManage
   ray.name = 'ar-hand-ray';
   ray.renderOrder = 1001;
   ray.visible = false;
-  const pointAtPanel = (source: THREE.Group) => {
+  const pointAtPanels = (source: THREE.Group) => {
     rig.updateWorldMatrix(true, true);
     camera.updateWorldMatrix(true, true);
     source.updateWorldMatrix(true, false);
     rotation.identity().extractRotation(source.matrixWorld);
     raycaster.ray.origin.setFromMatrixPosition(source.matrixWorld);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
-    return raycaster.intersectObject(panel, false)[0];
+    return (rhythmPanel.visible ? raycaster.intersectObject(rhythmPanel, false)[0] : undefined)
+      ?? raycaster.intersectObject(panel, false)[0];
   };
   const selectHandlers = sources.map(source => () => {
     if (!panel.visible) return;
-    if (pointAtPanel(source)) onSelectMode(target);
+    const hit = pointAtPanels(source);
+    if (hit?.object === panel) onSelectMode(target);
+    if (hit?.object !== rhythmPanel || !pointerActive || ray.parent !== source || !hit.uv) return;
+    const x = hit.uv.x * 512;
+    const y = (1 - hit.uv.y) * 224;
+    if (y < 70 || y > 142) return;
+    if (x >= 24 && x <= 244) onRhythmAction('toggle');
+    else if (x >= 268 && x <= 488) onRhythmAction('restart');
+    else return;
+    if (rhythmState === 'playing') {
+      pointerActive = false;
+      handCursor.visible = ray.visible = false;
+    }
   });
   sources.forEach((source, index) => {
     rig.add(source);
@@ -113,8 +170,14 @@ export function createVRARModeWindow(camera: THREE.Camera, xr: THREE.WebXRManage
 
   return {
     setTarget(mode: 'vr' | 'ar') { target = mode; draw(); texture.needsUpdate = true; },
-    show() { panel.visible = true; resetPointer(); },
-    hide() { panel.visible = false; resetPointer(); },
+    show() { panel.visible = true; rhythmPanel.visible = target === 'ar'; resetPointer(); },
+    hide() { panel.visible = rhythmPanel.visible = false; resetPointer(); },
+    setRhythmStatus(state: RhythmState, judgment?: RhythmJudgment) {
+      if (state === rhythmState && judgment === rhythmJudgment) return;
+      rhythmState = state;
+      rhythmJudgment = judgment;
+      drawRhythm();
+    },
     update(session: XRSession | null) {
       const input = [...(session?.inputSources ?? [])].find(source => source.handedness === 'right' && source.gamepad);
       const source = input && bindings.get(input);
@@ -128,13 +191,14 @@ export function createVRARModeWindow(camera: THREE.Camera, xr: THREE.WebXRManage
         return false;
       }
       if (ray.parent !== source) { source.add(ray); source.add(handCursor); }
-      const hit = pointAtPanel(source);
+      const hit = pointAtPanels(source);
       const distance = hit?.distance ?? 1.2;
       ray.scale.z = distance;
       handCursor.position.set(0, 0, -distance);
       ray.visible = handCursor.visible = true;
       handCursor.material.color.set(hit ? 0xff8f4d : 0xffffff);
-      if (hovered !== !!hit) { hovered = !!hit; draw(); texture.needsUpdate = true; }
+      const overMode = hit?.object === panel;
+      if (hovered !== overMode) { hovered = overMode; draw(); texture.needsUpdate = true; }
       return true;
     },
     dispose() {
@@ -154,6 +218,10 @@ export function createVRARModeWindow(camera: THREE.Camera, xr: THREE.WebXRManage
       panel.geometry.dispose();
       (panel.material as THREE.Material).dispose();
       texture.dispose();
+      rhythmPanel.removeFromParent();
+      rhythmPanel.geometry.dispose();
+      rhythmPanel.material.dispose();
+      rhythmTexture.dispose();
     },
   };
 }
