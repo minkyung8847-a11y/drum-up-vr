@@ -170,6 +170,12 @@ export function createVRARModeWindow(camera: THREE.Camera, xr: THREE.WebXRManage
 
   return {
     setTarget(mode: 'vr' | 'ar') { target = mode; draw(); texture.needsUpdate = true; },
+    setLanePreview(enabled: boolean) {
+      panel.position.set(enabled ? 0.66 : 0.38, enabled ? 0.58 : 0.25, -1);
+      rhythmPanel.position.set(enabled ? -0.55 : -0.28, enabled ? 0.58 : 0.25, -1);
+      panel.scale.setScalar(enabled ? 0.8 : 1);
+      rhythmPanel.scale.copy(panel.scale);
+    },
     show() { panel.visible = true; rhythmPanel.visible = target === 'ar'; resetPointer(); },
     hide() { panel.visible = rhythmPanel.visible = false; resetPointer(); },
     setRhythmStatus(state: RhythmState, judgment?: RhythmJudgment) {

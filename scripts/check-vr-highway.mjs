@@ -30,11 +30,23 @@ try {
   });
   await page.waitForFunction(() => window.scene);
   assert(await page.evaluate(() => !window.scene.getObjectByName('note-highway-anchor')
+    && !window.scene.getObjectByName('vr-lane-preview')
     && !window.scene.getObjectByName('vr-rhythm-controls').visible), 'Desktop preview is unaffected');
   await page.getByRole('button', { name: 'Change background' }).click();
   await page.getByRole('menuitemradio', { name: /Concert Arena/ }).click();
   await page.getByRole('button', { name: 'Enter VR', exact: true }).click();
   await page.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
+
+  const preview = await page.evaluate(() => {
+    const lines = window.scene.getObjectByName('vr-lane-preview');
+    let eyeDraws = 0;
+    lines.onBeforeRender = () => eyeDraws++;
+    window.testXR.step();
+    lines.onBeforeRender = () => {};
+    return { eyeDraws, visible: lines.visible, hasMovingNotes: !!window.scene.getObjectByName('note-highway-anchor'),
+      venueHidden: !window.scene.getObjectByName('concert-stage-environment').visible };
+  });
+  assert.deepEqual(preview, { eyeDraws: 2, visible: true, hasMovingNotes: false, venueHidden: true });
 
   const immersive = await page.evaluate(() => {
     const T = window.THREE;
@@ -62,7 +74,7 @@ try {
     point(-.124);
     showCursor();
     select();
-    const active = get('note-highway-anchor').visible && !environment.visible;
+    const active = get('note-highway-anchor').visible && !environment.visible && !get('vr-lane-preview').visible;
     const kick = get('note-kick-3000');
     let eyeDraws = 0;
     kick.onBeforeRender = () => eyeDraws++;
@@ -114,13 +126,34 @@ try {
 
   const checks = await page.evaluate(async () => {
     const T = window.THREE;
-    const { captureRhythmSurfaces, createVRNoteHighway, RHYTHM_BPM } = await import('/src/components/vrNoteHighway.ts');
+    const { captureRhythmSurfaces, createVRLanePreview, createVRNoteHighway, RHYTHM_BPM } = await import('/src/components/vrNoteHighway.ts');
     const { createRestoredVRDrumSet } = await import('/src/components/restoredVRDrumSet.ts');
     const scene = new T.Scene();
     const kit = createRestoredVRDrumSet(scene);
     const eye = new T.Vector3(0, 1.35, 1);
     const statuses = [];
-    const road = createVRNoteHighway(scene, captureRhythmSurfaces(kit.hitSurfaces), eye,
+    const surfaces = captureRhythmSurfaces(kit.hitSurfaces);
+    const guide = createVRLanePreview(surfaces, eye);
+    const endpoints = [];
+    const slopes = [];
+    const guideAlignment = surfaces.every(surface => {
+      const path = guide.paths.get(surface.id);
+      const near = path(0, new T.Vector3());
+      const far = path(1, new T.Vector3());
+      const mid = path(0.5, new T.Vector3());
+      const target = new T.Vector3(0, surface.cymbal ? .008 : surface.height, surface.cymbal ? surface.radius * .35 : 0)
+        .applyMatrix4(surface.world);
+      const direction = point => point.clone().sub(eye).divideScalar(eye.z - point.z);
+      const offset = direction(near).sub(direction(far));
+      slopes.push(offset.x / offset.y);
+      endpoints.push(far);
+      return Math.abs(near.distanceTo(target) - .012) < 1e-8 && mid.z < near.z && mid.z > far.z;
+    });
+    const converges = endpoints.length === 8 && endpoints.every(point => point.distanceTo(endpoints[0]) < 1e-8);
+    slopes.sort((a, b) => a - b);
+    const separate = slopes.slice(1).every((slope, i) => slope - slopes[i] > .09);
+    guide.dispose();
+    const road = createVRNoteHighway(scene, surfaces, eye,
       (state, judgment) => statuses.push(judgment ?? state));
     const get = name => scene.getObjectByName(name);
     const kick = get('note-kick-3000');
@@ -155,23 +188,25 @@ try {
     road.update(22000, eye);
     const finished = statuses.at(-1) === 'finished' && !get('note-highway-anchor').visible;
     road.dispose();
-    return { bpm: RHYTHM_BPM, windows, chord, moved, independent, aligned, grows, effects, effectsFade, atBoundary, expired,
+    return { guideAlignment, converges, separate, bpm: RHYTHM_BPM, windows, chord, moved, independent, aligned, grows, effects, effectsFade, atBoundary, expired,
       finished, disposed: !get('note-highway-anchor') };
   });
   assert.equal(checks.bpm, 100);
   assert.deepEqual(checks.windows, ['Miss', 'Good', 'Good', 'Perfect', 'Perfect', 'Good', 'Good', 'Miss']);
   assert.deepEqual(checks.chord, ['Perfect', 'Miss', 'Perfect']);
-  for (const check of ['moved', 'independent', 'aligned', 'grows', 'effects', 'effectsFade', 'atBoundary', 'expired', 'finished', 'disposed']) {
+  for (const check of ['guideAlignment', 'converges', 'separate', 'moved', 'independent', 'aligned', 'grows',
+    'effects', 'effectsFade', 'atBoundary', 'expired', 'finished', 'disposed']) {
     assert(checks[check], check);
   }
   await page.getByRole('button', { name: 'Exit VR', exact: true }).click();
   await page.getByRole('button', { name: 'Enter VR', exact: true }).waitFor();
   const exit = await page.evaluate(() => ({
     highway: !!window.scene.getObjectByName('note-highway-anchor'),
+    preview: !!window.scene.getObjectByName('vr-lane-preview'),
     concert: window.scene.getObjectByName('concert-stage-environment').visible,
     controls: window.scene.getObjectByName('vr-rhythm-controls').visible,
   }));
-  assert.deepEqual(exit, { highway: false, concert: true, controls: false }, 'XR exit restores free play');
+  assert.deepEqual(exit, { highway: false, preview: false, concert: true, controls: false }, 'XR exit restores free play');
   assert.deepEqual(errors, []);
   console.log('PASS: 100 BPM chart, time-based positions, target alignment, judgment boundaries, chords, misses, cleanup and no page errors');
 } finally {

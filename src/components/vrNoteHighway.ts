@@ -31,6 +31,61 @@ export function captureRhythmSurfaces(surfaces: DrumHitSurface[]): RhythmSurface
   return surfaces.map(({ mesh, ...surface }) => ({ ...surface, world: mesh.matrixWorld.clone() }));
 }
 
+function surfaceNormal(world: THREE.Matrix4) {
+  return new THREE.Vector3(0, 1, 0).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(world));
+}
+
+function laneTarget({ world, radius, height, cymbal }: RhythmSurface, normal: THREE.Vector3) {
+  return new THREE.Vector3(0, cymbal ? 0.008 : height, cymbal ? radius * 0.35 : 0)
+    .applyMatrix4(world).addScaledVector(normal, 0.012);
+}
+
+export function createVRLanePreview(surfaces: RhythmSurface[], eye: THREE.Vector3) {
+  const positions: THREE.Vector3[] = [];
+  const colors: number[] = [];
+  const segments = 24;
+  const farDepth = 10;
+  // The poster's upper-right convergence is placed closer to the seated
+  // view's centre so both eyes can see it without turning away from the kit.
+  const vanishingX = 0.26;
+  const vanishingY = 0.18;
+  const paths = new Map(surfaces.map(surface => {
+    const target = laneTarget(surface, surfaceNormal(surface.world));
+    const nearDepth = eye.z - target.z;
+    const nearX = (target.x - eye.x) / nearDepth;
+    const nearY = (target.y - eye.y) / nearDepth;
+    function positionAt(progress: number, out: THREE.Vector3) {
+      // The pedal-side kick head must be approached from in front of its shell.
+      const clearance = surface.id === 'kick' ? 0.20 * Math.sin(Math.PI * progress) : 0;
+      const depth = THREE.MathUtils.lerp(nearDepth, farDepth, progress ** 4) - clearance;
+      return out.set(eye.x + THREE.MathUtils.lerp(nearX, vanishingX, progress) * depth,
+        eye.y + THREE.MathUtils.lerp(nearY, vanishingY, progress) * depth, eye.z - depth);
+    }
+    for (let i = 0; i < segments; i++) {
+      for (const progress of [i / segments, (i + 1) / segments]) {
+        positions.push(positionAt(progress, new THREE.Vector3()));
+        const brightness = THREE.MathUtils.lerp(1, 0.08, progress ** 2);
+        colors.push(brightness, brightness, brightness);
+      }
+    }
+    return [surface.id, positionAt] as const;
+  }));
+  const geometry = new THREE.BufferGeometry().setFromPoints(positions);
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  const material = new THREE.LineBasicMaterial({ color: 0xd7dfec, vertexColors: true,
+    transparent: true, opacity: 0.40, depthWrite: false, toneMapped: false });
+  const lines = new THREE.LineSegments(geometry, material);
+  lines.name = 'vr-lane-preview';
+  return {
+    lines, paths,
+    dispose() {
+      lines.removeFromParent();
+      geometry.dispose();
+      material.dispose();
+    },
+  };
+}
+
 export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[],
   eye: THREE.Vector3, onStatus: (state: RhythmState, judgment?: RhythmJudgment) => void) {
   const anchor = new THREE.Group();
@@ -57,11 +112,10 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   });
 
   const linePoints: THREE.Vector3[] = [];
-  const lanes = new Map(surfaces.map(({ id, world, radius, height, cymbal }) => {
-    const normal = new THREE.Vector3(0, 1, 0).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(world));
-    const bow = cymbal ? radius * 0.35 : 0;
-    const target = new THREE.Vector3(0, cymbal ? 0.008 : height, bow).applyMatrix4(world)
-      .addScaledVector(normal, 0.012);
+  const lanes = new Map(surfaces.map(surface => {
+    const { id, world, radius, height, cymbal } = surface;
+    const normal = surfaceNormal(world);
+    const target = laneTarget(surface, normal);
     // Each ray starts on the instrument and points toward a shared vanishing
     // point above the kit in the nominal seated view. It stays world-locked.
     const nearDepth = eye.z - target.z;

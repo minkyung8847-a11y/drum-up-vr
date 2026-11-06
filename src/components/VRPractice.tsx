@@ -10,7 +10,7 @@ import { createVRHardwareInstances } from './vrHardwareInstances';
 import { createVRAssistedStrikes } from './vrAssistedStrikes';
 import { createVRSeating, VR_SEATING } from './vrSeating';
 import { createVirtualDrumsticks } from './virtualDrumsticks';
-import { captureRhythmSurfaces, createVRNoteHighway } from './vrNoteHighway';
+import { captureRhythmSurfaces, createVRLanePreview, createVRNoteHighway } from './vrNoteHighway';
 import { applyStickPose, createXRDrumstickControllers, DEFAULT_GRIP_OFFSETS } from './xrDrumstickControllers';
 import type { StickPose } from './xrDrumstickControllers';
 import type { StickHand } from './virtualDrumsticks';
@@ -84,6 +84,8 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     // Restore initial-Git instrument transforms before caching hit surfaces.
     const kit = createRestoredVRDrumSet(scene);
     const rhythmSurfaces = captureRhythmSurfaces(kit.hitSurfaces);
+    const laneEye = new THREE.Vector3(0, 1.35, VR_SEATING.playerZ);
+    let lanePreview: ReturnType<typeof createVRLanePreview> | null = null;
     const interaction = createVRDrumInteraction(kit);
     const hardware = createVRHardwareInstances(kit.group);
     let disposed = false;
@@ -132,13 +134,10 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       void xrActionRef.current(mode);
     }, action => {
       if (!isVisibleVR()) return;
-      highway ??= createVRNoteHighway(scene, rhythmSurfaces, new THREE.Vector3(0, 1.35, VR_SEATING.playerZ),
+      highway ??= createVRNoteHighway(scene, rhythmSurfaces, laneEye,
         (state, judgment) => {
-          const active = state === 'playing' || state === 'paused';
-          if (rhythmActive !== active) {
-            rhythmActive = active;
-            backgrounds.setVisible(!active);
-          }
+          rhythmActive = state === 'playing' || state === 'paused';
+          if (lanePreview) lanePreview.lines.visible = !rhythmActive;
           arModeWindow.setRhythmStatus(state, judgment);
         });
       highway[action](performance.now());
@@ -192,9 +191,15 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       sticks.grips.left.visible = sticks.grips.right.visible = false;
       controllers.setActive(true);
       setPassthrough(sessionMode === 'ar');
+      if (sessionMode === 'vr') {
+        lanePreview = createVRLanePreview(rhythmSurfaces, laneEye);
+        scene.add(lanePreview.lines);
+        backgrounds.setVisible(false);
+      }
       rhythmSession = renderer.xr.getSession();
       rhythmSession?.addEventListener('visibilitychange', pauseHiddenRhythm);
       arModeWindow.setTarget(sessionMode === 'ar' ? 'vr' : 'ar');
+      arModeWindow.setLanePreview(sessionMode === 'vr');
       arModeWindow.show();
       collisions.reset();
       setImmersive(true);
@@ -210,6 +215,8 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       highway?.stop();
       highway?.dispose();
       highway = null;
+      lanePreview?.dispose();
+      lanePreview = null;
       controllers.setActive(false);
       arModeWindow.hide();
       setPassthrough(false);
@@ -485,6 +492,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       interaction.dispose();
       hardware.dispose();
       highway?.dispose();
+      lanePreview?.dispose();
       renderer.setAnimationLoop(null);
       observer.disconnect();
       resetRef.current = () => {};
