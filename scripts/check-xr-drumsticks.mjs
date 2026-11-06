@@ -39,7 +39,8 @@ try {
     const rig = new THREE.Group();
     rig.position.set(0, 0, 1.6);
     const grips = Array.from({ length: 4 }, () => new THREE.Group());
-    const mockXR = { getControllerGrip: index => grips[index] };
+    const rays = grips.map(() => { const ray = new THREE.Group(); ray.visible = false; return ray; });
+    const mockXR = { getControllerGrip: index => grips[index], getController: index => rays[index] };
     const controller = createXRDrumstickControllers(mockXR, rig);
     const source = hand => ({ handedness: hand, targetRayMode: 'tracked-pointer', gripSpace: {} });
     controller.setActive(true);
@@ -54,8 +55,7 @@ try {
     const point = tip.getWorldPosition(new THREE.Vector3());
     const followsPose = controller.tipSamples.left.current.distanceTo(point) < 1e-10;
     const localTip = grips[1].worldToLocal(point.clone());
-    const gripAligned = localTip.distanceTo(new THREE.Vector3(0, 0, -0.31)
-      .applyAxisAngle(new THREE.Vector3(1, 0, 0), -68 * Math.PI / 180).add(new THREE.Vector3(0, .035, -.035))) < 1e-10;
+    const gripAligned = localTip.distanceTo(new THREE.Vector3(0, .035, -.345)) < 1e-10;
     const previous = point.clone();
     grips[1].position.x += 0.2;
     controller.update();

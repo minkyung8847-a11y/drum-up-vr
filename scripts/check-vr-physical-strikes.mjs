@@ -155,7 +155,12 @@ assert.equal(noiseHits, 0, 'Subthreshold drift across the raised plane remains s
 
 // Hand identity comes from XRInputSource, not controller array index.
 const rig = new THREE.Group(), grips = Array.from({ length: 4 }, () => new THREE.Group());
-const controller = createXRDrumstickControllers({ getControllerGrip: i => grips[i], getReferenceSpace: () => ({}) }, rig);
+const rays = Array.from({ length: 4 }, () => new THREE.Group());
+rig.position.set(0.2, 0.08, 1);
+rig.rotation.y = 0.18;
+const controller = createXRDrumstickControllers({
+  getControllerGrip: i => grips[i], getController: i => rays[i], getReferenceSpace: () => ({}),
+}, rig);
 const pulses = [];
 const input = hand => ({ handedness: hand, targetRayMode: 'tracked-pointer', gripSpace: {}, gamepad: {
   hapticActuators: [{ pulse: (strength, duration) => { pulses.push({ hand, strength, duration }); return Promise.resolve(true); } }],
@@ -164,14 +169,26 @@ controller.setActive(true);
 grips[0].dispatchEvent({ type: 'connected', data: input('right') });
 grips[1].dispatchEvent({ type: 'connected', data: input('left') });
 grips[1].position.set(-0.3, 1.2, -0.5); grips[1].rotation.set(0.2, -0.3, 0.1);
+rays[0].rotation.set(0.12, -0.30, 0.25);
+rays[1].rotation.set(-0.32, 0.41, -0.19);
 controller.update();
-for (const [hand, grip] of [['left', grips[1]], ['right', grips[0]]]) {
-  const expected = new THREE.Vector3(0, 0, -0.31).applyAxisAngle(new THREE.Vector3(1, 0, 0), -68 * Math.PI / 180)
-    .add(new THREE.Vector3(0, .035, -.035)).applyMatrix4(grip.matrixWorld);
+function assertStickPose(hand, index) {
+  const grip = grips[index];
+  const expected = new THREE.Vector3(0, 0, -0.31).applyQuaternion(rays[index].quaternion).applyQuaternion(rig.quaternion)
+    .add(new THREE.Vector3(0, .035, -.035).applyMatrix4(grip.matrixWorld));
   const meshTip = grip.getObjectByName(`${hand}-drumstick`).localToWorld(new THREE.Vector3(0, 0, -.31));
-  assert(controller.tipSamples[hand].current.distanceTo(expected) < 1e-9);
+  assert(controller.tipSamples[hand].current.distanceTo(expected) < 1e-9, 'Grip anchors the handle and the ray aims the tip');
   assert(controller.tipSamples[hand].current.distanceTo(meshTip) < 1e-9, 'Collision sample matches the visible stick tip');
 }
+assertStickPose('left', 1);
+assertStickPose('right', 0);
+const lastTip = controller.tipSamples.left.current.clone();
+grips[1].position.set(-.2, .84, -.61);
+grips[1].rotation.x = -.37;
+rays[1].rotation.set(-.52, .25, .15);
+controller.update();
+assertStickPose('left', 1);
+assert(controller.tipSamples.left.previous.equals(lastTip), 'Fast motion is applied on the same update');
 controller.pulse('left', 0.7); controller.pulse('right', 0.8);
 assert.deepEqual(pulses.map(p => p.hand), ['left', 'right']);
 assert(pulses.every(p => p.duration === 18 && p.strength <= 0.3));

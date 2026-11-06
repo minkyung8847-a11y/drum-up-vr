@@ -120,7 +120,7 @@ try {
     const grip = stick.parent.parent;
     const offset = grip.worldToLocal(stick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3()));
     const pitchAxis = new T.Vector3(1, 0, 0);
-    const wristPitch = Math.PI / 4;
+    const wristPitch = -23 * Math.PI / 180;
     offset.applyAxisAngle(pitchAxis, wristPitch);
     source.gripSpace.tracked = false;
     source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch).toArray();

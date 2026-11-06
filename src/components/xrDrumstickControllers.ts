@@ -8,17 +8,15 @@ export interface StickPose {
 }
 export const DEFAULT_GRIP_OFFSETS: Record<StickHand, StickPose> = {
   // Start above and ahead of the grip origin, near the controller's top.
-  // Negative pitch tilts the tip 45° farther toward the kit from the previous -23°.
-  left: { position: [0, 0.035, -0.035], rotation: [-68, 0, 0] },
-  right: { position: [0, 0.035, -0.035], rotation: [-68, 0, 0] },
+  left: { position: [0, 0.035, -0.035], rotation: [0, 0, 0] },
+  right: { position: [0, 0.035, -0.035], rotation: [0, 0, 0] },
 };
 export function applyStickPose(object: THREE.Object3D, pose: StickPose) {
   object.position.fromArray(pose.position);
   object.rotation.set(...pose.rotation.map(THREE.MathUtils.degToRad) as [number, number, number]);
 }
 
-// Three.js owns the grip transforms each XR frame. Only calibration transforms
-// below those grips are ours; desktop preview poses never enter this hierarchy.
+// Three.js updates both tracked spaces before the app's XR animation callback.
 export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.Group) {
   const parking = new THREE.Group();
   const sticks = createVirtualDrumsticks(parking, false);
@@ -33,12 +31,18 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
   // Reserve room for them without assigning handedness from the slot index.
   const slots = [0, 1, 2, 3].map(index => {
     const grip = xr.getControllerGrip(index);
+    const ray = xr.getController(index);
     const calibration = new THREE.Group();
     calibration.name = `controller-${index}-stick-offset`;
     grip.add(calibration);
     rig.add(grip);
-    return { grip, calibration, hand: null as StickHand | null, source: null as XRInputSource | null };
+    return { grip, ray, calibration, localRotation: new THREE.Quaternion(),
+      hand: null as StickHand | null, source: null as XRInputSource | null };
   });
+  function calibrate(slot: typeof slots[number], pose: StickPose) {
+    applyStickPose(slot.calibration, pose);
+    slot.localRotation.copy(slot.calibration.quaternion);
+  }
   function disconnect(slot: typeof slots[number]) {
     if (!slot.hand) return;
     const hand = slot.hand;
@@ -59,7 +63,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
       slot.hand = hand;
       slot.source = source;
       tipSamples[hand].valid = false;
-      applyStickPose(slot.calibration, offsets[hand]);
+      calibrate(slot, offsets[hand]);
       slot.calibration.add(sticks.grips[hand]);
       sticks.grips[hand].visible = active;
     };
@@ -86,7 +90,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
       offsets[hand] = structuredClone(pose);
       tipSamples[hand].valid = false;
       const slot = slots.find(item => item.hand === hand);
-      if (slot) applyStickPose(slot.calibration, pose);
+      if (slot) calibrate(slot, pose);
     },
     pulse(hand: StickHand, velocity: number) {
       const source = slots.find(slot => slot.hand === hand)?.source;
@@ -110,20 +114,28 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
       rightPointerActive = enabled;
     },
     update(frame?: XRFrame) {
-      rig.updateWorldMatrix(true, true);
+      if (!active) return;
+      rig.updateWorldMatrix(true, false);
       const reference = xr.getReferenceSpace?.();
       for (const hand of ['left', 'right'] as const) {
         const slot = slots.find(item => item.hand === hand);
         const sample = tipSamples[hand];
-        const pose = frame && reference && slot?.source?.gripSpace
+        const pose = frame?.session.visibilityState === 'visible' && reference && slot?.source?.gripSpace
           ? frame.getPose(slot.source.gripSpace, reference) : null;
-        if (!active || (hand === 'right' && rightPointerActive) || !slot || !slot.grip.visible
-          || (frame && (frame.session.visibilityState !== 'visible' || !pose || pose.emulatedPosition))) {
+        if ((hand === 'right' && rightPointerActive) || !slot || !slot.grip.visible
+          || (frame && (!pose || pose.emulatedPosition))) {
           sample.valid = false;
           sticks.grips[hand].visible = false;
           continue;
         }
         sticks.grips[hand].visible = true;
+        // The mount stays in grip space. Express the tracked aim in that
+        // space, then apply only the user's explicit model calibration.
+        if (slot.ray.visible) {
+          slot.calibration.quaternion.copy(slot.grip.quaternion).invert()
+            .multiply(slot.ray.quaternion).multiply(slot.localRotation);
+        } else slot.calibration.quaternion.copy(slot.localRotation);
+        slot.grip.updateWorldMatrix(false, true);
         sample.previous.copy(sample.current);
         sample.grip.setFromMatrixPosition(slot.grip.matrixWorld);
         sample.current.setFromMatrixPosition(sticks.tips[hand].matrixWorld);
