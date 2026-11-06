@@ -2,6 +2,7 @@ import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import * as THREE from "three";
 import { createStudioEnvironment } from "./studioEnvironment";
 import { createVirtualDrumSet, drumPositions } from "./virtualDrumSet";
+import { createVRHardwareInstances } from "./vrHardwareInstances";
 
 export type Drum3DPartId = "kick" | "snare" | "hihat" | "tom1" | "tom2" | "tom3" | "crash" | "ride";
 
@@ -94,10 +95,8 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
 
     // 3. Renderer setup
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, showroom ? 1.5 : 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(width, height);
-    renderer.shadowMap.enabled = !showroom;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.95;
     const pmrem = new THREE.PMREMGenerator(renderer);
@@ -115,16 +114,6 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
 
     const dirLight = new THREE.DirectionalLight(0xfff4e5, 2.8);
     dirLight.position.set(-3, 6, 4);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.camera.left = -2;
-    dirLight.shadow.camera.right = 2;
-    dirLight.shadow.camera.top = 2;
-    dirLight.shadow.camera.bottom = -2;
-    dirLight.shadow.normalBias = 0.012;
-    dirLight.shadow.radius = 4;
-    dirLight.shadow.bias = -0.001;
     scene.add(dirLight);
 
     // Spotlight to accent chrome and cymbal specular gradients
@@ -134,14 +123,10 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
     const rimLight = new THREE.DirectionalLight(0xc6d6ef, 1.6);
     rimLight.position.set(2, 3, -2);
     scene.add(rimLight);
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(20,20), new THREE.ShadowMaterial({opacity:showroom ? 0.04 : 0.13}));
-    ground.rotation.x = -Math.PI/2;
-    ground.position.y = -0.016;
-    ground.receiveShadow = true;
-    scene.add(ground);
 
     // 5. Initialize the high-fidelity procedural 3D Drum Set
     const virtualDrum = createVirtualDrumSet(scene);
+    const hardware = createVRHardwareInstances(virtualDrum.group);
     if (showroom) virtualDrum.group.rotation.y = Math.PI;
     drumSetRef.current = virtualDrum;
 
@@ -325,6 +310,7 @@ export const Drum3D = forwardRef<Drum3DHandle, Drum3DProps>(({ onPartClick, onDr
         }
       }
       cancelAnimationFrame(reqId);
+      hardware.dispose();
       const geometries = new Set<THREE.BufferGeometry>();
       const materials = new Set<THREE.Material>();
       const textures = new Set<THREE.Texture>();

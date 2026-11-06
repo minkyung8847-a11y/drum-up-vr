@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DRUM UP Quest 카메라 진단</title>
+<h1>Quest 3 카메라 진단</h1>
+<p>버튼을 누르면 브라우저에 권한을 요청합니다. 영상은 저장하거나 전송하지 않습니다.</p>
+<p><button id="xr">WebXR 원본 카메라 확인</button>
+<button id="media">후면 비디오 스트림 확인</button></p>
+<pre id="result" role="status" style="white-space: pre-wrap">검사 대기</pre>
+<script>
+  const xrButton = document.querySelector('#xr');
+  const mediaButton = document.querySelector('#media');
+  const result = document.querySelector('#result');
+  const report = message => { result.textContent = message; };
+
+  async function run(check) {
+    xrButton.disabled = mediaButton.disabled = true;
+    try {
+      if (!isSecureContext) throw new Error('Quest에서 신뢰되는 HTTPS 주소로 열어주세요.');
+      report('권한 또는 기기 응답 대기 중…');
+      report(await check());
+    } catch (error) {
+      report(`${error.name}: ${error.message}`);
+    } finally {
+      xrButton.disabled = mediaButton.disabled = false;
+    }
+  }
+
+  xrButton.onclick = () => run(async () => {
+    if (!navigator.xr) throw new Error('이 페이지에서 WebXR을 사용할 수 없습니다.');
+    if (typeof XRWebGLBinding === 'undefined' || typeof XRWebGLBinding.prototype.getCameraImage !== 'function') {
+      throw new Error('이 브라우저는 WebXR getCameraImage를 노출하지 않습니다.');
+    }
+    const gl = document.createElement('canvas').getContext('webgl2', { xrCompatible: true, alpha: true });
+    if (!gl) throw new Error('WebGL 2 컨텍스트를 열 수 없습니다.');
+
+    const session = await navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['camera-access'] });
+    try {
+      await gl.makeXRCompatible();
+      const layer = new XRWebGLLayer(session, gl, { alpha: true });
+      session.updateRenderState({ baseLayer: layer });
+      const reference = await session.requestReferenceSpace('viewer');
+      const binding = new XRWebGLBinding(session, gl);
+      return await new Promise((resolve, reject) => {
+        let frameId;
+        const finish = (callback, value) => {
+          clearTimeout(timeout);
+          session.removeEventListener('end', onEnd);
+          if (frameId !== undefined) session.cancelAnimationFrame(frameId);
+          callback(value);
+        };
+        const onEnd = () => finish(reject, new Error('카메라 확인 전에 AR 세션이 종료됐습니다.'));
+        const timeout = setTimeout(() => finish(reject, new Error('8초 안에 원본 카메라 텍스처를 받지 못했습니다.')), 8000);
+        session.addEventListener('end', onEnd, { once: true });
+        const checkFrame = (_, frame) => {
+          try {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            const views = frame.getViewerPose(reference)?.views ?? [];
+            for (const view of views) {
+              const camera = view.camera;
+              if (camera && binding.getCameraImage(camera)) {
+                finish(resolve, `WebXR 원본 카메라 텍스처 수신: ${camera.width}×${camera.height}\n스틱 위치나 추적 성능은 이 검사에서 측정하지 않습니다.`);
+                return;
+              }
+            }
+            frameId = session.requestAnimationFrame(checkFrame);
+          } catch (error) {
+            finish(reject, error);
+          }
+        };
+        frameId = session.requestAnimationFrame(checkFrame);
+      });
+    } finally {
+      await session.end().catch(() => {});
+    }
+  });
+
+  mediaButton.onclick = () => run(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error('이 페이지에서 비디오 입력을 사용할 수 없습니다.');
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { exact: 'environment' } } });
+    try {
+      const settings = stream.getVideoTracks()[0].getSettings();
+      return `후면 비디오 스트림 열림: ${settings.width ?? '?'}×${settings.height ?? '?'}\n이 결과만으로 WebXR 포즈와 영상의 동기화 또는 3D 스틱 위치를 확인할 수 없습니다.`;
+    } finally {
+      stream.getTracks().forEach(track => track.stop());
+    }
+  });
+</script>
+</html>

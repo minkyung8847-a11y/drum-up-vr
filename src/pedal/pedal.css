@@ -1,0 +1,26 @@
+.pedal-page { min-height: 100dvh; padding: 32px max(20px, calc((100vw - 800px) / 2)); background: #141619; color: #eee; font-family: system-ui, sans-serif; }
+.pedal-page header { display: flex; justify-content: space-between; margin-bottom: 32px; }
+.pedal-page h1 { font-size: clamp(26px, 4vw, 40px); margin: 0 0 12px; }
+.pedal-page p, .vr-pedal-panel p { line-height: 1.6; margin: 12px 0; }
+.pedal-page a, .vr-pedal-panel a { color: #ffb274; }
+.pedal-card { background: #202328; color: #eee; border: 1px solid #45494f; border-radius: 14px; padding: 24px; margin: 24px 0; }
+.pedal-card h2 { font-size: 18px; margin: 0 0 16px; }
+.pedal-card label { display: block; margin: 12px 0; font-size: 14px; }
+.pedal-card input, .pedal-card select { display: block; box-sizing: border-box; width: 100%; color: #fff; background: #101215; border: 1px solid #747981; border-radius: 7px; padding: 12px; margin-top: 6px; font: inherit; }
+.pedal-card button { background: #383d45; color: #fff; border: 1px solid #777; border-radius: 7px; padding: 10px 16px; cursor: pointer; font: inherit; white-space: normal; }
+.pedal-card button:hover { background: #4c535e; }
+.pedal-card button:disabled { opacity: .5; cursor: default; }
+.pedal-card :focus-visible { outline: 2px solid #ffb274; outline-offset: 3px; }
+.pedal-buttons, .pedal-counts { display: flex; flex-wrap: wrap; gap: 12px; }
+.pedal-counts { justify-content: space-between; font-size: 16px; padding: 16px 0; }
+.pedal-counts b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; }
+.pedal-card .pedal-test { width: 100%; background: #c64d20; padding: 24px; font-weight: 750; font-size: 24px; }
+.pedal-connection { color: #d9bb89; }
+.pedal-connection.connected { color: #81e6b0; }
+.pedal-card [role=alert] { color: #ffbaab; }
+.pedal-help { color: #b7bcc4; font-size: 13px; }
+.pedal-device { border: 1px solid #585f69; border-radius: 8px; padding: 16px; margin: 16px 0; }
+.vr-pedal-panel { position: fixed; z-index: 25; right: 16px; top: 64px; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 90px); overflow-y: auto; box-sizing: border-box; margin: 0; font-size: 14px; text-align: left; box-shadow: 0 10px 40px #0009; }
+.pedal-code { display: block; font-size: 28px; font-family: monospace; letter-spacing: 2px; padding: 16px 0; color: #ffb274; user-select: all; }
+.pedal-card .pedal-checkbox { display: flex; align-items: center; gap: 10px; }
+.pedal-card .pedal-checkbox input { width: auto; margin: 0; }

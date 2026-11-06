@@ -174,21 +174,26 @@ rays[1].rotation.set(-0.32, 0.41, -0.19);
 controller.update();
 function assertStickPose(hand, index) {
   const grip = grips[index];
-  const expected = new THREE.Vector3(0, 0, -0.31).applyQuaternion(rays[index].quaternion).applyQuaternion(rig.quaternion)
-    .add(new THREE.Vector3(0, .035, -.035).applyMatrix4(grip.matrixWorld));
+  const expected = grip.localToWorld(new THREE.Vector3(0, .035, -.345));
   const meshTip = grip.getObjectByName(`${hand}-drumstick`).localToWorld(new THREE.Vector3(0, 0, -.31));
-  assert(controller.tipSamples[hand].current.distanceTo(expected) < 1e-9, 'Grip anchors the handle and the ray aims the tip');
+  assert(controller.tipSamples[hand].current.distanceTo(expected) < 1e-9, 'The initial local rotation aligns the tip with the grip independently of pointer aim');
   assert(controller.tipSamples[hand].current.distanceTo(meshTip) < 1e-9, 'Collision sample matches the visible stick tip');
 }
 assertStickPose('left', 1);
 assertStickPose('right', 0);
 const lastTip = controller.tipSamples.left.current.clone();
+rays[1].rotation.set(-.52, .25, .15);
+controller.update();
+assert(controller.tipSamples.left.current.equals(lastTip), 'Pointer movement alone leaves the stick tip in place');
 grips[1].position.set(-.2, .84, -.61);
 grips[1].rotation.x = -.37;
-rays[1].rotation.set(-.52, .25, .15);
 controller.update();
 assertStickPose('left', 1);
 assert(controller.tipSamples.left.previous.equals(lastTip), 'Fast motion is applied on the same update');
+controller.setRightPointerActive(true); controller.update();
+assert(controller.tipSamples.left.valid && !controller.tipSamples.right.valid, 'Pointer mode disables only the right stick');
+controller.setRightPointerActive(false); controller.update();
+assert(controller.tipSamples.right.valid && controller.tipSamples.right.previous.equals(controller.tipSamples.right.current));
 controller.pulse('left', 0.7); controller.pulse('right', 0.8);
 assert.deepEqual(pulses.map(p => p.hand), ['left', 'right']);
 assert(pulses.every(p => p.duration === 18 && p.strength <= 0.3));

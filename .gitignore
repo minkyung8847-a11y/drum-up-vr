@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.production
+server/.env
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +25,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Scratch files and artifacts
+.claude
+HANDOFF.md
+selection-*.png
+vr-*.png
+vr-current-layout-validation.json
+

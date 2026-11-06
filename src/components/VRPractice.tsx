@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { createRestoredVRDrumSet } from './restoredVRDrumSet';
 import { createStudioEnvironment } from './studioEnvironment';
@@ -8,14 +8,24 @@ import { EnvironmentSwitcher } from './EnvironmentSwitcher';
 import { createVRDrumInteraction } from './vrDrumInteraction';
 import { createVRHardwareInstances } from './vrHardwareInstances';
 import { createVRAssistedStrikes } from './vrAssistedStrikes';
+import { createVRStickCollision } from './vrStickCollision';
 import { createVRSeating, VR_SEATING } from './vrSeating';
 import { createVirtualDrumsticks } from './virtualDrumsticks';
 import { captureRhythmSurfaces, createVRNoteHighway, createVRNoteLanes } from './vrNoteHighway';
 import { applyStickPose, createXRDrumstickControllers } from './xrDrumstickControllers';
 import type { StickPose } from './xrDrumstickControllers';
+import { createXRHandDrumsticks } from './xrHandDrumsticks';
+import type { HandStickCalibration } from './xrHandDrumsticks';
 import type { StickHand } from './virtualDrumsticks';
 import { StickControllerPanel } from './StickControllerPanel';
 import { drumSynth } from '../utils/synth';
+import { VRPedalPanel } from '../pedal/VRPedalPanel';
+import { LocalKickReceiver } from '../pedal/LocalKickTest';
+import { LOCAL_KICK_ENABLED } from '../pedal/PedalConnection';
+import type { PedalState } from '../pedal/PedalConnection';
+import { createLocalKickDebug } from '../pedal/localKickDebug';
+import { createKickTrigger } from '../pedal/kickTrigger';
+import { attachXRKickInput } from '../pedal/xrKickInput';
 import { createVRARModeWindow } from './vrARModeWindow';
 import './vrPractice.css';
 
@@ -24,6 +34,12 @@ type XRMode = 'vr' | 'ar';
 export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: XRMode }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const resetRef = useRef<() => void>(() => {});
+  const kickRef = useRef<(velocity: number) => boolean>(() => false);
+  const kickDebugRef = useRef<(state: PedalState) => void>(() => {});
+  const updateKickDebug = useCallback((state: PedalState) => kickDebugRef.current(state), []);
+  const hiHatRef = useRef<(pressed: boolean) => boolean>(() => false);
+  const unlockKickRef = useRef<() => Promise<boolean>>(async () => false);
+  const controllerKick = useRef(false);
   const [audioStatus, setAudioStatus] = useState('Loading drum sounds…');
   const [xrSupported, setXRSupported] = useState(false);
   const [arSupported, setArSupported] = useState(false);
@@ -34,6 +50,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
   const [xrMessage, setXRMessage] = useState('Checking VR availability…');
   const xrActionRef = useRef<(mode: XRMode | 'exit') => Promise<void>>(async () => {});
   const poseRef = useRef<(mode: 'preview' | 'offset', hand: StickHand, pose: StickPose) => void>(() => {});
+  const handCalibrationRef = useRef<(hand: StickHand, calibration: HandStickCalibration) => void>(() => {});
   const [background, setBackground] = useState<DrumEnvironmentId>(getSavedDrumEnvironment);
   const initialBackground = useRef(background);
   const backgroundRef = useRef<(id: DrumEnvironmentId) => void>(() => {});
@@ -43,6 +60,8 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     if (!host) return;
 
     const scene = new THREE.Scene();
+    const kickDebug = LOCAL_KICK_ENABLED && preferredMode === 'vr' ? createLocalKickDebug(scene) : null;
+    if (kickDebug) kickDebugRef.current = kickDebug.update;
     const vrBackground = new THREE.Color(0x101114);
     scene.background = vrBackground;
     // Three clears alpha-blend XR buffers to transparent, including when
@@ -110,6 +129,30 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     let sessionMode: XRMode = preferredMode;
     let previousTime: number | null = null;
     const isVisibleXR = () => renderer.xr.getSession()?.visibilityState === 'visible';
+    const triggerKick = createKickTrigger(() => audioReady && drumSynth.isAudioRunning() && !disposed,
+      (id, velocity) => interaction.hit(id, velocity));
+    const hitDrum = (id: string, velocity = 1, now = performance.now()) => {
+      const played = id === 'kick' ? triggerKick(velocity) : interaction.hit(id, velocity);
+      if (played && isVisibleXR()) {
+        const judgment = highway?.strike(id, now);
+        if (judgment === 'Perfect' || judgment === 'Great') drumSynth.playRhythmSuccess(judgment === 'Perfect');
+      }
+      return played;
+    };
+    const playPedalKick = (velocity: number) => hitDrum('kick', velocity);
+    kickRef.current = velocity => {
+      const session = renderer.xr.getSession();
+      // A headset's DOM may be hidden while immersive WebXR is active.
+      const visible = session ? session.visibilityState === 'visible' : document.visibilityState === 'visible';
+      return visible && playPedalKick(velocity);
+    };
+    hiHatRef.current = pressed => {
+      const session = renderer.xr.getSession();
+      const visible = session ? session.visibilityState === 'visible' : document.visibilityState === 'visible';
+      interaction.setHiHatClosed(visible && pressed);
+      return visible;
+    };
+    unlockKickRef.current = async () => (await drumSynth.unlock()) && audioReady;
     let audioPreparation = 0;
     const prepareAudio = async () => {
       const preparation = ++audioPreparation;
@@ -145,14 +188,19 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     const sticks = createVirtualDrumsticks(camera);
     for (const hand of ['left', 'right'] as const) sticks.offsets[hand].rotation.x = THREE.MathUtils.degToRad(12);
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
+    const handSticks = createXRHandDrumsticks(rig);
+    const handCollisions = createVRStickCollision(kit.hitSurfaces, (id, _hand, velocity) => {
+      hitDrum(id, velocity, previousTime ?? performance.now());
+    });
+    handCalibrationRef.current = (hand, calibration) => {
+      handSticks.setCalibration(hand, calibration);
+      handCollisions.reset(hand);
+    };
     let realStickMode = false;
     const arModeWindow = createVRARModeWindow(scene, renderer.xr, rig, mode => {
       void xrActionRef.current(mode);
     }, action => {
-      if (!isVisibleXR() || !noteLanes) return;
-      highway ??= createVRNoteHighway(scene, rhythmSurfaces, noteLanes.paths,
-        (state, judgment) => arModeWindow.setRhythmStatus(state, judgment));
-      highway[action](performance.now());
+      if (isVisibleXR()) highway?.[action](performance.now());
     }, () => {
       if (!isVisibleXR()) return;
       realStickMode = !realStickMode;
@@ -161,23 +209,17 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     });
     const applyStickMode = () => {
       controllers.setActive(!realStickMode);
-      const rawCameraExposed = typeof XRWebGLBinding !== 'undefined'
-        && 'getCameraImage' in XRWebGLBinding.prototype;
-      arModeWindow.setStickMode(!realStickMode ? null : !rawCameraExposed
-        ? 'WebXR raw camera API unavailable'
-        : renderer.xr.getSession()?.enabledFeatures?.includes('camera-access')
-          ? 'Calibrated 3D tip tracking unavailable'
-          : 'Camera access not enabled in this session');
+      handSticks.reset();
+      handCollisions.reset();
+      arModeWindow.setStickMode(realStickMode, 'Put controllers down · show your hands');
     };
     const collisions = createVRAssistedStrikes(kit.hitSurfaces, (id, hand, velocity) => {
-      if (audioReady && interaction.hit(id, velocity)) {
-        if (highway && previousTime !== null && isVisibleXR()) highway.strike(id, previousTime);
-        controllers.pulse(hand, velocity);
-      }
+      if (audioReady && hitDrum(id, velocity, previousTime ?? performance.now())) controllers.pulse(hand, velocity);
     });
     const seating = createVRSeating(rig, kit.group, () => {
       interaction.update(1);
       collisions.refreshSurfaces();
+      handCollisions.refreshSurfaces();
       controllers.resetSamples();
     });
     poseRef.current = (mode, hand, pose) => {
@@ -205,7 +247,9 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       scene.background = mode === 'ar' ? null
         : renderer.xr.getSession()?.environmentBlendMode === 'alpha-blend' ? opaqueBackground : vrBackground;
       backgrounds.setVisible(mode === 'vr');
+      noteLanes?.setPassthrough(mode === 'ar');
       arModeWindow.setTarget(mode === 'ar' ? 'vr' : 'ar');
+      kickDebug?.setImmersive(mode === 'vr');
       setXRMode(mode);
       setXRMessage(mode === 'ar'
         ? 'AR · 실제 배경 위에서 같은 드럼을 연주합니다.'
@@ -232,12 +276,14 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       camera.position.set(0, 0, 0);
       camera.quaternion.identity();
       sticks.grips.left.visible = sticks.grips.right.visible = false;
-      applyStickMode();
       if (!noteLanes) {
         noteLanes = createVRNoteLanes(rhythmSurfaces, laneEye);
         scene.add(noteLanes.lines);
+        highway = createVRNoteHighway(scene, rhythmSurfaces, noteLanes.paths,
+          (state, judgment) => arModeWindow.setRhythmStatus(state, judgment));
       }
       rhythmSession = renderer.xr.getSession();
+      applyStickMode();
       rhythmSession?.addEventListener('visibilitychange', pauseHiddenRhythm);
       applyView(sessionMode);
       arModeWindow.show(rhythmSession?.environmentBlendMode === 'alpha-blend' || arAvailable);
@@ -249,6 +295,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     };
     const endXR = () => {
       cancelLook();
+      kickDebug?.setImmersive(false);
       rhythmSession?.removeEventListener('visibilitychange', pauseHiddenRhythm);
       rhythmSession = null;
       viewTransition = null;
@@ -262,6 +309,8 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
         seating.exit();
       }
       controllers.setActive(false);
+      handSticks.reset();
+      handCollisions.reset();
       arModeWindow.hide();
       scene.background = vrBackground;
       backgrounds.setVisible(true);
@@ -327,6 +376,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
         } else if (target !== 'exit' && navigator.xr) {
           requested = await navigator.xr.requestSession(tryAR ? 'immersive-ar' : 'immersive-vr', {
             requiredFeatures: ['local-floor'],
+            optionalFeatures: ['hand-tracking'],
           });
           if (tryAR && requested.environmentBlendMode !== 'alpha-blend') {
             throw new Error('이 세션은 카메라 패스스루 합성을 제공하지 않습니다.');
@@ -420,7 +470,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       let object: THREE.Object3D | null = target ?? null;
       while (object) {
         if (object.userData.drumType) {
-          if (interaction.hit(object.userData.drumType)) sticks.strikeAlternating(intersection.point);
+          if (hitDrum(object.userData.drumType)) sticks.strikeAlternating(intersection.point);
           break;
         }
         object = object.parent;
@@ -482,7 +532,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       if (!part || event.repeat || event.altKey || event.ctrlKey || event.metaKey
         || (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName)))) return;
       void drumSynth.unlock();
-      if (audioReady) interaction.hit(part);
+      if (audioReady) hitDrum(part);
     };
     window.addEventListener('keydown', hitTomKey);
     window.addEventListener('blur', cancelLook);
@@ -492,7 +542,13 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
 
     const headPosition = new THREE.Vector3();
     const unlockControllerAudio = () => { void drumSynth.unlock(); };
-    const referenceReset = () => { controllers.resetSamples(); collisions.reset(); };
+    let detachKickInput = () => {};
+    const referenceReset = () => {
+      controllers.resetSamples();
+      collisions.reset();
+      handSticks.reset();
+      handCollisions.reset();
+    };
     let referenceSpace: XRReferenceSpace | null = null;
     let audioSession: XRSession | null = null;
     let rightPointerWasActive = false;
@@ -521,9 +577,12 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       if (session !== audioSession) {
         audioSession?.removeEventListener('selectstart', unlockControllerAudio);
         audioSession?.removeEventListener('squeezestart', unlockControllerAudio);
+        detachKickInput();
         audioSession = session;
         session?.addEventListener('selectstart', unlockControllerAudio);
         session?.addEventListener('squeezestart', unlockControllerAudio);
+        detachKickInput = session ? attachXRKickInput(session, () => controllerKick.current && !realStickMode,
+          playPedalKick, controllers.pulse) : () => {};
       }
       const reference = renderer.xr.getReferenceSpace();
       if (reference !== referenceSpace) {
@@ -545,6 +604,20 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
         if (!isVisibleXR()) highway?.pause(time);
         highway?.update(time, headPosition);
       }
+      if (realStickMode && session) {
+        if (frame && reference && viewer) handSticks.update(frame, reference);
+        else handSticks.reset();
+        const { left, right } = handSticks.samples;
+        const tracked = left.valid || right.valid;
+        arModeWindow.setStickMode(true, tracked ? `Hand tracking · ${left.valid ? 'L' : '–'}  ${right.valid ? 'R' : '–'}`
+          : session.enabledFeatures && !session.enabledFeatures.includes('hand-tracking')
+            ? 'Hand tracking unavailable in this session' : 'Put controllers down · show your hands');
+        if (audioReady && tracked) {
+          for (const hand of ['left', 'right'] as const) {
+            handCollisions.update(hand, handSticks.samples[hand], frameDelta, time / 1000);
+          }
+        } else handCollisions.reset();
+      }
       if (renderer.xr.isPresenting && frame && viewer && audioReady && !realStickMode) {
         for (const hand of ['left', 'right'] as const) {
           if (hand === 'right' && rightPointerActive) continue;
@@ -557,8 +630,14 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
 
     return () => {
       disposed = true;
+      kickRef.current = () => false;
+      kickDebugRef.current = () => {};
+      kickDebug?.dispose();
+      hiHatRef.current = () => false;
+      unlockKickRef.current = async () => false;
       audioSession?.removeEventListener('selectstart', unlockControllerAudio);
       audioSession?.removeEventListener('squeezestart', unlockControllerAudio);
+      detachKickInput();
       referenceSpace?.removeEventListener('reset', referenceReset);
       backgrounds.dispose();
       backgroundRef.current = () => {};
@@ -568,6 +647,8 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       const session = renderer.xr.getSession();
       if (session) void session.end().catch(() => {});
       controllers.dispose();
+      handSticks.dispose();
+      handCalibrationRef.current = () => {};
       arModeWindow.dispose();
       poseRef.current = () => {};
       xrActionRef.current = async () => {};
@@ -618,6 +699,11 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
         <a href="#/">Back to DRUM UP</a>
         <span>{xrMode === 'ar' || (!immersive && preferredMode === 'ar') ? 'AR' : 'VR'} PRACTICE · {immersive ? 'HEADSET VIEW' : 'DESKTOP VIEW'}</span>
         <div className="vr-practice-actions">
+          <VRPedalPanel onKick={velocity => kickRef.current(velocity)}
+            onHiHat={pressed => hiHatRef.current(pressed)} unlock={() => unlockKickRef.current()}
+            onButtonMode={enabled => { controllerKick.current = enabled; }} />
+          {LOCAL_KICK_ENABLED && preferredMode === 'vr' && <LocalKickReceiver
+            onKick={velocity => kickRef.current(velocity)} onStatus={updateKickDebug} />}
           <button onClick={() => resetRef.current()}>Reset view</button>
           <button disabled={xrBusy || (!immersive && !(pendingMode === 'ar' ? arSupported : xrSupported))}
             title={xrMessage} onClick={() => { void xrActionRef.current(immersive ? 'exit' : pendingMode ?? 'vr'); }}>
@@ -632,7 +718,8 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
         <p>VR과 같은 드럼 위치와 타격 방식으로 연주하며, 가상 배경만 숨깁니다.</p>
         <button disabled={!arSupported || xrBusy} onClick={() => { void xrActionRef.current('ar'); }}>{xrBusy ? '전환 중…' : arSupported ? 'AR 패스스루 시작 →' : 'AR 미지원 기기'}</button>
       </aside>}
-      <StickControllerPanel immersive={immersive} onChange={(mode, hand, pose) => poseRef.current(mode, hand, pose)} />
+      <StickControllerPanel immersive={immersive} onChange={(mode, hand, pose) => poseRef.current(mode, hand, pose)}
+        onHandChange={(hand, calibration) => handCalibrationRef.current(hand, calibration)} />
       <p className="vr-xr-status">{xrMessage}</p>
       <p className="vr-practice-hint" role="status">{audioStatus}</p>
     </main>

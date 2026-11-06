@@ -33,7 +33,7 @@ try {
         calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
     };
     const before = snapshot(), optimized = createVRHardwareInstances(kit.group);
-    optimized.instances.children.forEach(mesh => { mesh.frustumCulled = false; });
+    optimized.instanceMeshes.forEach(mesh => { mesh.frustumCulled = false; });
     const after = snapshot();
     let error = 0, changed = 0, maximumMatrixError = 0, index = 0;
     for (let i = 0; i < before.pixels.length; i += 4) {
@@ -46,14 +46,14 @@ try {
     }
     const instanceMatrix = new THREE.Matrix4(), world = new THREE.Matrix4();
     let materialsIdentical = true;
-    for (const batch of optimized.instances.children) for (let i = 0; i < batch.count; i++) {
+    for (const batch of optimized.instanceMeshes) for (let i = 0; i < batch.count; i++) {
       const source = optimized.sourceMeshes[index++];
       batch.getMatrixAt(i, instanceMatrix); world.multiplyMatrices(batch.matrixWorld, instanceMatrix);
       world.elements.forEach((value, j) => { maximumMatrixError = Math.max(maximumMatrixError, Math.abs(value - source.matrixWorld.elements[j])); });
       materialsIdentical &&= batch.material === source.material;
     }
     const hidden = optimized.sourceMeshes.length;
-    const headsIndependent = kit.hitSurfaces.every(surface => surface.mesh.visible && !optimized.sourceMeshes.includes(surface.mesh));
+    const headsIndependent = kit.hitSurfaces.every(surface => !optimized.sourceMeshes.includes(surface.mesh));
     const cymbal = kit.hitSurfaces.find(surface => surface.id === 'crash').mesh;
     const originalRotation = cymbal.rotation.clone(); feedback.hit('crash', 0.8); feedback.update(0.015);
     const cymbalStillAnimates = !cymbal.rotation.equals(originalRotation); feedback.update(1);

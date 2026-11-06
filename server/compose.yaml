@@ -1,0 +1,24 @@
+services:
+  relay:
+    build: .
+    restart: unless-stopped
+    environment:
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?Set the HTTPS frontend origins}
+      TRUST_PROXY: "true"
+    # Deliberately no public relay port. Only Caddy can reach this service.
+    expose: ["8787"]
+    mem_limit: 256m
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      RELAY_DOMAIN: ${RELAY_DOMAIN:?Set the relay DNS name}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [relay]
+volumes:
+  caddy_data:
+  caddy_config:

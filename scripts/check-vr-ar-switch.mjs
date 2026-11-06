@@ -27,17 +27,22 @@ async function setup(options) {
     };
     const { drumSynth } = await import('/src/utils/synth.ts');
     const trigger = drumSynth.trigger.bind(drumSynth);
+    const success = drumSynth.playRhythmSuccess.bind(drumSynth);
     window.hits = [];
+    window.successTones = [];
     drumSynth.trigger = (id, velocity) => { window.hits.push(id); return trigger(id, velocity); };
+    drumSynth.playRhythmSuccess = perfect => { window.successTones.push(perfect); success(perfect); };
+    window.THREE = T;
     window.get = name => window.vrScene.getObjectByName(name);
     window.aim = (source, name, x = 0, y = 0) => {
       const session = window.testXR;
       const panel = window.get(name), rig = window.get('player-rig');
-      source.gripSpace.tracked = false;
+      const ray = source.targetRaySpace;
+      ray.tracked = false;
       session.step();
-      source.gripSpace.position = rig.worldToLocal(panel.localToWorld(new T.Vector3(x, y, .5))).toArray();
-      source.gripSpace.quaternion = panel.quaternion.toArray();
-      source.gripSpace.tracked = true;
+      ray.position = rig.worldToLocal(panel.localToWorld(new T.Vector3(x, y, .5))).toArray();
+      ray.quaternion = panel.quaternion.toArray();
+      ray.tracked = true;
       session.step(3);
     };
     window.select = source => window.testXR.emit('select', { inputSource: source, frame: window.testXR.frame() });
@@ -113,7 +118,7 @@ try {
     const first = session.mode === 'immersive-ar' && background.isDataTexture
       && background.image.data[3] === 255 && venue.visible && panel.visible && panel.parent === window.vrScene
       && backgroundAlpha().every(alpha => alpha === 255);
-    session.connect('right', { hand: {}, gripSpace: null });
+    session.connect('right', { hand: new Map(), gripSpace: null });
     const left = session.connect('left');
     const source = session.connect('right', { profiles: ['generic-trigger-squeeze-thumbstick'] });
     session.step(3);
@@ -183,6 +188,62 @@ try {
     ignoredOtherButtons: true, toggledOnce: true,
     ar: true, judgedInAR: true, restored: true, realStickModeHidesBoth: true,
     realStickModePersistsInAR: true, controllerModeRestoresBoth: true });
+  const handChecks = await page.evaluate(() => {
+    const { testXR: session, get, aim, select, cursor, THREE: T } = window;
+    const controller = session.inputSources.find(source => source.handedness === 'right' && source.gripSpace);
+    aim(controller, 'vr-rhythm-controls', .124, .005);
+    cursor(controller);
+    select(controller);
+    const chartStart = performance.now();
+    aim(controller, 'vr-stick-mode-window', 0, .03);
+    select(controller);
+    for (const source of [...session.inputSources]) session.disconnect(source);
+
+    const names = ['wrist', 'index-finger-phalanx-proximal', 'pinky-finger-phalanx-proximal'];
+    const connectHand = side => session.connect(side, { gripSpace: null, gamepad: null,
+      hand: new Map(names.map(joint => [joint, { position: [0, 0, 0], tracked: true }])) });
+    const place = (source, x, y, z) => {
+      const joints = [[x - .065, y, z], [x, y, z - .035], [x, y, z + .035]];
+      names.forEach((name, index) => { source.hand.get(name).position = joints[index]; });
+    };
+    const left = connectHand('left'), right = connectHand('right');
+    place(left, -.35, 1.25, -.3);
+    const leftStick = get('tracked-hand-stick-left'), rightStick = get('tracked-hand-stick-right');
+    const rig = get('player-rig');
+    const kit = get('kick-pedal').parent;
+    const snare = kit.children.find(object => object.userData.drumType === 'snare');
+    const surface = snare.children.find(object => object.isMesh && object.userData.drumType === 'snare' && object.position.y > 0);
+    const above = rig.worldToLocal(surface.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, .12, 0)));
+    above.z += .31;
+    place(right, above.x, above.y, above.z);
+    session.time = chartStart + 4200 - 22;
+    session.step();
+    const bothTracked = leftStick.visible && rightStick.visible && session.enabledFeatures.includes('hand-tracking');
+    const before = rightStick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3());
+    const hitsBefore = window.hits.length, chimesBefore = window.successTones.length;
+    place(right, above.x, above.y - .16, above.z);
+    session.step(3);
+    const moved = before.distanceTo(rightStick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3())) > .15;
+    const oneSnareWithChime = window.hits.slice(hitsBefore).join() === 'snare'
+      && window.successTones.length === chimesBefore + 1 && get('rhythm-success-snare').visible;
+    right.hand.get('wrist').tracked = false;
+    session.step();
+    const lossIsIndependent = !rightStick.visible && leftStick.visible;
+    right.hand.get('wrist').tracked = true;
+    place(right, above.x, above.y - .20, above.z);
+    session.step(2);
+    const noPhantomHit = rightStick.visible && window.hits.length === hitsBefore + 1;
+    aim(left, 'ar-mode-window');
+    select(left);
+    session.step(30);
+    const handModeInAR = window.vrScene.background === null && leftStick.visible && rightStick.visible;
+    aim(left, 'vr-stick-mode-window', 0, .03);
+    select(left);
+    session.step();
+    return { bothTracked, moved, oneSnareWithChime, lossIsIndependent, noPhantomHit, handModeInAR,
+      pinchReturnsToControllerMode: !leftStick.visible && !rightStick.visible };
+  });
+  for (const [check, passed] of Object.entries(handChecks)) assert(passed, check);
   await page.getByRole('button', { name: 'Exit VR', exact: true }).click();
   await page.getByRole('button', { name: 'Enter VR', exact: true }).waitFor();
   await page.close();
@@ -232,7 +293,7 @@ try {
   });
   assert.equal(preserved, true);
   assert.deepEqual(errors, []);
-  console.log('PASS: headset-relative stereo stick button, automatic trigger ray, VR/AR mode and chart preservation across sessions, fixed kit, and AR scoring.');
+  console.log('PASS: stereo stick button, both tracked hands, timed hand strike and chime, tracking loss recovery, pinch selection, and VR/AR session continuity.');
 } finally {
   await browser?.close();
   await vite.close();

@@ -1,0 +1,22 @@
+# Optional alternative to Docker+Caddy. Single replica; no deployment is automatic.
+# Import as a Blueprint using this file's path. Review hosting cost before create.
+services:
+  - type: web
+    name: drum-up-pedal-relay
+    runtime: node
+    rootDir: server
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    numInstances: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: "false"
+      - key: ALLOWED_ORIGINS
+        value: https://minkyung8847-a11y.github.io

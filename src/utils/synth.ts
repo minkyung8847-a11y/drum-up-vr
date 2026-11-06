@@ -358,6 +358,23 @@ class DrumSynth {
     this.openHiHatSource = null;
   }
 
+  public playRhythmSuccess(perfect: boolean) {
+    if (!this.ctx || this.ctx.state !== 'running' || !this.masterGain) return;
+    const time = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.frequency.setValueAtTime(740, time);
+    osc.frequency.setValueAtTime(perfect ? 1110 : 990, time + 0.029);
+    gain.gain.setValueAtTime(0.001, time);
+    gain.gain.linearRampToValueAtTime(perfect ? 0.055 : 0.041, time + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.087);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+    osc.start(time);
+    osc.stop(time + 0.09);
+  }
+
   public playMetronomeClick(accented = false) {
     this.init();
     if (!this.ctx || !this.masterGain) return;

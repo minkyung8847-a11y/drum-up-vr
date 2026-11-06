@@ -23,6 +23,23 @@ function App() {
   const drumRef = useRef<Drum3DHandle | null>(null);
   const [appView, setAppView] = useState<AppView>("LANDING");
   const [activeTab, setActiveTab] = useState<ActiveTab>("FREE PLAY");
+  const [showFreePlayDrum, setShowFreePlayDrum] = useState(false);
+
+  useEffect(() => {
+    if (appView !== "PLAY" || activeTab !== "FREE PLAY") {
+      setShowFreePlayDrum(false);
+      return;
+    }
+    let timer = 0;
+    let secondFrame = 0;
+    // Let the Play view paint before the WebGL scene's first setup and render.
+    const frame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        timer = window.setTimeout(() => setShowFreePlayDrum(true), 0);
+      });
+    });
+    return () => { cancelAnimationFrame(frame); cancelAnimationFrame(secondFrame); clearTimeout(timer); };
+  }, [appView, activeTab]);
   const [selectedKitId, setSelectedKitId] = useState<string>(() => drumSynth.getCurrentKitId());
 
   useEffect(() => {
@@ -520,7 +537,8 @@ function App() {
 
               {/* Centered High-Fidelity 3D Drum Component */}
               <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", zIndex: 1 }}>
-                <Drum3D ref={drumRef} onPartClick={handlePartClick} />
+                {showFreePlayDrum ? <Drum3D ref={drumRef} onPartClick={handlePartClick} />
+                  : <div className="free-play-loading" role="status">드럼 준비 중…</div>}
               </div>
             </>
           )}

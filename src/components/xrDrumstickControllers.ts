@@ -16,7 +16,7 @@ export function applyStickPose(object: THREE.Object3D, pose: StickPose) {
   object.rotation.set(...pose.rotation.map(THREE.MathUtils.degToRad) as [number, number, number]);
 }
 
-// Three.js updates both tracked spaces before the app's XR animation callback.
+// Three.js updates the tracked grip before the app's XR animation callback.
 export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.Group) {
   const parking = new THREE.Group();
   const sticks = createVirtualDrumsticks(parking, false);
@@ -31,18 +31,12 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
   // Reserve room for them without assigning handedness from the slot index.
   const slots = [0, 1, 2, 3].map(index => {
     const grip = xr.getControllerGrip(index);
-    const ray = xr.getController(index);
     const calibration = new THREE.Group();
     calibration.name = `controller-${index}-stick-offset`;
     grip.add(calibration);
     rig.add(grip);
-    return { grip, ray, calibration, localRotation: new THREE.Quaternion(),
-      hand: null as StickHand | null, source: null as XRInputSource | null };
+    return { grip, calibration, hand: null as StickHand | null, source: null as XRInputSource | null };
   });
-  function calibrate(slot: typeof slots[number], pose: StickPose) {
-    applyStickPose(slot.calibration, pose);
-    slot.localRotation.copy(slot.calibration.quaternion);
-  }
   function disconnect(slot: typeof slots[number]) {
     if (!slot.hand) return;
     const hand = slot.hand;
@@ -63,7 +57,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
       slot.hand = hand;
       slot.source = source;
       tipSamples[hand].valid = false;
-      calibrate(slot, offsets[hand]);
+      applyStickPose(slot.calibration, offsets[hand]);
       slot.calibration.add(sticks.grips[hand]);
       sticks.grips[hand].visible = active;
     };
@@ -90,7 +84,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
       offsets[hand] = structuredClone(pose);
       tipSamples[hand].valid = false;
       const slot = slots.find(item => item.hand === hand);
-      if (slot) calibrate(slot, pose);
+      if (slot) applyStickPose(slot.calibration, pose);
     },
     pulse(hand: StickHand, velocity: number) {
       const source = slots.find(slot => slot.hand === hand)?.source;
@@ -129,12 +123,6 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
           continue;
         }
         sticks.grips[hand].visible = true;
-        // The mount stays in grip space. Express the tracked aim in that
-        // space, then apply only the user's explicit model calibration.
-        if (slot.ray.visible) {
-          slot.calibration.quaternion.copy(slot.grip.quaternion).invert()
-            .multiply(slot.ray.quaternion).multiply(slot.localRotation);
-        } else slot.calibration.quaternion.copy(slot.localRotation);
         slot.grip.updateWorldMatrix(false, true);
         sample.previous.copy(sample.current);
         sample.grip.setFromMatrixPosition(slot.grip.matrixWorld);

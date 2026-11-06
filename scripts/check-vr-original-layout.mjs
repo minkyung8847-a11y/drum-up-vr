@@ -51,10 +51,10 @@ try {
     // Independent expected deltas: metres and degrees, relative to initial Git.
     const adjustments = {
       smallTom: [-0.03, 0.16, 0, 15], middleTom: [0.03, 0.16, 0, 15],
-      snare: [0, 0, 0.11, 0], floorTom: [-0.02, 0, 0.14, 0],
-      hihat: [-0.12, 0, 0, 4], crash: [0, 0, 0, 4], ride: [0.03, 0, 0, 4], kick: [0, 0, 0, 0],
+      snare: [0, 0, 0.23, 0], floorTom: [-0.02, 0, 0.26, 0],
+      hihat: [-0.12, 0, 0.05, 4], crash: [0, 0, 0, 4], ride: [0.03, 0, 0, 4], kick: [0, 0, 0, 0],
     };
-    const targetHeights = { snare: 0.75, floorTom: 0.75, hihat: 0.8805578947368421, crash: 1.10, ride: 1.02 };
+    const targetHeights = { snare: 0.52, floorTom: 0.52, hihat: 0.8405578947368421, crash: 1.10, ride: 1.02 };
     for (const [id, recorded] of Object.entries(history.instruments)) {
       const old = partFor(original.group, id), now = partFor(fixture.group, id), live = partFor(actual, id);
       const shell = old.children.find(child => child.geometry?.parameters.openEnded);

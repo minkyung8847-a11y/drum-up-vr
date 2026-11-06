@@ -23,12 +23,13 @@ export function installMockWebXR(options = {}) {
     getOffsetReferenceSpace() { return this; }
   }
   class TestSession extends EventTarget {
-    constructor(mode = arMode ? 'immersive-ar' : 'immersive-vr') {
+    constructor(mode = arMode ? 'immersive-ar' : 'immersive-vr', optionalFeatures = []) {
       super();
       this.mode = mode;
       this.visibilityState = 'visible';
       this.environmentBlendMode = mode === 'immersive-ar' ? 'alpha-blend' : 'opaque';
       this.enabledFeatures = [mode === 'immersive-ar' && !switchable ? 'local' : 'local-floor'];
+      if (optionalFeatures.includes('hand-tracking')) this.enabledFeatures.push('hand-tracking');
       this.renderState = { depthNear: .03, depthFar: 30 };
       this.inputSources = [];
       this.reference = new ReferenceSpace();
@@ -69,6 +70,7 @@ export function installMockWebXR(options = {}) {
       return {
         session: this,
         getPose: space => space.tracked ? { transform: transform(space.position, space.quaternion), emulatedPosition: false } : null,
+        getJointPose: joint => joint.tracked ? { transform: transform(joint.position), emulatedPosition: false } : undefined,
         getViewerPose: () => {
           if (!this.head.tracked) return null;
           const head = transform(this.head.position, this.head.quaternion);
@@ -122,7 +124,7 @@ export function installMockWebXR(options = {}) {
         rejectAR = false;
         throw new DOMException('First AR request rejected by the device', 'NotSupportedError');
       }
-      window.testXR = new TestSession(mode); return window.testXR;
+      window.testXR = new TestSession(mode, options.optionalFeatures); return window.testXR;
     },
   } });
 }

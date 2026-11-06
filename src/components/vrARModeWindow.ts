@@ -61,7 +61,8 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   stickPanel.renderOrder = panel.renderOrder;
   stickPanel.visible = false;
   scene.add(stickPanel);
-  let stickUnavailableReason: string | null = null;
+  let realStickMode = false;
+  let handStatus = '';
   let stickHovered = false;
   const drawStickMode = () => {
     stickContext.fillStyle = '#101114';
@@ -74,13 +75,13 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
     stickContext.fillStyle = '#151515';
     stickContext.font = 'bold 34px Arial';
     stickContext.textAlign = 'center';
-    stickContext.fillText(stickUnavailableReason ? 'CONTROLLER MODE' : 'REAL STICK MODE', 256, 58);
+    stickContext.fillText(realStickMode ? 'CONTROLLER MODE' : 'REAL STICK MODE', 256, 58);
     stickContext.fillStyle = '#f1f5fa';
     stickContext.font = '600 23px Arial';
-    stickContext.fillText(stickUnavailableReason ? 'TRACKING UNAVAILABLE' : 'Aim and press trigger', 256, 111);
-    if (stickUnavailableReason) {
+    stickContext.fillText(realStickMode ? handStatus : 'Aim and press trigger', 256, 111, 470);
+    if (realStickMode) {
       stickContext.font = '20px Arial';
-      stickContext.fillText(stickUnavailableReason, 256, 140);
+      stickContext.fillText('COLOR MARKER TRACKING UNAVAILABLE', 256, 140);
     }
     stickTexture.needsUpdate = true;
   };
@@ -123,7 +124,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
     rhythmContext.fillText('Restart', 378, 117);
     rhythmContext.font = '600 27px Arial';
     rhythmContext.fillStyle = rhythmJudgment === 'Miss' ? '#ffad89' : '#9cf7e7';
-    rhythmContext.fillText(rhythmJudgment ?? (rhythmState === 'finished' ? 'Pattern complete' : 'A: cursor   ·   Trigger: select'), 256, 190);
+    rhythmContext.fillText(rhythmJudgment?.toUpperCase() ?? (rhythmState === 'finished' ? 'Pattern complete' : 'A: cursor   ·   Trigger: select'), 256, 190);
     rhythmContext.textAlign = 'start';
     rhythmTexture.needsUpdate = true;
   };
@@ -189,7 +190,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   const selectHandlers = sources.map(source => (event: { data: XRInputSource }) => {
     if (!source.visible) return;
     const hit = pointAtPanels(source);
-    if (isStickButton(hit) && event.data.targetRayMode === 'tracked-pointer' && !event.data.hand && event.data.gripSpace) {
+    if (isStickButton(hit) && event.data.targetRayMode === 'tracked-pointer' && (event.data.hand || event.data.gripSpace)) {
       onToggleRealSticks();
       pointerActive = false;
       handCursor.visible = ray.visible = false;
@@ -197,7 +198,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
     }
     if (hit?.object === panel && hit.uv && hit.uv.x >= 24 / 512 && hit.uv.x <= 488 / 512
       && hit.uv.y >= 34 / 256 && hit.uv.y <= 163 / 256) onSelectMode(target);
-    if (hit?.object !== rhythmPanel || !pointerActive || ray.parent !== source || !hit.uv) return;
+    if (hit?.object !== rhythmPanel || (!pointerActive && !(realStickMode && event.data.hand)) || ray.parent !== source || !hit.uv) return;
     const x = hit.uv.x * 512;
     const y = (1 - hit.uv.y) * 224;
     if (y < 70 || y > 142) return;
@@ -234,7 +235,12 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
     setTarget(mode: 'vr' | 'ar') { target = mode; draw(); texture.needsUpdate = true; },
     show(canSwitch: boolean) { panel.visible = canSwitch; rhythmPanel.visible = stickPanel.visible = true; resetPointer(); },
     hide() { panel.visible = rhythmPanel.visible = stickPanel.visible = false; resetPointer(); },
-    setStickMode(unavailableReason: string | null) { stickUnavailableReason = unavailableReason; drawStickMode(); },
+    setStickMode(enabled: boolean, status: string) {
+      if (enabled === realStickMode && status === handStatus) return;
+      realStickMode = enabled;
+      handStatus = status;
+      drawStickMode();
+    },
     setRhythmStatus(state: RhythmState, judgment?: RhythmJudgment) {
       if (state === rhythmState && judgment === rhythmJudgment) return;
       rhythmState = state;
@@ -267,11 +273,13 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
       let source = pointerActive && input ? bindings.get(input) : undefined;
       let hit = source?.visible ? pointAtPanels(source) : undefined;
       if (!source?.visible) {
-        // Show the controller ray over the stick button without requiring A.
+        // Point-and-pinch works in hand mode. Controller aiming at the stick button does not require A.
         for (const [candidate, targetRay] of bindings) {
-          if (!targetRay.visible || candidate.targetRayMode !== 'tracked-pointer' || !candidate.gripSpace || candidate.hand) continue;
+          if (!targetRay.visible || candidate.targetRayMode !== 'tracked-pointer' || !(candidate.gripSpace || candidate.hand)) continue;
           const candidateHit = pointAtPanels(targetRay);
-          if (isStickButton(candidateHit)) { source = targetRay; hit = candidateHit; break; }
+          if (isStickButton(candidateHit) || (candidate.hand && realStickMode && candidateHit)) {
+            source = targetRay; hit = candidateHit; break;
+          }
         }
       }
       if (!source?.visible) {

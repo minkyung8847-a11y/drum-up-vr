@@ -56,14 +56,12 @@ export const DrumKitShowroom: React.FC<DrumKitShowroomProps> = ({
   // When SELECT KIT is confirmed
   const handleSelectKit = useCallback(
     (kit: ShowroomDrumKit) => {
+      onEnterPlay(kit.audioPresetId);
       try {
-        drumSynth.init();
-        drumSynth.setKit(kit.audioPresetId);
         drumSynth.trigger("kick", 1.0);
       } catch {
         // Continue
       }
-      onEnterPlay(kit.audioPresetId);
     },
     [onEnterPlay]
   );

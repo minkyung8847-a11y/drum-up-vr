@@ -25,7 +25,7 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
     .map((object, index) => object ? { object, rotation: object.rotation.clone(), quaternion: object.quaternion.clone(), amount: index === 0 ? -0.06 : -0.12 } : null)
     .filter(target => target !== null);
   let kickAge = Infinity, kickVelocity = 1;
-  let hiHatClosed = false;
+  let hiHatClosed = true;
   const lowerHiHatRest = kit.hiHatLower?.position.y ?? -0.035;
   const placeHiHat = () => { if (kit.hiHatLower) kit.hiHatLower.position.y = lowerHiHatRest - (hiHatClosed ? 0 : 0.035); };
   placeHiHat();

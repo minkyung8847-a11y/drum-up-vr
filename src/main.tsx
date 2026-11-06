@@ -4,6 +4,8 @@ import './index.css'
 import App from './App.tsx'
 
 const VRPractice = lazy(() => import('./components/VRPractice.tsx'))
+const PedalController = lazy(() => import('./pedal/PedalController.tsx'))
+const LocalKickTest = lazy(() => import('./pedal/LocalKickTest.tsx'))
 
 export function Entry() {
   const [hash, setHash] = useState(window.location.hash)
@@ -13,12 +15,12 @@ export function Entry() {
     return () => window.removeEventListener('hashchange', navigate)
   }, [])
   return hash === '#/vr' || hash === '#/ar'
-    ? <Suspense fallback={null}><VRPractice key={hash} preferredMode={hash === '#/ar' ? 'ar' : 'vr'} /></Suspense>
-    : <App />
+    ? <StrictMode><Suspense fallback={null}><VRPractice key={hash} preferredMode={hash === '#/ar' ? 'ar' : 'vr'} /></Suspense></StrictMode>
+    : hash === '#/pedal' ? <StrictMode><Suspense fallback={null}><PedalController /></Suspense></StrictMode>
+      : hash === '#/kick-test' ? <StrictMode><Suspense fallback={null}><LocalKickTest /></Suspense></StrictMode>
+        : <App />
 }
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <Entry />
-  </StrictMode>,
+  <Entry />,
 )
