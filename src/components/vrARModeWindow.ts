@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { RHYTHM_BPM } from './vrNoteHighway';
 import type { RhythmAction, RhythmJudgment, RhythmState } from './vrNoteHighway';
 
-// A head-locked button remains visible when the browser hides page DOM in immersive VR.
-export function createVRARModeWindow(camera: THREE.Camera, xr: THREE.WebXRManager, rig: THREE.Group,
+// Fixed in the kit's world so the headset can look away from the panels.
+export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager, rig: THREE.Group,
   onSelectMode: (mode: 'vr' | 'ar') => void, onRhythmAction: (action: RhythmAction) => void) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
@@ -37,12 +37,13 @@ export function createVRARModeWindow(camera: THREE.Camera, xr: THREE.WebXRManage
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.275),
-    new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, depthTest: false }));
+    new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
   panel.name = 'ar-mode-window';
-  panel.position.set(0.38, 0.25, -1.0);
+  panel.position.set(0.96, 1.54, -0.67);
+  panel.rotation.y = -0.22;
   panel.renderOrder = 1000;
   panel.visible = false;
-  camera.add(panel);
+  scene.add(panel);
 
   const rhythmCanvas = document.createElement('canvas');
   rhythmCanvas.width = 512;
@@ -51,12 +52,13 @@ export function createVRARModeWindow(camera: THREE.Camera, xr: THREE.WebXRManage
   const rhythmTexture = new THREE.CanvasTexture(rhythmCanvas);
   rhythmTexture.colorSpace = THREE.SRGBColorSpace;
   const rhythmPanel = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.228),
-    new THREE.MeshBasicMaterial({ map: rhythmTexture, transparent: true, depthTest: false, depthWrite: false, toneMapped: false }));
+    new THREE.MeshBasicMaterial({ map: rhythmTexture, transparent: true, depthWrite: false, toneMapped: false }));
   rhythmPanel.name = 'vr-rhythm-controls';
-  rhythmPanel.position.set(-0.28, 0.25, -1);
+  rhythmPanel.position.set(-0.96, 1.54, -0.67);
+  rhythmPanel.rotation.y = 0.22;
   rhythmPanel.renderOrder = panel.renderOrder;
   rhythmPanel.visible = false;
-  camera.add(rhythmPanel);
+  scene.add(rhythmPanel);
   let rhythmState: RhythmState = 'idle';
   let rhythmJudgment: RhythmJudgment | undefined;
   const drawRhythm = () => {
@@ -129,9 +131,9 @@ export function createVRARModeWindow(camera: THREE.Camera, xr: THREE.WebXRManage
   ray.renderOrder = 1001;
   ray.visible = false;
   const pointAtPanels = (source: THREE.Group) => {
-    rig.updateWorldMatrix(true, true);
-    camera.updateWorldMatrix(true, true);
     source.updateWorldMatrix(true, false);
+    panel.updateWorldMatrix(true, false);
+    rhythmPanel.updateWorldMatrix(true, false);
     rotation.identity().extractRotation(source.matrixWorld);
     raycaster.ray.origin.setFromMatrixPosition(source.matrixWorld);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
@@ -170,12 +172,6 @@ export function createVRARModeWindow(camera: THREE.Camera, xr: THREE.WebXRManage
 
   return {
     setTarget(mode: 'vr' | 'ar') { target = mode; draw(); texture.needsUpdate = true; },
-    setLanePreview(enabled: boolean) {
-      panel.position.set(enabled ? 0.66 : 0.38, enabled ? 0.58 : 0.25, -1);
-      rhythmPanel.position.set(enabled ? -0.55 : -0.28, enabled ? 0.58 : 0.25, -1);
-      panel.scale.setScalar(enabled ? 0.8 : 1);
-      rhythmPanel.scale.copy(panel.scale);
-    },
     show() { panel.visible = true; rhythmPanel.visible = target === 'ar'; resetPointer(); },
     hide() { panel.visible = rhythmPanel.visible = false; resetPointer(); },
     setRhythmStatus(state: RhythmState, judgment?: RhythmJudgment) {

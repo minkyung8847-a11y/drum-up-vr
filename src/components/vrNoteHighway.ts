@@ -5,7 +5,9 @@ export const RHYTHM_BPM = 100;
 const TRAVEL_MS = 3000;
 const PERFECT_MS = 50;
 const GOOD_MS = 120;
-const FLASH_MS = 230;
+const FLASH_MS = 420;
+const RIPPLE_MS = 360;
+const RING_DIAMETER_RATIO = 0.675; // Peak diameter as a fraction of the textured quad.
 
 const COLORS: Record<string, number> = {
   crash: 0xffa570, hihat: 0x8fffc9, snare: 0xff78be, kick: 0xff8d58,
@@ -25,10 +27,10 @@ export type RhythmState = 'idle' | 'playing' | 'paused' | 'finished';
 export type RhythmJudgment = 'Perfect' | 'Good' | 'Miss';
 export type RhythmAction = 'toggle' | 'restart';
 
-type RhythmSurface = Omit<DrumHitSurface, 'mesh'> & { world: THREE.Matrix4 };
+type RhythmSurface = DrumHitSurface & { world: THREE.Matrix4 };
 
 export function captureRhythmSurfaces(surfaces: DrumHitSurface[]): RhythmSurface[] {
-  return surfaces.map(({ mesh, ...surface }) => ({ ...surface, world: mesh.matrixWorld.clone() }));
+  return surfaces.map(surface => ({ ...surface, world: surface.mesh.matrixWorld.clone() }));
 }
 
 function surfaceNormal(world: THREE.Matrix4) {
@@ -40,14 +42,11 @@ function laneTarget({ world, radius, height, cymbal }: RhythmSurface, normal: TH
     .applyMatrix4(world).addScaledVector(normal, 0.012);
 }
 
-export function createVRLanePreview(surfaces: RhythmSurface[], eye: THREE.Vector3) {
+export function createVRNoteLanes(surfaces: RhythmSurface[], eye: THREE.Vector3) {
   const positions: THREE.Vector3[] = [];
   const colors: number[] = [];
-  const segments = 24;
+  const segments = 48;
   const farDepth = 10;
-  // The poster's upper-right convergence is placed closer to the seated
-  // view's centre so both eyes can see it without turning away from the kit.
-  const vanishingX = 0.26;
   const vanishingY = 0.18;
   const paths = new Map(surfaces.map(surface => {
     const target = laneTarget(surface, surfaceNormal(surface.world));
@@ -58,24 +57,24 @@ export function createVRLanePreview(surfaces: RhythmSurface[], eye: THREE.Vector
       // The pedal-side kick head must be approached from in front of its shell.
       const clearance = surface.id === 'kick' ? 0.20 * Math.sin(Math.PI * progress) : 0;
       const depth = THREE.MathUtils.lerp(nearDepth, farDepth, progress ** 4) - clearance;
-      return out.set(eye.x + THREE.MathUtils.lerp(nearX, vanishingX, progress) * depth,
+      return out.set(eye.x + THREE.MathUtils.lerp(nearX, 0, progress) * depth,
         eye.y + THREE.MathUtils.lerp(nearY, vanishingY, progress) * depth, eye.z - depth);
     }
     for (let i = 0; i < segments; i++) {
       for (const progress of [i / segments, (i + 1) / segments]) {
         positions.push(positionAt(progress, new THREE.Vector3()));
-        const brightness = THREE.MathUtils.lerp(1, 0.08, progress ** 2);
-        colors.push(brightness, brightness, brightness);
+        const alpha = 1 - THREE.MathUtils.smoothstep(progress, 0.2, 1);
+        colors.push(1, 1, 1, alpha);
       }
     }
     return [surface.id, positionAt] as const;
   }));
   const geometry = new THREE.BufferGeometry().setFromPoints(positions);
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 4));
   const material = new THREE.LineBasicMaterial({ color: 0xd7dfec, vertexColors: true,
     transparent: true, opacity: 0.40, depthWrite: false, toneMapped: false });
   const lines = new THREE.LineSegments(geometry, material);
-  lines.name = 'vr-lane-preview';
+  lines.name = 'vr-note-lanes';
   return {
     lines, paths,
     dispose() {
@@ -87,7 +86,8 @@ export function createVRLanePreview(surfaces: RhythmSurface[], eye: THREE.Vector
 }
 
 export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[],
-  eye: THREE.Vector3, onStatus: (state: RhythmState, judgment?: RhythmJudgment) => void) {
+  paths: ReturnType<typeof createVRNoteLanes>['paths'],
+  onStatus: (state: RhythmState, judgment?: RhythmJudgment) => void) {
   const anchor = new THREE.Group();
   anchor.name = 'note-highway-anchor';
   anchor.visible = false;
@@ -111,55 +111,31 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     depthWrite: false, toneMapped: false, side: THREE.DoubleSide,
   });
 
-  const linePoints: THREE.Vector3[] = [];
-  const lanes = new Map(surfaces.map(surface => {
-    const { id, world, radius, height, cymbal } = surface;
+  const lanes = new Map(surfaces.map(({ id, mesh, world, radius, height, cymbal }) => {
     const normal = surfaceNormal(world);
-    const target = laneTarget(surface, normal);
-    // Each ray starts on the instrument and points toward a shared vanishing
-    // point above the kit in the nominal seated view. It stays world-locked.
-    const nearDepth = eye.z - target.z;
-    const farDepth = 3.6;
-    const nearX = (target.x - eye.x) / nearDepth;
-    const nearY = (target.y - eye.y) / nearDepth;
-    const farY = 0.13;
-    const edgeSpacing = id === 'crash' ? -0.045 : id === 'ride' ? 0.045 : 0;
-    const farX = nearX * (0.42 - farY) / (0.42 - nearY) + edgeSpacing;
-    function positionAt(progress: number, out: THREE.Vector3) {
-      // Keep the last section above the playing surfaces. The vertical kick
-      // head is approached from the player side of the bass drum shell.
-      const clearance = id === 'kick' ? 0.24 * Math.sin(Math.PI * progress) : 0;
-      const depth = nearDepth + (farDepth - nearDepth) * progress ** 3 - clearance;
-      return out.set(eye.x + THREE.MathUtils.lerp(nearX, farX, progress) * depth,
-        eye.y + THREE.MathUtils.lerp(nearY, farY, progress) * depth, eye.z - depth);
-    }
-    for (let i = 0; i < 16; i++) {
-      linePoints.push(positionAt(i / 16, new THREE.Vector3()), positionAt((i + 1) / 16, new THREE.Vector3()));
-    }
-    const noteMaterial = material(COLORS[id]);
-    const burst = new THREE.Mesh(ringGeometry, material(COLORS[id]));
-    burst.name = `rhythm-burst-${id}`;
+    const ripple = new THREE.Mesh(ringGeometry, material(COLORS[id]));
+    ripple.name = `rhythm-ripple-${id}`;
     const rim = new THREE.Mesh(ringGeometry, material(COLORS[id]));
     rim.name = `rhythm-rim-${id}`;
     // The same ring texture traces the actual rim in the playing surface's plane.
-    rim.position.set(0, cymbal ? 0 : height, 0).applyMatrix4(world).addScaledVector(normal, 0.007);
+    const rimHeight = cymbal || id === 'kick' ? height : 0.024;
+    rim.position.set(0, rimHeight, 0).applyMatrix4(world).addScaledVector(normal, 0.006);
     rim.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-    rim.scale.set(2 * radius * new THREE.Vector3().setFromMatrixColumn(world, 0).length() / 0.675,
-      2 * radius * new THREE.Vector3().setFromMatrixColumn(world, 2).length() / 0.675, 1);
-    rim.visible = burst.visible = false;
-    anchor.add(rim, burst);
-    const lane = { positionAt, noteMaterial, burst, rim, flashAt: -Infinity };
+    ripple.quaternion.copy(rim.quaternion);
+    rim.scale.set(2 * radius * new THREE.Vector3().setFromMatrixColumn(world, 0).length() / RING_DIAMETER_RATIO,
+      2 * radius * new THREE.Vector3().setFromMatrixColumn(world, 2).length() / RING_DIAMETER_RATIO, 1);
+    rim.visible = ripple.visible = false;
+    anchor.add(rim, ripple);
+    const lane = { positionAt: paths.get(id)!, color: new THREE.Color(COLORS[id]), mesh, world, normal, height, cymbal,
+      ripple, rim, flashAt: -Infinity, perfect: false };
     return [id, lane] as const;
   }));
-  const lines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(linePoints),
-    new THREE.LineBasicMaterial({ color: 0xc3cbd8, transparent: true, opacity: 0.32, depthWrite: false }));
-  lines.name = 'rhythm-lanes';
-  anchor.add(lines);
 
   const notes = PATTERN.flatMap((parts, beat) => parts.map(id => {
     const lane = lanes.get(id)!;
     const arrival = TRAVEL_MS + beat * (60_000 / RHYTHM_BPM);
-    const mesh = new THREE.Mesh(ringGeometry, lane.noteMaterial);
+    // Each note has its own fade, while all share geometry, texture and shader.
+    const mesh = new THREE.Mesh(ringGeometry, material(COLORS[id]));
     mesh.name = `note-${id}-${arrival}`;
     mesh.visible = false;
     anchor.add(mesh);
@@ -169,7 +145,37 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   let epoch = 0;
   let pauseAt = 0;
   const lastArrival = notes[notes.length - 1].arrival;
-  const noteScale = (progress: number) => THREE.MathUtils.lerp(0.12, 0.15, 1 - progress);
+  const face = new THREE.Vector3(0, 0, 1);
+  const normalMatrix = new THREE.Matrix3();
+
+  function updateFlash(lane: typeof notes[number]['lane'], elapsed: number) {
+    const age = elapsed - lane.flashAt;
+    lane.rim.visible = age >= 0 && age < FLASH_MS;
+    lane.ripple.visible = age >= 0 && age < RIPPLE_MS;
+    if (!lane.rim.visible) return;
+    let world = lane.world;
+    if (lane.cymbal) {
+      // Follow the existing cymbal wobble without touching the cymbal or its material.
+      lane.mesh.updateWorldMatrix(true, false);
+      world = lane.mesh.matrixWorld;
+      lane.normal.set(0, 1, 0).applyNormalMatrix(normalMatrix.getNormalMatrix(world));
+      lane.rim.position.set(0, 0, 0).applyMatrix4(world).addScaledVector(lane.normal, 0.006);
+      lane.rim.quaternion.setFromUnitVectors(face, lane.normal);
+      lane.ripple.quaternion.copy(lane.rim.quaternion);
+    }
+    const strength = lane.perfect ? 1 : 0.58;
+    lane.rim.material.opacity = 0.88 * strength * (1 - age / FLASH_MS) ** 2;
+    if (!lane.ripple.visible) return;
+    const phase = age / RIPPLE_MS;
+    const radius = THREE.MathUtils.lerp(0.17, lane.perfect ? 1 : 0.76, 1 - (1 - phase) ** 2);
+    // Match the lathed cymbal's bell and bow at the wavefront radius.
+    const height = lane.cymbal
+      ? 0.049 * Math.exp(-((radius / 0.2) ** 3)) + 0.019 * (1 - radius) ** 2
+      : lane.height;
+    lane.ripple.position.set(0, height, 0).applyMatrix4(world).addScaledVector(lane.normal, 0.008);
+    lane.ripple.scale.set(lane.rim.scale.x * radius, lane.rim.scale.y * radius, 1);
+    lane.ripple.material.opacity = 0.76 * strength * (1 - phase) ** 2;
+  }
 
   function setState(next: RhythmState) {
     state = next;
@@ -184,7 +190,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     }
     for (const lane of lanes.values()) {
       lane.flashAt = -Infinity;
-      lane.rim.visible = lane.burst.visible = false;
+      lane.rim.visible = lane.ripple.visible = false;
     }
   }
 
@@ -231,10 +237,10 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
       closest.resolved = true;
       closest.mesh.visible = false;
       const lane = closest.lane;
-      const progress = (closest.arrival - elapsed) / TRAVEL_MS;
-      lane.positionAt(progress, lane.burst.position);
       lane.flashAt = elapsed;
-      onStatus(state, distance <= PERFECT_MS ? 'Perfect' : 'Good');
+      lane.perfect = distance <= PERFECT_MS;
+      updateFlash(lane, elapsed);
+      onStatus(state, lane.perfect ? 'Perfect' : 'Good');
     },
     update(now: number, viewer: THREE.Vector3) {
       if (!anchor.visible) return;
@@ -253,29 +259,21 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
         if (!note.mesh.visible) continue;
         const progress = remaining / TRAVEL_MS;
         note.lane.positionAt(progress, note.mesh.position);
-        note.mesh.scale.setScalar(noteScale(progress));
+        const approach = 1 - THREE.MathUtils.smoothstep(progress, 0, 1);
+        note.mesh.scale.setScalar(THREE.MathUtils.lerp(0.085, 0.16, approach));
+        note.mesh.material.opacity = approach;
+        note.mesh.material.color.copy(note.lane.color).multiplyScalar(THREE.MathUtils.lerp(0.30, 1.2, approach));
         note.mesh.lookAt(viewer);
       }
-      for (const lane of lanes.values()) {
-        const age = (elapsed - lane.flashAt) / FLASH_MS;
-        lane.rim.visible = lane.burst.visible = age >= 0 && age < 1;
-        if (!lane.burst.visible) continue;
-        const fade = (1 - age) ** 2;
-        lane.rim.material.opacity = 0.7 * fade;
-        lane.burst.material.opacity = fade;
-        lane.burst.scale.setScalar(0.15 + 0.14 * age);
-        lane.burst.lookAt(viewer);
-      }
+      for (const lane of lanes.values()) updateFlash(lane, elapsed);
     },
     dispose() {
       anchor.removeFromParent();
-      lines.geometry.dispose();
-      lines.material.dispose();
       ringGeometry.dispose();
       texture.dispose();
+      for (const note of notes) note.mesh.material.dispose();
       for (const lane of lanes.values()) {
-        lane.noteMaterial.dispose();
-        lane.burst.material.dispose();
+        lane.ripple.material.dispose();
         lane.rim.material.dispose();
       }
     },
