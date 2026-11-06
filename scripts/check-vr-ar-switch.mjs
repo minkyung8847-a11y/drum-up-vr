@@ -7,21 +7,18 @@ const vite = await createServer({ server: { host: '127.0.0.1', port: 0 } });
 await vite.listen();
 const origin = vite.resolvedUrls.local[0];
 let browser;
-try {
-  browser = await chromium.launch({ channel: 'msedge', headless: true });
+const errors = [];
+async function setup(options) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.addInitScript(installMockWebXR, { mode: 'switchable' });
+  await page.addInitScript(installMockWebXR, { mode: 'switchable', ...options });
   await page.goto(`${origin}#/vr`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('complementary', { name: 'AR mode selection' }).getByRole('button', { name: 'AR 패스스루 시작 →' }).waitFor();
   await page.getByRole('status').filter({ hasText: 'Click to play' }).waitFor();
   await page.evaluate(async () => {
     const url = performance.getEntriesByType('resource').find(entry => /\/three\.js\?/.test(entry.name)).name;
-    const THREE = await import(url);
-    window.THREE = THREE;
-    const original = THREE.Scene.prototype.updateMatrixWorld;
-    THREE.Scene.prototype.updateMatrixWorld = function (...args) {
+    const T = await import(url);
+    const original = T.Scene.prototype.updateMatrixWorld;
+    T.Scene.prototype.updateMatrixWorld = function (...args) {
       if (this.getObjectByName('player-rig')) {
         window.vrScene = this;
         this.onAfterRender = renderer => { window.vrRenderer = renderer; };
@@ -29,99 +26,175 @@ try {
       return original.apply(this, args);
     };
     const { drumSynth } = await import('/src/utils/synth.ts');
-    window.hits = [];
     const trigger = drumSynth.trigger.bind(drumSynth);
-    drumSynth.trigger = (id, velocity) => { window.hits.push({ id, velocity }); return trigger(id, velocity); };
+    window.hits = [];
+    drumSynth.trigger = (id, velocity) => { window.hits.push(id); return trigger(id, velocity); };
+    window.get = name => window.vrScene.getObjectByName(name);
+    window.aim = (source, name, x = 0, y = 0) => {
+      const session = window.testXR;
+      const panel = window.get(name), rig = window.get('player-rig');
+      source.gripSpace.tracked = false;
+      session.step();
+      source.gripSpace.position = rig.worldToLocal(panel.localToWorld(new T.Vector3(x, y, .5))).toArray();
+      source.gripSpace.quaternion = panel.quaternion.toArray();
+      source.gripSpace.tracked = true;
+      session.step(3);
+    };
+    window.select = source => window.testXR.emit('select', { inputSource: source, frame: window.testXR.frame() });
+    window.cursor = source => {
+      source.gamepad.buttons[4].value = 1;
+      window.testXR.step(2);
+      source.gamepad.buttons[4].value = 0;
+      window.testXR.step();
+    };
+    window.startChart = source => {
+      window.aim(source, 'vr-rhythm-controls', -.124, .005);
+      if (!window.get('ar-hand-cursor')?.visible) window.cursor(source);
+      window.select(source);
+      window.chartStart = performance.now();
+    };
+    window.playSnare = source => {
+      const session = window.testXR, rig = window.get('player-rig');
+      const kit = window.get('kick-pedal').parent;
+      const snare = kit.children.find(object => object.userData.drumType === 'snare');
+      const mesh = snare.children.find(object => object.isMesh && object.userData.drumType === 'snare' && object.position.y > 0);
+      const normal = new T.Vector3(0, 1, 0).transformDirection(mesh.matrixWorld);
+      const target = mesh.getWorldPosition(new T.Vector3()).addScaledVector(normal, .12);
+      const stick = rig.children.map(object => object.getObjectByName('right-stick-grip'))
+        .find(object => object?.parent.name.startsWith('controller-'));
+      const offset = stick.parent.parent.worldToLocal(stick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3()));
+      const axis = new T.Vector3(1, 0, 0), pitch = -23 * Math.PI / 180;
+      offset.applyAxisAngle(axis, pitch);
+      source.gripSpace.tracked = false;
+      session.time = window.chartStart + 4100;
+      session.step();
+      source.gripSpace.position = rig.worldToLocal(target).sub(offset).toArray();
+      source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(axis, pitch).toArray();
+      source.gripSpace.tracked = true;
+      session.step(6);
+      source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(axis, pitch - .05).toArray();
+      session.step(2);
+    };
   });
-  await page.getByRole('button', { name: 'Enter VR' }).click();
-  await page.waitForFunction(() => window.vrRenderer?.xr.isPresenting);
-  const panelVisible = await page.evaluate(() => window.vrScene.getObjectByName('ar-mode-window')?.visible);
-  assert.equal(panelVisible, true, 'AR window should appear inside headset view');
-  const before = await page.evaluate(() => {
-    const session = window.testXR;
-    window.vrSession = session;
-    const kit = window.vrScene.getObjectByName('kick-pedal').parent;
-    const snapshot = { kitId: kit.id, position: kit.position.toArray(), meshes: [] };
-    kit.traverse(object => { if (object.isMesh) snapshot.meshes.push(object.id); });
-    // A right-hand tracking source can be listed before the physical controller.
+  await page.waitForFunction(() => window.vrRenderer);
+  return page;
+}
+try {
+  browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const page = await setup();
+  await page.getByRole('button', { name: 'Change background' }).click();
+  await page.getByRole('menuitemradio', { name: /Concert Arena/ }).click();
+  await page.getByRole('button', { name: 'Enter VR', exact: true }).click();
+  await page.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
+  const modes = await page.evaluate(() => {
+    const { testXR: session, get, aim, select, startChart } = window;
+    const background = window.vrScene.background;
+    const kit = get('kick-pedal').parent;
+    const lanes = get('vr-note-lanes');
+    const panel = get('ar-mode-window');
+    const venue = get('concert-stage-environment');
+    const backgroundAlpha = () => {
+      const scene = window.vrScene;
+      const afterRender = scene.onAfterRender;
+      const alphas = [];
+      scene.onAfterRender = (renderer, ...rest) => {
+        afterRender(renderer, ...rest);
+        const gl = renderer.getContext(), pixel = new Uint8Array(4);
+        for (const x of [.25, .75]) {
+          gl.readPixels(Math.floor(gl.drawingBufferWidth * x), gl.drawingBufferHeight - 2,
+            1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+          alphas.push(pixel[3]);
+        }
+      };
+      try { session.step(); } finally { scene.onAfterRender = afterRender; }
+      return alphas;
+    };
+    const first = session.mode === 'immersive-ar' && background.isDataTexture
+      && background.image.data[3] === 255 && venue.visible && panel.visible && panel.parent === window.vrScene
+      && backgroundAlpha().every(alpha => alpha === 255);
     session.connect('right', { hand: {}, gripSpace: null });
     const left = session.connect('left');
     const source = session.connect('right', { profiles: ['generic-trigger-squeeze-thumbstick'] });
     session.step(3);
-    const T = window.THREE;
-    const panel = window.vrScene.getObjectByName('ar-mode-window');
-    const rig = window.vrScene.getObjectByName('player-rig');
-    panel.updateWorldMatrix(true, false);
-    const origin = panel.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, 0, .5));
-    rig.worldToLocal(origin);
-    source.gripSpace.position = origin.toArray();
-    source.gripSpace.quaternion = [0, 0, 0, 1];
-    session.step(3);
-    const cursorVisible = () => !!window.vrScene.getObjectByName('ar-hand-cursor')?.visible;
+    const rig = get('player-rig');
     const stickVisible = hand => rig.children.map(object => object.getObjectByName(`${hand}-stick-grip`))
       .find(object => object?.parent.name.startsWith('controller-'))?.visible;
-    left.gamepad.buttons[4].pressed = true;
-    source.gamepad.buttons[5].pressed = true;
+    left.gamepad.buttons[4].pressed = source.gamepad.buttons[5].pressed = true;
     session.step(2);
-    if (cursorVisible() || !stickVisible('left') || !stickVisible('right')) throw Error('Left X and right B must leave both sticks active');
-    left.gamepad.buttons[4].pressed = false;
-    source.gamepad.buttons[5].pressed = false;
+    const ignoredOtherButtons = !get('ar-hand-cursor')?.visible && stickVisible('left') && stickVisible('right');
+    left.gamepad.buttons[4].pressed = source.gamepad.buttons[5].pressed = false;
     source.gamepad.buttons[4].value = 1;
-    session.step(12);
-    if (!cursorVisible() || stickVisible('right') || !stickVisible('left')) throw Error('Value-only A input on a generic profile must toggle once');
-    source.gamepad.buttons[4].value = 0;
-    session.step(1);
-    source.gamepad.buttons[4].pressed = true;
-    session.step(1);
-    if (cursorVisible() || !stickVisible('right')) throw Error('The next A press restores the right stick in the same frame');
-    source.gamepad.buttons[4].pressed = false;
-    session.step(1);
-    source.gamepad.buttons[4].pressed = true;
-    session.step(1);
-    if (!cursorVisible() || !window.vrScene.getObjectByName('ar-hand-ray')?.visible) throw Error('A must restore the existing cursor and ray');
-    session.emit('select', { inputSource: source, frame: session.frame() });
-    return snapshot;
-  });
-  await page.waitForFunction(() => window.testXR !== window.vrSession && window.vrRenderer?.xr.isPresenting);
-  const ar = await page.evaluate(() => {
-    const scene = window.vrScene;
-    const kit = scene.getObjectByName('kick-pedal').parent;
-    const meshes = []; kit.traverse(object => { if (object.isMesh) meshes.push(object.id); });
-    const session = window.testXR;
-    const source = session.connect('right'); session.step(3);
-    const T = window.THREE;
-    const rig = scene.getObjectByName('player-rig');
-    const group = kit.children.find(object => object.userData.drumType === 'snare');
-    const mesh = group.children.find(object => object.isMesh && object.userData.drumType === 'snare' && object.position.y > 0);
-    mesh.updateWorldMatrix(true, false);
-    const target = mesh.getWorldPosition(new T.Vector3());
-    const normal = new T.Vector3(0, 1, 0).transformDirection(mesh.matrixWorld);
-    target.addScaledVector(normal, .12);
-    const stick = rig.children.map(object => object.getObjectByName('right-stick-grip'))
-      .find(object => object?.parent.name.startsWith('controller-'));
-    const grip = stick.parent.parent;
-    const offset = grip.worldToLocal(stick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3()));
-    const pitchAxis = new T.Vector3(1, 0, 0);
-    const wristPitch = -23 * Math.PI / 180;
-    offset.applyAxisAngle(pitchAxis, wristPitch);
-    rig.worldToLocal(target); target.sub(offset);
-    source.gripSpace.position = target.toArray();
-    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch).toArray(); session.step(6);
-    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch - .05).toArray();
     session.step(10);
-    return { mode: session.mode, kitId: kit.id, position: kit.position.toArray(), meshes,
-      background: scene.background, environments: ['concert-stage-environment', 'cloud-concert-environment', 'dark-studio-environment']
-        .map(name => scene.getObjectByName(name)?.visible), hits: window.hits.map(hit => hit.id) };
+    const toggledOnce = get('ar-hand-cursor')?.visible && stickVisible('left') && !stickVisible('right');
+    source.gamepad.buttons[4].value = 0;
+    session.step();
+    startChart(source);
+    session.time = window.chartStart + 600;
+    session.step();
+    const chart = get('note-highway-anchor'), kick = get('note-kick-3000');
+    const before = kick.position.clone();
+    const panelPose = panel.matrixWorld.clone();
+    const kitPose = kit.matrixWorld.clone();
+    aim(source, 'ar-mode-window');
+    select(source);
+    session.step(30);
+    const ar = window.vrScene.background === null && !venue.visible && !get('xr-view-fade').visible
+      && chart === get('note-highway-anchor') && lanes === get('vr-note-lanes')
+      && kick.visible && kick.position.distanceTo(before) > .01 && get('vr-rhythm-controls').visible
+      && backgroundAlpha().every(alpha => alpha === 0);
+    window.playSnare(source);
+    const judgedInAR = window.hits.includes('snare') && get('rhythm-ripple-snare').visible
+      && !get('note-snare-4200').visible;
+    aim(source, 'ar-mode-window');
+    select(source);
+    session.step(30);
+    const restored = window.vrScene.background === background && venue.visible && !get('xr-view-fade').visible
+      && kit === get('kick-pedal').parent && kit.matrixWorld.equals(kitPose) && panel.matrixWorld.equals(panelPose)
+      && chart === get('note-highway-anchor') && lanes === get('vr-note-lanes') && window.testXR === session && !session.ended;
+    return { first, ignoredOtherButtons, toggledOnce, ar, judgedInAR, restored };
   });
-  assert.equal(ar.mode, 'immersive-ar');
-  assert.equal(ar.kitId, before.kitId);
-  assert.deepEqual(ar.position, before.position);
-  assert.deepEqual(ar.meshes, before.meshes);
-  assert.equal(ar.background, null);
-  assert(ar.environments.every(visible => visible !== true), 'Virtual backgrounds must be hidden');
-  assert(ar.hits.includes('snare'), 'AR must use the VR stick collision and sound path');
+  assert.deepEqual(modes, { first: true, ignoredOtherButtons: true, toggledOnce: true,
+    ar: true, judgedInAR: true, restored: true });
+  await page.getByRole('button', { name: 'Exit VR', exact: true }).click();
+  await page.getByRole('button', { name: 'Enter VR', exact: true }).waitFor();
+  await page.close();
+
+  const fallback = await setup({ rejectFirstAR: true });
+  await fallback.getByRole('button', { name: 'Enter VR', exact: true }).click();
+  await fallback.getByText(/First AR request rejected/).waitFor();
+  await fallback.getByRole('button', { name: 'Enter VR', exact: true }).click();
+  await fallback.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
+  await fallback.evaluate(() => {
+    const { testXR: session, get, aim, select, startChart } = window;
+    if (session.mode !== 'immersive-vr') throw Error('Expected opaque fallback session');
+    const source = session.connect('right');
+    session.step(3);
+    startChart(source);
+    session.step(9);
+    window.previousSession = session;
+    window.previousChart = get('note-highway-anchor');
+    window.previousLanes = get('vr-note-lanes');
+    window.previousKit = get('kick-pedal').parent;
+    aim(source, 'ar-mode-window');
+    select(source);
+  });
+  await fallback.getByRole('button', { name: 'Enter AR', exact: true }).waitFor();
+  assert(await fallback.evaluate(() => window.previousSession.ended && window.testXR === window.previousSession));
+  await fallback.getByRole('button', { name: 'Enter AR', exact: true }).click();
+  await fallback.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
+  const preserved = await fallback.evaluate(() => {
+    const { get, testXR: session } = window;
+    session.step(5);
+    const note = get('note-kick-3000');
+    const before = note.position.clone();
+    session.step(10);
+    return session.mode === 'immersive-ar' && window.vrScene.background === null
+      && get('note-highway-anchor') === window.previousChart && get('vr-note-lanes') === window.previousLanes
+      && get('kick-pedal').parent === window.previousKit && note.visible && !note.position.equals(before);
+  });
+  assert.equal(preserved, true);
   assert.deepEqual(errors, []);
-  console.log('VR-to-AR passthrough preserves the same kit and stick hits');
+  console.log('PASS: opaque VR entry, AR and VR round trip in one session, continuous chart and AR scoring, fixed kit and panels, fresh-gesture fallback with chart preservation.');
 } finally {
   await browser?.close();
   await vite.close();

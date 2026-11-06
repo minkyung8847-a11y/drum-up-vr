@@ -22,7 +22,6 @@ import './vrPractice.css';
 type XRMode = 'vr' | 'ar';
 
 export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: XRMode }) {
-  const rootRef = useRef<HTMLElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const resetRef = useRef<() => void>(() => {});
   const [audioStatus, setAudioStatus] = useState('Loading drum sounds…');
@@ -30,9 +29,10 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
   const [arSupported, setArSupported] = useState(false);
   const [immersive, setImmersive] = useState(false);
   const [xrMode, setXRMode] = useState<XRMode | null>(null);
+  const [pendingMode, setPendingMode] = useState<XRMode | null>(null);
   const [xrBusy, setXRBusy] = useState(false);
   const [xrMessage, setXRMessage] = useState('Checking VR availability…');
-  const xrActionRef = useRef<(mode: XRMode) => Promise<void>>(async () => {});
+  const xrActionRef = useRef<(mode: XRMode | 'exit') => Promise<void>>(async () => {});
   const poseRef = useRef<(mode: 'preview' | 'offset', hand: StickHand, pose: StickPose) => void>(() => {});
   const [background, setBackground] = useState<DrumEnvironmentId>(getSavedDrumEnvironment);
   const initialBackground = useRef(background);
@@ -45,6 +45,22 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     const scene = new THREE.Scene();
     const vrBackground = new THREE.Color(0x101114);
     scene.background = vrBackground;
+    // Three clears alpha-blend XR buffers to transparent, including when
+    // scene.background is a Color. A background texture writes opaque pixels.
+    const opaqueBackground = new THREE.DataTexture(new Uint8Array([0x10, 0x11, 0x14, 255]), 1, 1);
+    opaqueBackground.colorSpace = THREE.SRGBColorSpace;
+    opaqueBackground.needsUpdate = true;
+    const viewFade = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+      uniforms: { darkness: { value: 0 } },
+      vertexShader: 'void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: 'uniform float darkness; void main() { gl_FragColor = vec4(0.0, 0.0, 0.0, darkness); }',
+      transparent: true, depthTest: false, depthWrite: false,
+    }));
+    viewFade.name = 'xr-view-fade';
+    viewFade.renderOrder = 2000;
+    viewFade.frustumCulled = false;
+    viewFade.visible = false;
+    scene.add(viewFade);
     const backgrounds = createDrumEnvironments(scene, initialBackground.current);
     backgroundRef.current = backgrounds.select;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -91,10 +107,9 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     let disposed = false;
     let audioReady = false;
     let highway: ReturnType<typeof createVRNoteHighway> | null = null;
-    let rhythmActive = false;
     let sessionMode: XRMode = preferredMode;
     let previousTime: number | null = null;
-    const isVisibleVR = () => sessionMode === 'vr' && renderer.xr.getSession()?.visibilityState === 'visible';
+    const isVisibleXR = () => renderer.xr.getSession()?.visibilityState === 'visible';
     let audioPreparation = 0;
     const prepareAudio = async () => {
       const preparation = ++audioPreparation;
@@ -133,17 +148,14 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     const arModeWindow = createVRARModeWindow(scene, renderer.xr, rig, mode => {
       void xrActionRef.current(mode);
     }, action => {
-      if (!isVisibleVR() || !noteLanes) return;
+      if (!isVisibleXR() || !noteLanes) return;
       highway ??= createVRNoteHighway(scene, rhythmSurfaces, noteLanes.paths,
-        (state, judgment) => {
-          rhythmActive = state === 'playing' || state === 'paused';
-          arModeWindow.setRhythmStatus(state, judgment);
-        });
+        (state, judgment) => arModeWindow.setRhythmStatus(state, judgment));
       highway[action](performance.now());
     });
     const collisions = createVRAssistedStrikes(kit.hitSurfaces, (id, hand, velocity) => {
       if (audioReady && interaction.hit(id, velocity)) {
-        if (highway && previousTime !== null && isVisibleVR()) highway.strike(id, previousTime);
+        if (highway && previousTime !== null && isVisibleXR()) highway.strike(id, previousTime);
         controllers.pulse(hand, velocity);
       }
     });
@@ -163,62 +175,80 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     const desktopPose = { rig: rig.position.clone(), cameraPosition: camera.position.clone(), cameraScale: camera.scale.clone(),
       cameraQuaternion: camera.quaternion.clone(), yaw: 0, pitch: seatedPitch };
     let rhythmSession: XRSession | null = null;
+    let arAvailable = false;
+    let preferSharedSession = false;
+    let sessionBusy = false;
+    let retainedRig: THREE.Vector3 | null = null;
+    let resumeAfterSwitch = false;
+    let viewTransition: { target: XRMode; start: number | null; applied: boolean } | null = null;
     const pauseHiddenRhythm = () => {
       if (rhythmSession?.visibilityState !== 'visible') highway?.pause(performance.now());
     };
-    const setPassthrough = (enabled: boolean) => {
-      scene.background = enabled ? null : vrBackground;
-      backgrounds.setVisible(!enabled);
+    const applyView = (mode: XRMode) => {
+      sessionMode = mode;
+      scene.background = mode === 'ar' ? null
+        : renderer.xr.getSession()?.environmentBlendMode === 'alpha-blend' ? opaqueBackground : vrBackground;
+      backgrounds.setVisible(mode === 'vr');
+      arModeWindow.setTarget(mode === 'ar' ? 'vr' : 'ar');
+      setXRMode(mode);
+      setXRMessage(mode === 'ar'
+        ? 'AR · 실제 배경 위에서 같은 드럼을 연주합니다.'
+        : 'VR · 가상공간에서 드럼을 연주합니다.');
     };
     const startXR = () => {
       cancelLook();
-      desktopPose.rig.copy(rig.position);
-      desktopPose.cameraPosition.copy(camera.position);
-      desktopPose.cameraScale.copy(camera.scale);
-      desktopPose.cameraQuaternion.copy(camera.quaternion);
-      desktopPose.yaw = yaw.rotation.y;
-      desktopPose.pitch = pitch.rotation.x;
+      if (retainedRig) {
+        rig.position.copy(retainedRig);
+        retainedRig = null;
+      } else {
+        desktopPose.rig.copy(rig.position);
+        desktopPose.cameraPosition.copy(camera.position);
+        desktopPose.cameraScale.copy(camera.scale);
+        desktopPose.cameraQuaternion.copy(camera.quaternion);
+        desktopPose.yaw = yaw.rotation.y;
+        desktopPose.pitch = pitch.rotation.x;
+        seating.enter();
+      }
       targetYaw = desktopPose.yaw;
       targetPitch = desktopPose.pitch;
-      // local-floor supplies physical seated eye height, without a synthetic lift
-      // or an imposed head rotation during gameplay.
-      seating.enter();
       yaw.rotation.y = 0;
       pitch.rotation.x = 0;
       camera.position.set(0, 0, 0);
       camera.quaternion.identity();
       sticks.grips.left.visible = sticks.grips.right.visible = false;
       controllers.setActive(true);
-      setPassthrough(sessionMode === 'ar');
-      if (sessionMode === 'vr') {
+      if (!noteLanes) {
         noteLanes = createVRNoteLanes(rhythmSurfaces, laneEye);
         scene.add(noteLanes.lines);
-        backgrounds.setVisible(false);
       }
       rhythmSession = renderer.xr.getSession();
       rhythmSession?.addEventListener('visibilitychange', pauseHiddenRhythm);
-      arModeWindow.setTarget(sessionMode === 'ar' ? 'vr' : 'ar');
-      arModeWindow.show();
+      applyView(sessionMode);
+      arModeWindow.show(rhythmSession?.environmentBlendMode === 'alpha-blend' || arAvailable);
+      if (resumeAfterSwitch) highway?.toggle(performance.now());
+      resumeAfterSwitch = false;
+      setPendingMode(null);
       collisions.reset();
       setImmersive(true);
-      setXRMode(sessionMode);
-      setXRMessage(sessionMode === 'ar'
-        ? 'AR · VR과 같은 드럼 위치와 타격 방식입니다. 실제 배경이 보입니다.'
-        : 'VR free play — flick either wrist toward a nearby instrument. Lift back to strike again.');
     };
     const endXR = () => {
       cancelLook();
       rhythmSession?.removeEventListener('visibilitychange', pauseHiddenRhythm);
       rhythmSession = null;
-      highway?.stop();
-      highway?.dispose();
-      highway = null;
-      noteLanes?.dispose();
-      noteLanes = null;
+      viewTransition = null;
+      viewFade.visible = false;
+      if (!retainedRig) {
+        highway?.stop();
+        highway?.dispose();
+        highway = null;
+        noteLanes?.dispose();
+        noteLanes = null;
+        seating.exit();
+      }
       controllers.setActive(false);
       arModeWindow.hide();
-      setPassthrough(false);
-      seating.exit();
+      scene.background = vrBackground;
+      backgrounds.setVisible(true);
       collisions.reset();
       rig.position.copy(desktopPose.rig);
       yaw.rotation.y = desktopPose.yaw;
@@ -232,7 +262,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       if (!disposed) {
         setImmersive(false);
         setXRMode(null);
-        setXRMessage('Desktop preview — real tracking has not been verified on hardware.');
+        setXRMessage(retainedRig ? '연주 상태를 보존했습니다. 입장 버튼을 눌러 전환을 완료하세요.' : 'Desktop preview');
         resize();
       }
     };
@@ -241,37 +271,65 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     void (async () => {
       try {
         const supported = window.isSecureContext && !!navigator.xr && await navigator.xr.isSessionSupported('immersive-vr');
-        const arAvailable = window.isSecureContext && !!navigator.xr && await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);
+        arAvailable = window.isSecureContext && !!navigator.xr && await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);
+        preferSharedSession = arAvailable;
         if (!disposed) {
-          setXRSupported(supported);
+          setXRSupported(supported || arAvailable);
           setArSupported(arAvailable);
-          setXRMessage(supported ? 'VR available · Desktop preview is separate from tracking.' : 'VR unavailable here · Desktop preview only. Headset tracking is unverified.');
+          setXRMessage(supported || arAvailable ? 'VR available · Desktop preview is separate from tracking.'
+            : 'VR unavailable here · Desktop preview only. Headset tracking is unverified.');
         }
       } catch {
         if (!disposed) setXRMessage('VR availability check failed · Desktop preview remains available.');
       }
     })();
-    xrActionRef.current = async (target: XRMode) => {
+    xrActionRef.current = async target => {
+      if (sessionBusy || disposed) return;
       // Resume in this button's user gesture, before awaiting XR permission.
       void drumSynth.unlock();
+      const current = renderer.xr.getSession();
+      if (current && target !== 'exit') {
+        if (target === sessionMode || viewTransition || !isVisibleXR()) return;
+        if (current.environmentBlendMode === 'alpha-blend') {
+          viewTransition = { target, start: null, applied: false };
+          return;
+        }
+        if (!arAvailable) return;
+        // A new immersive session may require fresh user activation after exit.
+        // Preserve the chart and seating until the existing entry button is used.
+        retainedRig = rig.position.clone();
+        resumeAfterSwitch = highway?.pause(performance.now()) ?? false;
+        setPendingMode(target);
+      }
+      sessionBusy = true;
       setXRBusy(true);
       let requested: XRSession | null = null;
+      const tryAR = target === 'ar' || (target === 'vr' && preferSharedSession);
       try {
-        const current = renderer.xr.getSession();
-        const sameMode = current && sessionMode === target;
-        if (current) await current.end();
-        if (!sameMode && navigator.xr) {
-          requested = await navigator.xr.requestSession(target === 'ar' ? 'immersive-ar' : 'immersive-vr', {
+        if (current) {
+          await current.end();
+        } else if (target !== 'exit' && navigator.xr) {
+          requested = await navigator.xr.requestSession(tryAR ? 'immersive-ar' : 'immersive-vr', {
             requiredFeatures: ['local-floor'],
-            ...(target === 'ar' ? { optionalFeatures: ['dom-overlay'], domOverlay: { root: rootRef.current! } } : {}),
           });
+          if (tryAR && requested.environmentBlendMode !== 'alpha-blend') {
+            throw new Error('이 세션은 카메라 패스스루 합성을 제공하지 않습니다.');
+          }
           if (disposed) await requested.end();
           else { sessionMode = target; await renderer.xr.setSession(requested); }
         }
       } catch (error) {
         if (requested) await requested.end().catch(() => {});
-        if (!disposed) setXRMessage(`Could not enter ${target.toUpperCase()}: ${error instanceof Error ? error.message : 'Session unavailable'}. 페이지에서 다시 시도해 주세요.`);
+        if (current && retainedRig) {
+          retainedRig = null;
+          if (resumeAfterSwitch) highway?.toggle(performance.now());
+          resumeAfterSwitch = false;
+          setPendingMode(null);
+        }
+        if (!current && target === 'vr' && tryAR) preferSharedSession = false;
+        if (!disposed) setXRMessage(`XR: ${error instanceof Error ? error.message : 'Session unavailable'}. 입장 버튼에서 다시 시도해 주세요.`);
       } finally {
+        sessionBusy = false;
         if (!disposed) setXRBusy(false);
       }
     };
@@ -426,6 +484,17 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       const frameDelta = previousTime === null ? 0 : (time - previousTime) / 1000;
       const delta = Math.min(frameDelta, 0.05);
       previousTime = time;
+      if (viewTransition) {
+        viewTransition.start ??= time;
+        const progress = THREE.MathUtils.clamp((time - viewTransition.start) / 240, 0, 1);
+        viewFade.visible = progress < 1;
+        viewFade.material.uniforms.darkness.value = 0.85 * Math.sin(Math.PI * progress);
+        if (progress >= 0.5 && !viewTransition.applied) {
+          applyView(viewTransition.target);
+          viewTransition.applied = true;
+        }
+        if (progress >= 1) viewTransition = null;
+      }
       backgrounds.update(time / 1000);
       if (!renderer.xr.isPresenting) {
         yaw.rotation.y = THREE.MathUtils.damp(yaw.rotation.y, targetYaw, 14, delta);
@@ -457,7 +526,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       if (renderer.xr.isPresenting && viewer) {
         const p = viewer.transform.position;
         headPosition.set(p.x, p.y, p.z).applyMatrix4(rig.matrixWorld);
-        if (rhythmActive && !isVisibleVR()) highway?.pause(time);
+        if (!isVisibleXR()) highway?.pause(time);
         highway?.update(time, headPosition);
       }
       if (renderer.xr.isPresenting && frame && viewer && audioReady) {
@@ -466,7 +535,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
           collisions.update(hand, controllers.tipSamples[hand], frameDelta, time / 1000, headPosition);
         }
       } else collisions.suspend();
-      interaction.update(delta);
+      if (!retainedRig || renderer.xr.isPresenting) interaction.update(delta);
       renderer.render(scene, camera);
     });
 
@@ -518,6 +587,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       geometries.forEach(geometry => geometry.dispose());
       materials.forEach(material => material.dispose());
       textures.forEach(texture => texture.dispose());
+      opaqueBackground.dispose();
       environment.dispose();
       renderer.dispose();
       canvas.remove();
@@ -526,14 +596,17 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
   }, []);
 
   return (
-    <main className="vr-practice" ref={rootRef} aria-label="First-person drum practice">
+    <main className="vr-practice" aria-label="First-person drum practice">
       <div className="vr-practice-stage" ref={hostRef} aria-label="Drum kit — click to strike, drag to look around; hold Shift to look without striking" />
       <header className="vr-practice-toolbar">
         <a href="#/">Back to DRUM UP</a>
         <span>{xrMode === 'ar' || (!immersive && preferredMode === 'ar') ? 'AR' : 'VR'} PRACTICE · {immersive ? 'HEADSET VIEW' : 'DESKTOP VIEW'}</span>
         <div className="vr-practice-actions">
           <button onClick={() => resetRef.current()}>Reset view</button>
-          <button disabled={!xrSupported || xrBusy} title={xrMessage} onClick={() => { void xrActionRef.current('vr'); }}>{xrBusy ? 'Connecting…' : xrMode === 'vr' ? 'Exit VR' : xrSupported ? 'Enter VR' : 'VR unavailable'}</button>
+          <button disabled={xrBusy || (!immersive && !(pendingMode === 'ar' ? arSupported : xrSupported))}
+            title={xrMessage} onClick={() => { void xrActionRef.current(immersive ? 'exit' : pendingMode ?? 'vr'); }}>
+            {xrBusy ? 'Connecting…' : immersive ? 'Exit VR' : pendingMode === 'ar' ? 'Enter AR' : xrSupported ? 'Enter VR' : 'VR unavailable'}
+          </button>
           {xrMode !== 'ar' && <EnvironmentSwitcher selected={background} onSelect={id => { backgroundRef.current(id); setBackground(id); }} />}
         </div>
       </header>

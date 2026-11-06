@@ -204,9 +204,10 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   }
 
   function pause(now: number) {
-    if (state !== 'playing') return;
+    if (state !== 'playing') return false;
     pauseAt = now;
     setState('paused');
+    return true;
   }
 
   return {

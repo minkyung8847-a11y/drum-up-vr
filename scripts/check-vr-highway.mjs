@@ -44,9 +44,9 @@ try {
     window.testXR.step();
     lines.onBeforeRender = () => {};
     return { eyeDraws, visible: lines.visible, hasMovingNotes: !!window.scene.getObjectByName('note-highway-anchor'),
-      venueHidden: !window.scene.getObjectByName('concert-stage-environment').visible };
+      venueVisible: window.scene.getObjectByName('concert-stage-environment').visible };
   });
-  assert.deepEqual(preview, { eyeDraws: 2, visible: true, hasMovingNotes: false, venueHidden: true });
+  assert.deepEqual(preview, { eyeDraws: 2, visible: true, hasMovingNotes: false, venueVisible: true });
 
   const immersive = await page.evaluate(() => {
     const T = window.THREE;
@@ -85,7 +85,7 @@ try {
     point(-.124);
     showCursor();
     select();
-    const active = get('note-highway-anchor').visible && !environment.visible && lanesStay();
+    const active = get('note-highway-anchor').visible && environment.visible && lanesStay();
     const kick = get('note-kick-3000');
     let eyeDraws = 0;
     kick.onBeforeRender = () => eyeDraws++;

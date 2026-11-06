@@ -31,9 +31,9 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
     context.fillRect(24, 93, 464, 129);
     context.fillStyle = '#151515';
     context.font = 'bold 52px Arial';
-    context.fillText(`${target.toUpperCase()}  →`, 53, 165);
-    context.font = '24px Arial';
-    context.fillText(target === 'ar' ? 'REAL BACKGROUND' : 'VIRTUAL STAGE', 250, 164);
+    context.textAlign = 'center';
+    context.fillText(`${target.toUpperCase()} MODE`, 256, 175);
+    context.textAlign = 'start';
     context.fillStyle = '#d9e1e9';
     context.font = '20px Arial';
     context.fillText('A: HAND CURSOR     TRIGGER: SELECT', 25, 247);
@@ -143,12 +143,13 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
     raycaster.ray.origin.setFromMatrixPosition(source.matrixWorld);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
     return (rhythmPanel.visible ? raycaster.intersectObject(rhythmPanel, false)[0] : undefined)
-      ?? raycaster.intersectObject(panel, false)[0];
+      ?? (panel.visible ? raycaster.intersectObject(panel, false)[0] : undefined);
   };
   const selectHandlers = sources.map(source => () => {
-    if (!panel.visible || !source.visible) return;
+    if ((!panel.visible && !rhythmPanel.visible) || !source.visible) return;
     const hit = pointAtPanels(source);
-    if (hit?.object === panel) onSelectMode(target);
+    if (hit?.object === panel && hit.uv && hit.uv.x >= 24 / 512 && hit.uv.x <= 488 / 512
+      && hit.uv.y >= 34 / 256 && hit.uv.y <= 163 / 256) onSelectMode(target);
     if (hit?.object !== rhythmPanel || !pointerActive || ray.parent !== source || !hit.uv) return;
     const x = hit.uv.x * 512;
     const y = (1 - hit.uv.y) * 224;
@@ -178,7 +179,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
 
   return {
     setTarget(mode: 'vr' | 'ar') { target = mode; draw(); texture.needsUpdate = true; },
-    show() { panel.visible = true; rhythmPanel.visible = target === 'ar'; resetPointer(); },
+    show(canSwitch: boolean) { panel.visible = canSwitch; rhythmPanel.visible = true; resetPointer(); },
     hide() { panel.visible = rhythmPanel.visible = false; resetPointer(); },
     setRhythmStatus(state: RhythmState, judgment?: RhythmJudgment) {
       if (state === rhythmState && judgment === rhythmJudgment) return;
@@ -191,7 +192,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
         && !source.hand && source.gripSpace && source.targetRayMode === 'tracked-pointer'
         && bindings.has(source) && source.gamepad?.buttons[A_BUTTON_INDEX]);
       const source = input && bindings.get(input);
-      if (!panel.visible || !input || !source) { resetPointer(); return false; }
+      if ((!panel.visible && !rhythmPanel.visible) || !input || !source) { resetPointer(); return false; }
       const sessionVisible = session?.visibilityState === 'visible';
       if (pointerInput !== input) {
         resetPointer();
