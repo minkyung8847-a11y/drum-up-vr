@@ -47,18 +47,15 @@ export function createVRNoteLanes(surfaces: RhythmSurface[], eye: THREE.Vector3)
   const colors: number[] = [];
   const segments = 48;
   const farDepth = 10;
-  const vanishingY = 0.18;
+  const vanishingPoint = new THREE.Vector3(eye.x, eye.y + 0.18 * farDepth, eye.z - farDepth);
   const paths = new Map(surfaces.map(surface => {
     const target = laneTarget(surface, surfaceNormal(surface.world));
     const nearDepth = eye.z - target.z;
-    const nearX = (target.x - eye.x) / nearDepth;
-    const nearY = (target.y - eye.y) / nearDepth;
     function positionAt(progress: number, out: THREE.Vector3) {
-      // The pedal-side kick head must be approached from in front of its shell.
-      const clearance = surface.id === 'kick' ? 0.20 * Math.sin(Math.PI * progress) : 0;
-      const depth = THREE.MathUtils.lerp(nearDepth, farDepth, progress ** 4) - clearance;
-      return out.set(eye.x + THREE.MathUtils.lerp(nearX, 0, progress) * depth,
-        eye.y + THREE.MathUtils.lerp(nearY, vanishingY, progress) * depth, eye.z - depth);
+      // Convert projected progress to distance along the straight world-space
+      // segment so the note keeps its existing apparent speed in the seated view.
+      const distance = progress * nearDepth / THREE.MathUtils.lerp(farDepth, nearDepth, progress);
+      return out.lerpVectors(target, vanishingPoint, distance);
     }
     for (let i = 0; i < segments; i++) {
       for (const progress of [i / segments, (i + 1) / segments]) {
@@ -72,9 +69,10 @@ export function createVRNoteLanes(surfaces: RhythmSurface[], eye: THREE.Vector3)
   const geometry = new THREE.BufferGeometry().setFromPoints(positions);
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 4));
   const material = new THREE.LineBasicMaterial({ color: 0xd7dfec, vertexColors: true,
-    transparent: true, opacity: 0.40, depthWrite: false, toneMapped: false });
+    transparent: true, opacity: 0.40, depthTest: false, depthWrite: false, toneMapped: false });
   const lines = new THREE.LineSegments(geometry, material);
   lines.name = 'vr-note-lanes';
+  lines.renderOrder = 1;
   return {
     lines, paths,
     dispose() {
@@ -135,8 +133,13 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     const lane = lanes.get(id)!;
     const arrival = TRAVEL_MS + beat * (60_000 / RHYTHM_BPM);
     // Each note has its own fade, while all share geometry, texture and shader.
-    const mesh = new THREE.Mesh(ringGeometry, material(COLORS[id]));
+    const noteMaterial = material(COLORS[id]);
+    // A straight approach may pass behind a shell before reaching its head.
+    // Keep the guide and moving note readable without changing the hit effects.
+    noteMaterial.depthTest = false;
+    const mesh = new THREE.Mesh(ringGeometry, noteMaterial);
     mesh.name = `note-${id}-${arrival}`;
+    mesh.renderOrder = 2;
     mesh.visible = false;
     anchor.add(mesh);
     return { id, lane, arrival, mesh, resolved: false };

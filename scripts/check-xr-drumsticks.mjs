@@ -55,7 +55,7 @@ try {
     const followsPose = controller.tipSamples.left.current.distanceTo(point) < 1e-10;
     const localTip = grips[1].worldToLocal(point.clone());
     const gripAligned = localTip.distanceTo(new THREE.Vector3(0, 0, -0.31)
-      .applyAxisAngle(new THREE.Vector3(1, 0, 0), 12 * Math.PI / 180)) < 1e-10;
+      .applyAxisAngle(new THREE.Vector3(1, 0, 0), -23 * Math.PI / 180).add(new THREE.Vector3(0, .035, -.035))) < 1e-10;
     const previous = point.clone();
     grips[1].position.x += 0.2;
     controller.update();

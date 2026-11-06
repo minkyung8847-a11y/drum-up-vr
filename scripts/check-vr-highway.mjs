@@ -115,8 +115,12 @@ try {
     const mesh = snare.children.find(object => object.isMesh && object.userData.drumType === 'snare' && object.position.y > 0);
     const normal = new T.Vector3(0, 1, 0).transformDirection(mesh.matrixWorld);
     const target = mesh.getWorldPosition(new T.Vector3()).addScaledVector(normal, .12);
-    const offset = new T.Vector3(0, 0, -.31).applyAxisAngle(new T.Vector3(1, 0, 0), 12 * Math.PI / 180);
+    const stick = rig.children.map(object => object.getObjectByName('right-stick-grip'))
+      .find(object => object?.parent.name.startsWith('controller-'));
+    const grip = stick.parent.parent;
+    const offset = grip.worldToLocal(stick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3()));
     source.gripSpace.tracked = false;
+    source.gripSpace.quaternion = [0, 0, 0, 1];
     session.time += 4090;
     session.step();
     source.gripSpace.position = rig.worldToLocal(target).sub(offset).toArray();
@@ -148,7 +152,7 @@ try {
     scene.add(guide.lines);
     const endpoints = [];
     const slopes = [];
-    const guideAlignment = surfaces.every(surface => {
+    const guideAlignment = surfaces.every((surface, index) => {
       const path = guide.paths.get(surface.id);
       const near = path(0, new T.Vector3());
       const far = path(1, new T.Vector3());
@@ -159,7 +163,14 @@ try {
       const offset = direction(near).sub(direction(far));
       slopes.push(offset.x / offset.y);
       endpoints.push(far);
-      return Math.abs(near.distanceTo(target) - .012) < 1e-8 && mid.z < near.z && mid.z > far.z;
+      const line = new T.Line3(near, far);
+      const positions = guide.lines.geometry.attributes.position;
+      for (let vertex = index * 96; vertex < (index + 1) * 96; vertex++) {
+        const point = new T.Vector3().fromBufferAttribute(positions, vertex);
+        if (line.closestPointToPoint(point, true, new T.Vector3()).distanceTo(point) > 1e-6) return false;
+      }
+      const projectedMid = direction(near).lerp(direction(far), .5);
+      return Math.abs(near.distanceTo(target) - .012) < 1e-8 && direction(mid).distanceTo(projectedMid) < 1e-8;
     });
     const converges = endpoints.length === 8 && endpoints[0].x === eye.x && endpoints[0].y > eye.y
       && endpoints.every(point => point.distanceTo(endpoints[0]) < 1e-8);

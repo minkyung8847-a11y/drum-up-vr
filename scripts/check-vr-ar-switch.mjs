@@ -13,7 +13,7 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(installMockWebXR, { mode: 'switchable' });
-  await page.goto(`${origin}#/vr`);
+  await page.goto(`${origin}#/vr`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('complementary', { name: 'AR mode selection' }).getByRole('button', { name: 'AR 패스스루 시작 →' }).waitFor();
   await page.getByRole('status').filter({ hasText: 'Click to play' }).waitFor();
   await page.evaluate(async () => {
@@ -43,6 +43,9 @@ try {
     const kit = window.vrScene.getObjectByName('kick-pedal').parent;
     const snapshot = { kitId: kit.id, position: kit.position.toArray(), meshes: [] };
     kit.traverse(object => { if (object.isMesh) snapshot.meshes.push(object.id); });
+    // A right-hand tracking source can be listed before the physical controller.
+    session.connect('right', { hand: {}, gripSpace: null });
+    const left = session.connect('left');
     const source = session.connect('right');
     session.step(3);
     const T = window.THREE;
@@ -54,20 +57,28 @@ try {
     source.gripSpace.position = origin.toArray();
     source.gripSpace.quaternion = [0, 0, 0, 1];
     session.step(3);
-    const handCursor = window.vrScene.getObjectByName('ar-hand-cursor');
-    if (handCursor?.visible) throw Error('Hand cursor should start hidden');
+    const cursorVisible = () => !!window.vrScene.getObjectByName('ar-hand-cursor')?.visible;
+    const stickVisible = hand => rig.children.map(object => object.getObjectByName(`${hand}-stick-grip`))
+      .find(object => object?.parent.name.startsWith('controller-'))?.visible;
+    left.gamepad.buttons[4].pressed = true;
+    source.gamepad.buttons[5].pressed = true;
+    session.step(2);
+    if (cursorVisible() || !stickVisible('left') || !stickVisible('right')) throw Error('Left X and right B must leave both sticks active');
+    left.gamepad.buttons[4].pressed = false;
+    source.gamepad.buttons[5].pressed = false;
     source.gamepad.buttons[4].pressed = true;
-    session.step(1);
+    session.step(12);
+    if (!cursorVisible() || stickVisible('right') || !stickVisible('left')) throw Error('Holding right A must toggle only once');
     source.gamepad.buttons[4].pressed = false;
     session.step(1);
-    if (!window.vrScene.getObjectByName('ar-hand-cursor')?.visible || !window.vrScene.getObjectByName('ar-hand-ray')?.visible)
-      throw Error(`A button should show the hand cursor and ray: ${JSON.stringify({
-        cursor: window.vrScene.getObjectByName('ar-hand-cursor')?.visible, ray: window.vrScene.getObjectByName('ar-hand-ray')?.visible,
-        buttons: source.gamepad.buttons.map(button => button.pressed),
-        controllers: rig.children.filter(child => child.type === 'Group').map(child => ({ name: child.name, children: child.children.map(c => c.name) })),
-      })}`);
-    if (window.vrScene.getObjectByName('right-stick-grip')?.visible)
-      throw Error('Right drumstick should hide while the hand cursor is active');
+    source.gamepad.buttons[4].pressed = true;
+    session.step(1);
+    if (cursorVisible() || !stickVisible('right')) throw Error('The next A press restores the right stick in the same frame');
+    source.gamepad.buttons[4].pressed = false;
+    session.step(1);
+    source.gamepad.buttons[4].pressed = true;
+    session.step(1);
+    if (!cursorVisible() || !window.vrScene.getObjectByName('ar-hand-ray')?.visible) throw Error('A must restore the existing cursor and ray');
     session.emit('select', { inputSource: source, frame: session.frame() });
     return snapshot;
   });
@@ -86,7 +97,10 @@ try {
     const target = mesh.getWorldPosition(new T.Vector3());
     const normal = new T.Vector3(0, 1, 0).transformDirection(mesh.matrixWorld);
     target.addScaledVector(normal, .12);
-    const offset = new T.Vector3(0, 0, -.31).applyAxisAngle(new T.Vector3(1, 0, 0), 12 * Math.PI / 180);
+    const stick = rig.children.map(object => object.getObjectByName('right-stick-grip'))
+      .find(object => object?.parent.name.startsWith('controller-'));
+    const grip = stick.parent.parent;
+    const offset = grip.worldToLocal(stick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3()));
     rig.worldToLocal(target); target.sub(offset);
     source.gripSpace.position = target.toArray();
     source.gripSpace.quaternion = [0, 0, 0, 1]; session.step(6);

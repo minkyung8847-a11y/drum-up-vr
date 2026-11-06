@@ -2,6 +2,13 @@ import * as THREE from 'three';
 import { RHYTHM_BPM } from './vrNoteHighway';
 import type { RhythmAction, RhythmJudgment, RhythmState } from './vrNoteHighway';
 
+// These WebXR registry profiles expose the right-hand A button at index 4.
+const A_BUTTON_PROFILES = new Set([
+  'oculus-touch', 'oculus-touch-v2', 'oculus-touch-v3',
+  'meta-quest-touch-plus', 'meta-quest-touch-pro', 'pico-4',
+]);
+const A_BUTTON_INDEX = 4;
+
 // Fixed in the kit's world so the headset can look away from the panels.
 export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager, rig: THREE.Group,
   onSelectMode: (mode: 'vr' | 'ar') => void, onRhythmAction: (action: RhythmAction) => void) {
@@ -13,6 +20,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   let hovered = false;
   let pointerActive = false;
   let aWasPressed = false;
+  let pointerInput: XRInputSource | undefined;
   const draw = () => {
     context.fillStyle = '#111820';
     context.fillRect(0, 0, 512, 256);
@@ -141,7 +149,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
       ?? raycaster.intersectObject(panel, false)[0];
   };
   const selectHandlers = sources.map(source => () => {
-    if (!panel.visible) return;
+    if (!panel.visible || !source.visible) return;
     const hit = pointAtPanels(source);
     if (hit?.object === panel) onSelectMode(target);
     if (hit?.object !== rhythmPanel || !pointerActive || ray.parent !== source || !hit.uv) return;
@@ -166,6 +174,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   const resetPointer = () => {
     pointerActive = false;
     aWasPressed = false;
+    pointerInput = undefined;
     handCursor.visible = ray.visible = false;
     if (hovered) { hovered = false; draw(); texture.needsUpdate = true; }
   };
@@ -181,16 +190,25 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
       drawRhythm();
     },
     update(session: XRSession | null) {
-      const input = [...(session?.inputSources ?? [])].find(source => source.handedness === 'right' && source.gamepad);
+      const input = [...(session?.inputSources ?? [])].find(source => source.handedness === 'right'
+        && !source.hand && source.gripSpace && source.targetRayMode === 'tracked-pointer'
+        && bindings.has(source) && source.gamepad?.buttons[A_BUTTON_INDEX]
+        && source.profiles.some(profile => A_BUTTON_PROFILES.has(profile)));
       const source = input && bindings.get(input);
       if (!panel.visible || !input || !source) { resetPointer(); return false; }
-      const aPressed = input.gamepad?.buttons[4]?.pressed === true;
-      if (aPressed && !aWasPressed) pointerActive = !pointerActive;
+      const aPressed = input.gamepad?.buttons[A_BUTTON_INDEX]?.pressed === true;
+      const sessionVisible = session?.visibilityState === 'visible';
+      if (pointerInput !== input) {
+        resetPointer();
+        pointerInput = input;
+      } else if (sessionVisible && aPressed && !aWasPressed) {
+        pointerActive = !pointerActive;
+      }
       aWasPressed = aPressed;
-      if (!pointerActive) {
+      if (!pointerActive || !sessionVisible || !source.visible) {
         handCursor.visible = ray.visible = false;
         if (hovered) { hovered = false; draw(); texture.needsUpdate = true; }
-        return false;
+        return pointerActive;
       }
       if (ray.parent !== source) { source.add(ray); source.add(handCursor); }
       const hit = pointAtPanels(source);

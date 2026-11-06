@@ -11,7 +11,7 @@ import { createVRAssistedStrikes } from './vrAssistedStrikes';
 import { createVRSeating, VR_SEATING } from './vrSeating';
 import { createVirtualDrumsticks } from './virtualDrumsticks';
 import { captureRhythmSurfaces, createVRNoteHighway, createVRNoteLanes } from './vrNoteHighway';
-import { applyStickPose, createXRDrumstickControllers, DEFAULT_GRIP_OFFSETS } from './xrDrumstickControllers';
+import { applyStickPose, createXRDrumstickControllers } from './xrDrumstickControllers';
 import type { StickPose } from './xrDrumstickControllers';
 import type { StickHand } from './virtualDrumsticks';
 import { StickControllerPanel } from './StickControllerPanel';
@@ -128,7 +128,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     pitch.add(camera);
     scene.add(rig);
     const sticks = createVirtualDrumsticks(camera);
-    for (const hand of ['left', 'right'] as const) applyStickPose(sticks.offsets[hand], DEFAULT_GRIP_OFFSETS[hand]);
+    for (const hand of ['left', 'right'] as const) sticks.offsets[hand].rotation.x = THREE.MathUtils.degToRad(12);
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
     const arModeWindow = createVRARModeWindow(scene, renderer.xr, rig, mode => {
       void xrActionRef.current(mode);
@@ -448,9 +448,9 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
         referenceReset();
       }
       if (renderer.xr.isPresenting && frame && reference) seating.update(frame, reference);
-      controllers.update(frame);
       const rightPointerActive = arModeWindow.update(session);
       controllers.setRightPointerActive(rightPointerActive);
+      controllers.update(frame);
       if (rightPointerActive && !rightPointerWasActive) collisions.reset('right');
       rightPointerWasActive = rightPointerActive;
       const viewer = frame && reference ? frame.getViewerPose(reference) : null;

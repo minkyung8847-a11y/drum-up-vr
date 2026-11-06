@@ -165,8 +165,13 @@ grips[0].dispatchEvent({ type: 'connected', data: input('right') });
 grips[1].dispatchEvent({ type: 'connected', data: input('left') });
 grips[1].position.set(-0.3, 1.2, -0.5); grips[1].rotation.set(0.2, -0.3, 0.1);
 controller.update();
-assert(controller.tipSamples.left.current.distanceTo(new THREE.Vector3(0, 0, -0.31)
-  .applyAxisAngle(new THREE.Vector3(1, 0, 0), 12 * Math.PI / 180).applyMatrix4(grips[1].matrixWorld)) < 1e-9);
+for (const [hand, grip] of [['left', grips[1]], ['right', grips[0]]]) {
+  const expected = new THREE.Vector3(0, 0, -0.31).applyAxisAngle(new THREE.Vector3(1, 0, 0), -23 * Math.PI / 180)
+    .add(new THREE.Vector3(0, .035, -.035)).applyMatrix4(grip.matrixWorld);
+  const meshTip = grip.getObjectByName(`${hand}-drumstick`).localToWorld(new THREE.Vector3(0, 0, -.31));
+  assert(controller.tipSamples[hand].current.distanceTo(expected) < 1e-9);
+  assert(controller.tipSamples[hand].current.distanceTo(meshTip) < 1e-9, 'Collision sample matches the visible stick tip');
+}
 controller.pulse('left', 0.7); controller.pulse('right', 0.8);
 assert.deepEqual(pulses.map(p => p.hand), ['left', 'right']);
 assert(pulses.every(p => p.duration === 18 && p.strength <= 0.3));

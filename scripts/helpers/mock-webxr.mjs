@@ -46,14 +46,15 @@ export function installMockWebXR(options = {}) {
     requestAnimationFrame(callback) { const id = this.nextId++; this.callbacks.set(id, callback); return id; }
     cancelAnimationFrame(id) { this.callbacks.delete(id); }
     emit(type, data = {}) { const event = new Event(type); Object.assign(event, data); this.dispatchEvent(event); }
-    connect(hand) {
+    connect(hand, overrides = {}) {
       const space = { position: [hand === 'left' ? -.25 : .25, 1.05, .05], quaternion: [0, 0, 0, 1], tracked: true };
       const source = { handedness: hand, targetRayMode: 'tracked-pointer', gripSpace: space, targetRaySpace: space,
-        profiles: ['generic-trigger-squeeze-thumbstick'],
-        gamepad: { buttons: Array.from({ length: 5 }, () => ({ pressed: false, touched: false, value: 0 })),
+        profiles: ['meta-quest-touch-plus', 'oculus-touch-v3', 'generic-trigger-squeeze-thumbstick'],
+        gamepad: { mapping: 'xr-standard', buttons: Array.from({ length: 7 }, () => ({ pressed: false, touched: false, value: 0 })),
           hapticActuators: [{ pulse: (strength, duration) => {
           this.pulses.push({ hand, strength, duration }); return Promise.resolve(true);
         } }] },
+        ...overrides,
       };
       this.inputSources.push(source);
       this.emit('inputsourceschange', { added: [source], removed: [] });

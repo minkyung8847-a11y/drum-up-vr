@@ -7,10 +7,10 @@ export interface StickPose {
   rotation: [number, number, number]; // degrees, XYZ
 }
 export const DEFAULT_GRIP_OFFSETS: Record<StickHand, StickPose> = {
-  // A modest upward stick angle from the physical grip; each hand can still
-  // be calibrated in Stick setup for the controller model and playing grip.
-  left: { position: [0, 0, 0], rotation: [12, 0, 0] },
-  right: { position: [0, 0, 0], rotation: [12, 0, 0] },
+  // Start above and ahead of the grip origin, near the controller's top.
+  // Negative pitch drops the forward (-Z) tip by 35° from the old pose.
+  left: { position: [0, 0.035, -0.035], rotation: [-23, 0, 0] },
+  right: { position: [0, 0.035, -0.035], rotation: [-23, 0, 0] },
 };
 export function applyStickPose(object: THREE.Object3D, pose: StickPose) {
   object.position.fromArray(pose.position);
@@ -24,6 +24,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
   const sticks = createVirtualDrumsticks(parking, false);
   const offsets = structuredClone(DEFAULT_GRIP_OFFSETS);
   let active = false;
+  let rightPointerActive = false;
   const tipSamples = {
     left: { valid: false, previous: new THREE.Vector3(), current: new THREE.Vector3(), grip: new THREE.Vector3() },
     right: { valid: false, previous: new THREE.Vector3(), current: new THREE.Vector3(), grip: new THREE.Vector3() },
@@ -73,6 +74,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
     tipSamples,
     setActive(value: boolean) {
       active = value;
+      if (!value) rightPointerActive = false;
       tipSamples.left.valid = tipSamples.right.valid = false;
       for (const slot of slots) {
         // Keep a still-connected source bound across deactivation/reactivation.
@@ -105,10 +107,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
     },
     resetSamples() { tipSamples.left.valid = tipSamples.right.valid = false; },
     setRightPointerActive(enabled: boolean) {
-      if (enabled) {
-        sticks.grips.right.visible = false;
-        tipSamples.right.valid = false;
-      }
+      rightPointerActive = enabled;
     },
     update(frame?: XRFrame) {
       rig.updateWorldMatrix(true, true);
@@ -118,7 +117,7 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
         const sample = tipSamples[hand];
         const pose = frame && reference && slot?.source?.gripSpace
           ? frame.getPose(slot.source.gripSpace, reference) : null;
-        if (!active || !slot || !slot.grip.visible
+        if (!active || (hand === 'right' && rightPointerActive) || !slot || !slot.grip.visible
           || (frame && (frame.session.visibilityState !== 'visible' || !pose || pose.emulatedPosition))) {
           sample.valid = false;
           sticks.grips[hand].visible = false;
