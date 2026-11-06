@@ -8,9 +8,9 @@ export interface StickPose {
 }
 export const DEFAULT_GRIP_OFFSETS: Record<StickHand, StickPose> = {
   // Start above and ahead of the grip origin, near the controller's top.
-  // Negative pitch drops the forward (-Z) tip by 35° from the old pose.
-  left: { position: [0, 0.035, -0.035], rotation: [-23, 0, 0] },
-  right: { position: [0, 0.035, -0.035], rotation: [-23, 0, 0] },
+  // Negative pitch tilts the tip 45° farther toward the kit from the previous -23°.
+  left: { position: [0, 0.035, -0.035], rotation: [-68, 0, 0] },
+  right: { position: [0, 0.035, -0.035], rotation: [-68, 0, 0] },
 };
 export function applyStickPose(object: THREE.Object3D, pose: StickPose) {
   object.position.fromArray(pose.position);

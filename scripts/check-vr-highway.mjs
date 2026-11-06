@@ -119,14 +119,17 @@ try {
       .find(object => object?.parent.name.startsWith('controller-'));
     const grip = stick.parent.parent;
     const offset = grip.worldToLocal(stick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3()));
+    const pitchAxis = new T.Vector3(1, 0, 0);
+    const wristPitch = Math.PI / 4;
+    offset.applyAxisAngle(pitchAxis, wristPitch);
     source.gripSpace.tracked = false;
-    source.gripSpace.quaternion = [0, 0, 0, 1];
+    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch).toArray();
     session.time += 4090;
     session.step();
     source.gripSpace.position = rig.worldToLocal(target).sub(offset).toArray();
     source.gripSpace.tracked = true;
     session.step(6);
-    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), -.05).toArray();
+    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch - .05).toArray();
     session.step(2);
     return { active, eightLanes, froze, resumed, restarted, fixedMenus, eyeDraws,
       snareRipple: get('rhythm-ripple-snare').visible, snareRim: get('rhythm-rim-snare').visible,

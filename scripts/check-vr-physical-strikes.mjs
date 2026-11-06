@@ -166,7 +166,7 @@ grips[1].dispatchEvent({ type: 'connected', data: input('left') });
 grips[1].position.set(-0.3, 1.2, -0.5); grips[1].rotation.set(0.2, -0.3, 0.1);
 controller.update();
 for (const [hand, grip] of [['left', grips[1]], ['right', grips[0]]]) {
-  const expected = new THREE.Vector3(0, 0, -0.31).applyAxisAngle(new THREE.Vector3(1, 0, 0), -23 * Math.PI / 180)
+  const expected = new THREE.Vector3(0, 0, -0.31).applyAxisAngle(new THREE.Vector3(1, 0, 0), -68 * Math.PI / 180)
     .add(new THREE.Vector3(0, .035, -.035)).applyMatrix4(grip.matrixWorld);
   const meshTip = grip.getObjectByName(`${hand}-drumstick`).localToWorld(new THREE.Vector3(0, 0, -.31));
   assert(controller.tipSamples[hand].current.distanceTo(expected) < 1e-9);

@@ -2,11 +2,8 @@ import * as THREE from 'three';
 import { RHYTHM_BPM } from './vrNoteHighway';
 import type { RhythmAction, RhythmJudgment, RhythmState } from './vrNoteHighway';
 
-// These WebXR registry profiles expose the right-hand A button at index 4.
-const A_BUTTON_PROFILES = new Set([
-  'oculus-touch', 'oculus-touch-v2', 'oculus-touch-v3',
-  'meta-quest-touch-plus', 'meta-quest-touch-pro', 'pico-4',
-]);
+// Quest Touch Plus exposes A after the four reserved XR button slots.
+// Browsers can report a generic profile while preserving this layout.
 const A_BUTTON_INDEX = 4;
 
 // Fixed in the kit's world so the headset can look away from the panels.
@@ -192,16 +189,17 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
     update(session: XRSession | null) {
       const input = [...(session?.inputSources ?? [])].find(source => source.handedness === 'right'
         && !source.hand && source.gripSpace && source.targetRayMode === 'tracked-pointer'
-        && bindings.has(source) && source.gamepad?.buttons[A_BUTTON_INDEX]
-        && source.profiles.some(profile => A_BUTTON_PROFILES.has(profile)));
+        && bindings.has(source) && source.gamepad?.buttons[A_BUTTON_INDEX]);
       const source = input && bindings.get(input);
       if (!panel.visible || !input || !source) { resetPointer(); return false; }
-      const aPressed = input.gamepad?.buttons[A_BUTTON_INDEX]?.pressed === true;
       const sessionVisible = session?.visibilityState === 'visible';
       if (pointerInput !== input) {
         resetPointer();
         pointerInput = input;
-      } else if (sessionVisible && aPressed && !aWasPressed) {
+      }
+      const button = input.gamepad?.buttons[A_BUTTON_INDEX];
+      const aPressed = !!button && (button.pressed || button.value >= (aWasPressed ? 0.55 : 0.75));
+      if (sessionVisible && aPressed && !aWasPressed) {
         pointerActive = !pointerActive;
       }
       aWasPressed = aPressed;

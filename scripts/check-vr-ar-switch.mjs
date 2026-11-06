@@ -46,7 +46,7 @@ try {
     // A right-hand tracking source can be listed before the physical controller.
     session.connect('right', { hand: {}, gripSpace: null });
     const left = session.connect('left');
-    const source = session.connect('right');
+    const source = session.connect('right', { profiles: ['generic-trigger-squeeze-thumbstick'] });
     session.step(3);
     const T = window.THREE;
     const panel = window.vrScene.getObjectByName('ar-mode-window');
@@ -66,10 +66,10 @@ try {
     if (cursorVisible() || !stickVisible('left') || !stickVisible('right')) throw Error('Left X and right B must leave both sticks active');
     left.gamepad.buttons[4].pressed = false;
     source.gamepad.buttons[5].pressed = false;
-    source.gamepad.buttons[4].pressed = true;
+    source.gamepad.buttons[4].value = 1;
     session.step(12);
-    if (!cursorVisible() || stickVisible('right') || !stickVisible('left')) throw Error('Holding right A must toggle only once');
-    source.gamepad.buttons[4].pressed = false;
+    if (!cursorVisible() || stickVisible('right') || !stickVisible('left')) throw Error('Value-only A input on a generic profile must toggle once');
+    source.gamepad.buttons[4].value = 0;
     session.step(1);
     source.gamepad.buttons[4].pressed = true;
     session.step(1);
@@ -101,10 +101,13 @@ try {
       .find(object => object?.parent.name.startsWith('controller-'));
     const grip = stick.parent.parent;
     const offset = grip.worldToLocal(stick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3()));
+    const pitchAxis = new T.Vector3(1, 0, 0);
+    const wristPitch = Math.PI / 4;
+    offset.applyAxisAngle(pitchAxis, wristPitch);
     rig.worldToLocal(target); target.sub(offset);
     source.gripSpace.position = target.toArray();
-    source.gripSpace.quaternion = [0, 0, 0, 1]; session.step(6);
-    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), -.05).toArray();
+    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch).toArray(); session.step(6);
+    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch - .05).toArray();
     session.step(10);
     return { mode: session.mode, kitId: kit.id, position: kit.position.toArray(), meshes,
       background: scene.background, environments: ['concert-stage-environment', 'cloud-concert-environment', 'dark-studio-environment']
