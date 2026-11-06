@@ -145,6 +145,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     const sticks = createVirtualDrumsticks(camera);
     for (const hand of ['left', 'right'] as const) sticks.offsets[hand].rotation.x = THREE.MathUtils.degToRad(12);
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
+    let realStickMode = false;
     const arModeWindow = createVRARModeWindow(scene, renderer.xr, rig, mode => {
       void xrActionRef.current(mode);
     }, action => {
@@ -152,7 +153,22 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       highway ??= createVRNoteHighway(scene, rhythmSurfaces, noteLanes.paths,
         (state, judgment) => arModeWindow.setRhythmStatus(state, judgment));
       highway[action](performance.now());
+    }, () => {
+      if (!isVisibleXR()) return;
+      realStickMode = !realStickMode;
+      applyStickMode();
+      collisions.reset();
     });
+    const applyStickMode = () => {
+      controllers.setActive(!realStickMode);
+      const rawCameraExposed = typeof XRWebGLBinding !== 'undefined'
+        && 'getCameraImage' in XRWebGLBinding.prototype;
+      arModeWindow.setStickMode(!realStickMode ? null : !rawCameraExposed
+        ? 'WebXR raw camera API unavailable'
+        : renderer.xr.getSession()?.enabledFeatures?.includes('camera-access')
+          ? 'Calibrated 3D tip tracking unavailable'
+          : 'Camera access not enabled in this session');
+    };
     const collisions = createVRAssistedStrikes(kit.hitSurfaces, (id, hand, velocity) => {
       if (audioReady && interaction.hit(id, velocity)) {
         if (highway && previousTime !== null && isVisibleXR()) highway.strike(id, previousTime);
@@ -216,7 +232,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       camera.position.set(0, 0, 0);
       camera.quaternion.identity();
       sticks.grips.left.visible = sticks.grips.right.visible = false;
-      controllers.setActive(true);
+      applyStickMode();
       if (!noteLanes) {
         noteLanes = createVRNoteLanes(rhythmSurfaces, laneEye);
         scene.add(noteLanes.lines);
@@ -517,19 +533,19 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
         referenceReset();
       }
       if (renderer.xr.isPresenting && frame && reference) seating.update(frame, reference);
-      const rightPointerActive = arModeWindow.update(session);
+      const viewer = frame && reference ? frame.getViewerPose(reference) ?? null : null;
+      const rightPointerActive = arModeWindow.update(session, viewer);
       controllers.setRightPointerActive(rightPointerActive);
       controllers.update(frame);
       if (rightPointerActive && !rightPointerWasActive) collisions.reset('right');
       rightPointerWasActive = rightPointerActive;
-      const viewer = frame && reference ? frame.getViewerPose(reference) : null;
       if (renderer.xr.isPresenting && viewer) {
         const p = viewer.transform.position;
         headPosition.set(p.x, p.y, p.z).applyMatrix4(rig.matrixWorld);
         if (!isVisibleXR()) highway?.pause(time);
         highway?.update(time, headPosition);
       }
-      if (renderer.xr.isPresenting && frame && viewer && audioReady) {
+      if (renderer.xr.isPresenting && frame && viewer && audioReady && !realStickMode) {
         for (const hand of ['left', 'right'] as const) {
           if (hand === 'right' && rightPointerActive) continue;
           collisions.update(hand, controllers.tipSamples[hand], frameDelta, time / 1000, headPosition);

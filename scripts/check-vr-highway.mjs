@@ -73,7 +73,7 @@ try {
       session.step();
     };
     session.step(3);
-    const menus = [panel, get('ar-mode-window')];
+    const menus = [panel];
     const menuTransforms = menus.map(menu => menu.matrixWorld.clone());
     const head = { ...session.head };
     session.head.position = [.24, 1.38, -.12];
@@ -257,7 +257,7 @@ try {
   }));
   assert.deepEqual(exit, { highway: false, preview: false, concert: true, controls: false }, 'XR exit restores free play');
   assert.deepEqual(errors, []);
-  console.log('PASS: persistent converging lanes, distance fades, fixed world menus, timing windows, surface ripples, misses and cleanup');
+  console.log('PASS: persistent converging lanes, distance fades, fixed rhythm menu, timing windows, surface ripples, misses and cleanup');
 } finally {
   await browser?.close();
   await vite.close();

@@ -92,6 +92,7 @@ try {
     const kit = get('kick-pedal').parent;
     const lanes = get('vr-note-lanes');
     const panel = get('ar-mode-window');
+    const stickPanel = get('vr-stick-mode-window');
     const venue = get('concert-stage-environment');
     const backgroundAlpha = () => {
       const scene = window.vrScene;
@@ -117,6 +118,17 @@ try {
     const source = session.connect('right', { profiles: ['generic-trigger-squeeze-thumbstick'] });
     session.step(3);
     const rig = get('player-rig');
+    const defaultHead = { ...session.head };
+    const initialStickPose = stickPanel.matrixWorld.clone();
+    session.head.position = [.22, 1.36, -.12];
+    session.head.quaternion = [0, Math.sin(.65), 0, Math.cos(.65)];
+    let stickEyeDraws = 0;
+    stickPanel.onBeforeRender = () => stickEyeDraws++;
+    session.step();
+    stickPanel.onBeforeRender = () => {};
+    const followsViewInBothEyes = stickEyeDraws === 2 && !stickPanel.matrixWorld.equals(initialStickPose);
+    Object.assign(session.head, defaultHead);
+    session.step();
     const stickVisible = hand => rig.children.map(object => object.getObjectByName(`${hand}-stick-grip`))
       .find(object => object?.parent.name.startsWith('controller-'))?.visible;
     left.gamepad.buttons[4].pressed = source.gamepad.buttons[5].pressed = true;
@@ -135,6 +147,13 @@ try {
     const before = kick.position.clone();
     const panelPose = panel.matrixWorld.clone();
     const kitPose = kit.matrixWorld.clone();
+    aim(left, 'vr-stick-mode-window', 0, .03);
+    const automaticStickRay = get('ar-hand-ray').visible && stickVisible('right');
+    select(left);
+    session.step();
+    const realStickModeHidesBoth = stickPanel.visible && stickPanel.parent === window.vrScene
+      && !stickVisible('left') && !stickVisible('right');
+    const stickPanelPose = stickPanel.matrixWorld.clone();
     aim(source, 'ar-mode-window');
     select(source);
     session.step(30);
@@ -142,6 +161,12 @@ try {
       && chart === get('note-highway-anchor') && lanes === get('vr-note-lanes')
       && kick.visible && kick.position.distanceTo(before) > .01 && get('vr-rhythm-controls').visible
       && backgroundAlpha().every(alpha => alpha === 0);
+    const realStickModePersistsInAR = stickPanel.visible && stickPanel.matrixWorld.equals(stickPanelPose)
+      && !stickVisible('left') && !stickVisible('right');
+    aim(source, 'vr-stick-mode-window', 0, .03);
+    select(source);
+    session.step();
+    const controllerModeRestoresBoth = stickVisible('left') && stickVisible('right');
     window.playSnare(source);
     const judgedInAR = window.hits.includes('snare') && get('rhythm-ripple-snare').visible
       && !get('note-snare-4200').visible;
@@ -151,10 +176,13 @@ try {
     const restored = window.vrScene.background === background && venue.visible && !get('xr-view-fade').visible
       && kit === get('kick-pedal').parent && kit.matrixWorld.equals(kitPose) && panel.matrixWorld.equals(panelPose)
       && chart === get('note-highway-anchor') && lanes === get('vr-note-lanes') && window.testXR === session && !session.ended;
-    return { first, ignoredOtherButtons, toggledOnce, ar, judgedInAR, restored };
+    return { first, followsViewInBothEyes, automaticStickRay, ignoredOtherButtons, toggledOnce, ar, judgedInAR, restored,
+      realStickModeHidesBoth, realStickModePersistsInAR, controllerModeRestoresBoth };
   });
-  assert.deepEqual(modes, { first: true, ignoredOtherButtons: true, toggledOnce: true,
-    ar: true, judgedInAR: true, restored: true });
+  assert.deepEqual(modes, { first: true, followsViewInBothEyes: true, automaticStickRay: true,
+    ignoredOtherButtons: true, toggledOnce: true,
+    ar: true, judgedInAR: true, restored: true, realStickModeHidesBoth: true,
+    realStickModePersistsInAR: true, controllerModeRestoresBoth: true });
   await page.getByRole('button', { name: 'Exit VR', exact: true }).click();
   await page.getByRole('button', { name: 'Enter VR', exact: true }).waitFor();
   await page.close();
@@ -171,6 +199,8 @@ try {
     session.step(3);
     startChart(source);
     session.step(9);
+    aim(source, 'vr-stick-mode-window', 0, .03);
+    select(source);
     window.previousSession = session;
     window.previousChart = get('note-highway-anchor');
     window.previousLanes = get('vr-note-lanes');
@@ -183,18 +213,26 @@ try {
   await fallback.getByRole('button', { name: 'Enter AR', exact: true }).click();
   await fallback.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
   const preserved = await fallback.evaluate(() => {
-    const { get, testXR: session } = window;
+    const { get, testXR: session, aim, select } = window;
+    const source = session.connect('right');
     session.step(5);
+    const rig = get('player-rig');
+    const stick = rig.children.map(object => object.getObjectByName('right-stick-grip'))
+      .find(object => object?.parent.name.startsWith('controller-'));
+    const stickModePreserved = get('vr-stick-mode-window').visible && stick?.visible === false;
+    aim(source, 'vr-stick-mode-window', 0, .03);
+    select(source);
+    session.step();
     const note = get('note-kick-3000');
     const before = note.position.clone();
     session.step(10);
-    return session.mode === 'immersive-ar' && window.vrScene.background === null
+    return stickModePreserved && stick.visible && session.mode === 'immersive-ar' && window.vrScene.background === null
       && get('note-highway-anchor') === window.previousChart && get('vr-note-lanes') === window.previousLanes
       && get('kick-pedal').parent === window.previousKit && note.visible && !note.position.equals(before);
   });
   assert.equal(preserved, true);
   assert.deepEqual(errors, []);
-  console.log('PASS: opaque VR entry, AR and VR round trip in one session, continuous chart and AR scoring, fixed kit and panels, fresh-gesture fallback with chart preservation.');
+  console.log('PASS: headset-relative stereo stick button, automatic trigger ray, VR/AR mode and chart preservation across sessions, fixed kit, and AR scoring.');
 } finally {
   await browser?.close();
   await vite.close();
