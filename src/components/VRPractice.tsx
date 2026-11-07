@@ -299,7 +299,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
           (state, judgment) => arModeWindow.setRhythmStatus(state, judgment),
           song && scoreMedia ? { ...scoreMedia, notes: song.chart.notes, windows: song.windows,
             onResults: (perfect, great, miss, time) => arModeWindow.setSongResults(perfect, great, miss, time),
-          } : undefined);
+          } : undefined, (perfect, great, miss, time) => arModeWindow.setSongResults(perfect, great, miss, time));
       }
       rhythmSession = renderer.xr.getSession();
       applyStickMode();

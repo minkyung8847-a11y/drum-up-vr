@@ -4,8 +4,9 @@ import type { NoteEvent } from '../types';
 import { PAD_TO_INSTRUMENT } from './songDrumMapping';
 import type { SongWindows } from './songPlayback';
 import { NOTE_TRAVEL_TIME } from './songPracticeTiming';
+import { BASIC_DRUM_BEAT } from './basicDrumBeat';
 
-export const RHYTHM_BPM = 100;
+export const RHYTHM_BPM = BASIC_DRUM_BEAT.bpm;
 const TRAVEL_MS = 3000;
 const PERFECT_MS = 50;
 const GREAT_MS = 120;
@@ -17,23 +18,15 @@ const COLORS: Record<string, number> = {
   crash: 0xffa35c, hihat: 0x52ffae, snare: 0xff4fad, kick: 0xff803b,
   smallTom: 0x35e4ff, middleTom: 0x43ffda, floorTom: 0xf967e5, ride: 0x6db9ff,
 };
-const PATTERN = [
-  ['kick', 'crash'], ['hihat'], ['snare', 'hihat'], ['hihat'],
-  ['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat'],
-  ['smallTom'], ['middleTom'], ['floorTom'], ['ride'],
-  ['kick', 'crash'], ['ride'], ['snare', 'ride'], ['ride'],
-  ['kick'], ['ride'], ['snare'], ['hihat'],
-  ['kick', 'hihat'], ['hihat'], ['snare'], ['smallTom'],
-  ['middleTom'], ['floorTom'], ['kick', 'crash'], ['ride'],
-];
 
 export type RhythmState = 'idle' | 'playing' | 'paused' | 'finished';
 export type RhythmJudgment = 'Perfect' | 'Great' | 'Miss';
 export type RhythmAction = 'toggle' | 'restart';
 
 type RhythmSurface = DrumHitSurface & { world: THREE.Matrix4 };
+type ProgressCallback = (perfect: number, great: number, miss: number, scoreTime: number) => void;
 type ScoreMedia = { notes: readonly NoteEvent[]; audio: HTMLAudioElement; offset: number; windows: SongWindows;
-  onResults?: (perfect: number, great: number, miss: number, scoreTime: number) => void };
+  onResults?: ProgressCallback };
 
 export function captureRhythmSurfaces(surfaces: DrumHitSurface[]): RhythmSurface[] {
   return surfaces.map(surface => ({ ...surface, world: surface.mesh.matrixWorld.clone() }));
@@ -87,7 +80,7 @@ export function createVRNoteLanes(surfaces: RhythmSurface[], eye: THREE.Vector3)
 
 export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[],
   paths: ReturnType<typeof createVRNoteLanes>['paths'],
-  onStatus: (state: RhythmState, judgment?: RhythmJudgment) => void, media?: ScoreMedia) {
+  onStatus: (state: RhythmState, judgment?: RhythmJudgment) => void, media?: ScoreMedia, onProgress?: ProgressCallback) {
   const anchor = new THREE.Group();
   anchor.name = 'note-highway-anchor';
   scene.add(anchor);
@@ -148,8 +141,10 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   const travel = media ? NOTE_TRAVEL_TIME * 1000 : TRAVEL_MS;
   const perfectWindow = media?.windows.perfect ?? PERFECT_MS;
   const greatWindow = media?.windows.great ?? GREAT_MS;
-  const events = media ? media.notes.map(note => ({ id: note.instrument ?? PAD_TO_INSTRUMENT[note.padId], arrival: note.time * 1000 }))
-    : PATTERN.flatMap((parts, beat) => parts.map(id => ({ id, arrival: travel + beat * 60_000 / RHYTHM_BPM })));
+  const events = (media?.notes ?? BASIC_DRUM_BEAT.notes).map(note => ({
+    id: note.instrument ?? PAD_TO_INSTRUMENT[note.padId],
+    arrival: note.time * 1000 + (media ? 0 : travel),
+  }));
   type NoteMesh = THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   const notePool: NoteMesh[] = [];
   const notes = events.filter(event => lanes.has(event.id)).sort((a, b) => a.arrival - b.arrival)
@@ -180,13 +175,13 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   let state: RhythmState = 'idle';
   let epoch = 0;
   let pauseAt = 0;
-  const lastArrival = notes.at(-1)?.arrival ?? 0;
   const elapsedAt = (now: number) => media ? (media.audio.currentTime - media.offset) * 1000
     : (state === 'paused' ? pauseAt : now) - epoch;
   const face = new THREE.Vector3(0, 0, 1);
   const normalMatrix = new THREE.Matrix3();
   let perfect = 0, great = 0, miss = 0;
-  const report = () => media?.onResults?.(perfect, great, miss, elapsedAt(0) / 1000);
+  const report = (now: number) => (media?.onResults ?? onProgress)?.(perfect, great, miss,
+    (elapsedAt(now) - (media ? 0 : travel)) / 1000);
 
   function updateFlash(lane: typeof notes[number]['lane'], now: number) {
     const age = now - lane.flashAt;
@@ -278,7 +273,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     const judgment = distance <= perfectWindow + 1e-6 ? 'Perfect' : 'Great';
     if (judgment === 'Perfect') perfect++;
     else great++;
-    report();
+    report(now);
     return judgment;
   }
 
@@ -287,14 +282,15 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     const elapsed = elapsedAt(0);
     for (const note of notes) note.resolved = note.arrival < elapsed - greatWindow;
   };
-  const onEnded = () => {
+  const finish = (now: number) => {
     for (const note of notes) {
       if (!note.resolved) { note.resolved = true; miss++; }
       hideNote(note);
     }
     setState('finished');
-    report();
+    report(now);
   };
+  const onEnded = () => finish(0);
   media?.audio.addEventListener('seeked', onSeeked);
   media?.audio.addEventListener('ended', onEnded);
 
@@ -327,9 +323,8 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
       for (const lane of lanes.values()) updateFlash(lane, now);
       if (state !== 'playing' && state !== 'paused') return;
       const elapsed = elapsedAt(now);
-      if (!media && state === 'playing' && elapsed > lastArrival + greatWindow + FLASH_MS) {
-        clear();
-        setState('finished');
+      if (!media && state === 'playing' && elapsed >= travel + BASIC_DRUM_BEAT.duration * 1000) {
+        finish(now);
         return;
       }
       for (const note of notes) {
@@ -347,7 +342,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
         mesh.scale.setScalar(THREE.MathUtils.lerp(0.13, 0.16, approach));
         mesh.lookAt(viewer);
       }
-      report();
+      report(now);
     },
     dispose() {
       media?.audio.removeEventListener('seeked', onSeeked);

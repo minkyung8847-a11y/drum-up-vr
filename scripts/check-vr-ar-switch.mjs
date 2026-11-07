@@ -71,7 +71,7 @@ async function setup(options) {
       const axis = new T.Vector3(1, 0, 0), pitch = -23 * Math.PI / 180;
       offset.applyAxisAngle(axis, pitch);
       source.gripSpace.tracked = false;
-      session.time = window.chartStart + 4100;
+      session.time = window.chartStart + 3400;
       session.step();
       source.gripSpace.position = rig.worldToLocal(target).sub(offset).toArray();
       source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(axis, pitch).toArray();
@@ -174,7 +174,7 @@ try {
     const controllerModeRestoresBoth = stickVisible('left') && stickVisible('right');
     window.playSnare(source);
     const judgedInAR = window.hits.includes('snare') && get('rhythm-ripple-snare').visible
-      && !get('note-snare-4200').visible;
+      && !get('note-snare-3500').visible;
     aim(source, 'ar-mode-window');
     select(source);
     session.step(30);
@@ -216,7 +216,7 @@ try {
     const above = rig.worldToLocal(surface.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, .12, 0)));
     above.z += .31;
     place(right, above.x, above.y, above.z);
-    session.time = chartStart + 4200 - 22;
+    session.time = chartStart + 3500 - 22;
     session.step();
     const bothTracked = leftStick.visible && rightStick.visible && session.enabledFeatures.includes('hand-tracking');
     const before = rightStick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3());
