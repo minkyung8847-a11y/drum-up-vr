@@ -1,6 +1,8 @@
 import type { NoteEvent } from '../types';
 import type { RhythmAudio } from './vrNoteHighway';
 import { LOVE_CHART_OFFSET_SECONDS, outputAudioTime } from './vrNoteSync';
+import { PAD_TO_INSTRUMENT } from './songDrumMapping';
+import type { DrumPadId } from '../types';
 
 export const LOVE_SONG = { title: '사랑으로 (love.)', artist: 'wave to earth', difficulty: 'Easy', stars: 1,
   genres: ['Band'], art: 8, bpm: 62, signature: '4/4', playable: true } as const;
@@ -19,14 +21,34 @@ export const loveChartOffset = () => savedLoveOffset() ?? LOVE_CHART_OFFSET_SECO
 
 export function parseLoveChart(data: unknown): NoteEvent[] {
   const chart = data as { bpm?: number; bars?: number; notes?: { time: number; instrument: string; bar: number; beat: number; velocity?: number }[] };
-  if (chart?.bpm !== 62 || chart.bars !== 4 || !Array.isArray(chart.notes)) throw Error('Invalid love. chart');
+  if (chart?.bpm !== 62 || !Number.isInteger(chart.bars) || ![4, 75, 77].includes(chart.bars!) || !Array.isArray(chart.notes)) throw Error('Invalid love. chart');
+  const pads: Record<string, DrumPadId> = { kick: 'kick', snare: 'snare', ride: 'ride', hihat: 'hihat-closed',
+    'hihat-closed': 'hihat-closed', 'hihat-open': 'hihat-open', 'hihat-pedal': 'hihat-pedal',
+    smallTom: 'tom-high', middleTom: 'tom-mid', floorTom: 'tom-floor', crash: 'crash' };
   return chart.notes.map(note => {
-    if (!['ride', 'kick', 'snare'].includes(note.instrument) || !Number.isFinite(note.time) || note.time < 0 || note.time >= 16 * 60 / 62)
+    const padId = pads[note.instrument];
+    if (!padId || !Number.isFinite(note.time) || note.time < 0 || note.time >= chart.bars! * 4 * 60 / 62)
       throw Error('Invalid love. note');
-    const instrument = note.instrument as 'ride' | 'kick' | 'snare';
-    return { time: note.time, hitTime: note.time, padId: instrument, instrument,
+    if (!Number.isInteger(note.bar) || note.bar < 1 || note.bar > chart.bars! || !Number.isFinite(note.beat) || note.beat < 1 || note.beat >= 5)
+      throw Error('Invalid love. measure position');
+    const instrument = PAD_TO_INSTRUMENT[padId];
+    return { time: note.time, hitTime: note.time, padId, instrument,
       measure: note.bar, measureBeat: note.beat, velocity: note.velocity ?? 1 };
   }).sort((a, b) => a.time - b.time);
+}
+
+// A full chart must retain the exact authored opening. This checks note data,
+// not the music clock, and deliberately never applies a new chart offset/BPM.
+export function validateLoveFullChart(data: unknown, opening: unknown) {
+  if (![75, 77].includes((data as { bars?: number })?.bars ?? 0)) throw Error('Expected full love. chart');
+  const notes = parseLoveChart(data), baseline = parseLoveChart(opening);
+  const firstFour = notes.filter(note => note.time < 16 * 60 / 62);
+  if (firstFour.length !== baseline.length || firstFour.some((note, index) => {
+    const original = baseline[index];
+    return note.time !== original.time || note.padId !== original.padId || note.velocity !== original.velocity
+      || note.measure !== original.measure || note.measureBeat !== original.measureBeat;
+  })) throw Error('Full chart changes the synchronized first four bars');
+  return notes;
 }
 
 // Its timeline includes the four silent count-in beats. Both note judgments and

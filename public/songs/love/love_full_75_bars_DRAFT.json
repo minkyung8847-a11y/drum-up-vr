@@ -1,0 +1,6134 @@
+{
+  "title": "사랑으로 (love.)",
+  "artist": "wave to earth",
+  "source": "user-supplied drum score image",
+  "bpm": 62,
+  "timeSignature": [
+    4,
+    4
+  ],
+  "bars": 77,
+  "audioStartOffsetSeconds": null,
+  "scorePickup": "initial rest before first full bar; confirm alignment to audio",
+  "noteTimeReference": "relative to first full bar, not MP3 start",
+  "notes": [
+    {
+      "time": 0,
+      "instrument": "kick",
+      "bar": 1,
+      "beat": 1
+    },
+    {
+      "time": 0,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 1
+    },
+    {
+      "time": 0.483871,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 1.5
+    },
+    {
+      "time": 0.967742,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 2
+    },
+    {
+      "time": 0.967742,
+      "instrument": "snare",
+      "bar": 1,
+      "beat": 2
+    },
+    {
+      "time": 1.451613,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 2.5
+    },
+    {
+      "time": 1.935484,
+      "instrument": "kick",
+      "bar": 1,
+      "beat": 3
+    },
+    {
+      "time": 1.935484,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 3
+    },
+    {
+      "time": 2.419355,
+      "instrument": "kick",
+      "bar": 1,
+      "beat": 3.5
+    },
+    {
+      "time": 2.419355,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 3.5
+    },
+    {
+      "time": 2.903226,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 4
+    },
+    {
+      "time": 2.903226,
+      "instrument": "snare",
+      "bar": 1,
+      "beat": 4
+    },
+    {
+      "time": 3.387097,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 4.5
+    },
+    {
+      "time": 3.870968,
+      "instrument": "kick",
+      "bar": 2,
+      "beat": 1
+    },
+    {
+      "time": 3.870968,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 1
+    },
+    {
+      "time": 4.354839,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 1.5
+    },
+    {
+      "time": 4.83871,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 2
+    },
+    {
+      "time": 4.83871,
+      "instrument": "snare",
+      "bar": 2,
+      "beat": 2
+    },
+    {
+      "time": 5.322581,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 2.5
+    },
+    {
+      "time": 5.806452,
+      "instrument": "kick",
+      "bar": 2,
+      "beat": 3
+    },
+    {
+      "time": 5.806452,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 3
+    },
+    {
+      "time": 6.290323,
+      "instrument": "kick",
+      "bar": 2,
+      "beat": 3.5
+    },
+    {
+      "time": 6.290323,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 3.5
+    },
+    {
+      "time": 6.774194,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 4
+    },
+    {
+      "time": 6.774194,
+      "instrument": "snare",
+      "bar": 2,
+      "beat": 4
+    },
+    {
+      "time": 7.258065,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 4.5
+    },
+    {
+      "time": 7.741935,
+      "instrument": "kick",
+      "bar": 3,
+      "beat": 1
+    },
+    {
+      "time": 7.741935,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 1
+    },
+    {
+      "time": 8.225806,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 1.5
+    },
+    {
+      "time": 8.709677,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 2
+    },
+    {
+      "time": 8.709677,
+      "instrument": "snare",
+      "bar": 3,
+      "beat": 2
+    },
+    {
+      "time": 9.193548,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 2.5
+    },
+    {
+      "time": 9.677419,
+      "instrument": "kick",
+      "bar": 3,
+      "beat": 3
+    },
+    {
+      "time": 9.677419,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 3
+    },
+    {
+      "time": 10.16129,
+      "instrument": "kick",
+      "bar": 3,
+      "beat": 3.5
+    },
+    {
+      "time": 10.16129,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 3.5
+    },
+    {
+      "time": 10.645161,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 4
+    },
+    {
+      "time": 10.645161,
+      "instrument": "snare",
+      "bar": 3,
+      "beat": 4
+    },
+    {
+      "time": 11.129032,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 4.5
+    },
+    {
+      "time": 11.612903,
+      "instrument": "kick",
+      "bar": 4,
+      "beat": 1
+    },
+    {
+      "time": 11.612903,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 1
+    },
+    {
+      "time": 12.096774,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 1.5
+    },
+    {
+      "time": 12.580645,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 2
+    },
+    {
+      "time": 12.580645,
+      "instrument": "snare",
+      "bar": 4,
+      "beat": 2
+    },
+    {
+      "time": 13.064516,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 2.5
+    },
+    {
+      "time": 13.548387,
+      "instrument": "kick",
+      "bar": 4,
+      "beat": 3
+    },
+    {
+      "time": 13.548387,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 3
+    },
+    {
+      "time": 14.032258,
+      "instrument": "kick",
+      "bar": 4,
+      "beat": 3.5
+    },
+    {
+      "time": 14.032258,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 3.5
+    },
+    {
+      "time": 14.516129,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 4
+    },
+    {
+      "time": 14.516129,
+      "instrument": "snare",
+      "bar": 4,
+      "beat": 4
+    },
+    {
+      "time": 15,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 4.5
+    },
+    {
+      "time": 15.483871,
+      "instrument": "kick",
+      "bar": 5,
+      "beat": 1
+    },
+    {
+      "time": 15.483871,
+      "instrument": "crash",
+      "bar": 5,
+      "beat": 1
+    },
+    {
+      "time": 15.967742,
+      "instrument": "ride",
+      "bar": 5,
+      "beat": 1.5
+    },
+    {
+      "time": 16.451613,
+      "instrument": "ride",
+      "bar": 5,
+      "beat": 2
+    },
+    {
+      "time": 16.451613,
+      "instrument": "snare",
+      "bar": 5,
+      "beat": 2
+    },
+    {
+      "time": 16.935484,
+      "instrument": "ride",
+      "bar": 5,
+      "beat": 2.5
+    },
+    {
+      "time": 17.419355,
+      "instrument": "kick",
+      "bar": 5,
+      "beat": 3
+    },
+    {
+      "time": 17.419355,
+      "instrument": "ride",
+      "bar": 5,
+      "beat": 3
+    },
+    {
+      "time": 17.903226,
+      "instrument": "kick",
+      "bar": 5,
+      "beat": 3.5
+    },
+    {
+      "time": 17.903226,
+      "instrument": "ride",
+      "bar": 5,
+      "beat": 3.5
+    },
+    {
+      "time": 18.387097,
+      "instrument": "ride",
+      "bar": 5,
+      "beat": 4
+    },
+    {
+      "time": 18.387097,
+      "instrument": "snare",
+      "bar": 5,
+      "beat": 4
+    },
+    {
+      "time": 18.870968,
+      "instrument": "ride",
+      "bar": 5,
+      "beat": 4.5
+    },
+    {
+      "time": 19.354839,
+      "instrument": "kick",
+      "bar": 6,
+      "beat": 1
+    },
+    {
+      "time": 19.354839,
+      "instrument": "ride",
+      "bar": 6,
+      "beat": 1
+    },
+    {
+      "time": 19.83871,
+      "instrument": "ride",
+      "bar": 6,
+      "beat": 1.5
+    },
+    {
+      "time": 20.322581,
+      "instrument": "ride",
+      "bar": 6,
+      "beat": 2
+    },
+    {
+      "time": 20.322581,
+      "instrument": "snare",
+      "bar": 6,
+      "beat": 2
+    },
+    {
+      "time": 20.806452,
+      "instrument": "ride",
+      "bar": 6,
+      "beat": 2.5
+    },
+    {
+      "time": 21.290323,
+      "instrument": "kick",
+      "bar": 6,
+      "beat": 3
+    },
+    {
+      "time": 21.290323,
+      "instrument": "ride",
+      "bar": 6,
+      "beat": 3
+    },
+    {
+      "time": 21.774194,
+      "instrument": "kick",
+      "bar": 6,
+      "beat": 3.5
+    },
+    {
+      "time": 21.774194,
+      "instrument": "ride",
+      "bar": 6,
+      "beat": 3.5
+    },
+    {
+      "time": 22.258065,
+      "instrument": "ride",
+      "bar": 6,
+      "beat": 4
+    },
+    {
+      "time": 22.258065,
+      "instrument": "snare",
+      "bar": 6,
+      "beat": 4
+    },
+    {
+      "time": 22.741935,
+      "instrument": "ride",
+      "bar": 6,
+      "beat": 4.5
+    },
+    {
+      "time": 23.225806,
+      "instrument": "kick",
+      "bar": 7,
+      "beat": 1
+    },
+    {
+      "time": 23.225806,
+      "instrument": "ride",
+      "bar": 7,
+      "beat": 1
+    },
+    {
+      "time": 23.709677,
+      "instrument": "ride",
+      "bar": 7,
+      "beat": 1.5
+    },
+    {
+      "time": 24.193548,
+      "instrument": "ride",
+      "bar": 7,
+      "beat": 2
+    },
+    {
+      "time": 24.193548,
+      "instrument": "snare",
+      "bar": 7,
+      "beat": 2
+    },
+    {
+      "time": 24.677419,
+      "instrument": "ride",
+      "bar": 7,
+      "beat": 2.5
+    },
+    {
+      "time": 25.16129,
+      "instrument": "kick",
+      "bar": 7,
+      "beat": 3
+    },
+    {
+      "time": 25.16129,
+      "instrument": "ride",
+      "bar": 7,
+      "beat": 3
+    },
+    {
+      "time": 25.645161,
+      "instrument": "kick",
+      "bar": 7,
+      "beat": 3.5
+    },
+    {
+      "time": 25.645161,
+      "instrument": "ride",
+      "bar": 7,
+      "beat": 3.5
+    },
+    {
+      "time": 26.129032,
+      "instrument": "ride",
+      "bar": 7,
+      "beat": 4
+    },
+    {
+      "time": 26.129032,
+      "instrument": "snare",
+      "bar": 7,
+      "beat": 4
+    },
+    {
+      "time": 26.612903,
+      "instrument": "ride",
+      "bar": 7,
+      "beat": 4.5
+    },
+    {
+      "time": 27.096774,
+      "instrument": "kick",
+      "bar": 8,
+      "beat": 1
+    },
+    {
+      "time": 27.096774,
+      "instrument": "ride",
+      "bar": 8,
+      "beat": 1
+    },
+    {
+      "time": 27.580645,
+      "instrument": "ride",
+      "bar": 8,
+      "beat": 1.5
+    },
+    {
+      "time": 28.064516,
+      "instrument": "ride",
+      "bar": 8,
+      "beat": 2
+    },
+    {
+      "time": 28.064516,
+      "instrument": "snare",
+      "bar": 8,
+      "beat": 2
+    },
+    {
+      "time": 28.548387,
+      "instrument": "ride",
+      "bar": 8,
+      "beat": 2.5
+    },
+    {
+      "time": 29.032258,
+      "instrument": "kick",
+      "bar": 8,
+      "beat": 3
+    },
+    {
+      "time": 29.032258,
+      "instrument": "ride",
+      "bar": 8,
+      "beat": 3
+    },
+    {
+      "time": 29.516129,
+      "instrument": "kick",
+      "bar": 8,
+      "beat": 3.5
+    },
+    {
+      "time": 29.516129,
+      "instrument": "ride",
+      "bar": 8,
+      "beat": 3.5
+    },
+    {
+      "time": 30,
+      "instrument": "ride",
+      "bar": 8,
+      "beat": 4
+    },
+    {
+      "time": 30,
+      "instrument": "snare",
+      "bar": 8,
+      "beat": 4
+    },
+    {
+      "time": 30.483871,
+      "instrument": "ride",
+      "bar": 8,
+      "beat": 4.5
+    },
+    {
+      "time": 30.967742,
+      "instrument": "crash",
+      "bar": 9,
+      "beat": 1
+    },
+    {
+      "time": 30.967742,
+      "instrument": "kick",
+      "bar": 9,
+      "beat": 1
+    },
+    {
+      "time": 31.451613,
+      "instrument": "hihat",
+      "bar": 9,
+      "beat": 1.5
+    },
+    {
+      "time": 31.935484,
+      "instrument": "hihat",
+      "bar": 9,
+      "beat": 2
+    },
+    {
+      "time": 31.935484,
+      "instrument": "snare",
+      "bar": 9,
+      "beat": 2
+    },
+    {
+      "time": 32.419355,
+      "instrument": "hihat",
+      "bar": 9,
+      "beat": 2.5
+    },
+    {
+      "time": 32.903226,
+      "instrument": "hihat",
+      "bar": 9,
+      "beat": 3
+    },
+    {
+      "time": 32.903226,
+      "instrument": "kick",
+      "bar": 9,
+      "beat": 3
+    },
+    {
+      "time": 33.387097,
+      "instrument": "hihat",
+      "bar": 9,
+      "beat": 3.5
+    },
+    {
+      "time": 33.387097,
+      "instrument": "kick",
+      "bar": 9,
+      "beat": 3.5
+    },
+    {
+      "time": 33.870968,
+      "instrument": "hihat",
+      "bar": 9,
+      "beat": 4
+    },
+    {
+      "time": 33.870968,
+      "instrument": "snare",
+      "bar": 9,
+      "beat": 4
+    },
+    {
+      "time": 34.354839,
+      "instrument": "hihat",
+      "bar": 9,
+      "beat": 4.5
+    },
+    {
+      "time": 34.83871,
+      "instrument": "hihat",
+      "bar": 10,
+      "beat": 1
+    },
+    {
+      "time": 34.83871,
+      "instrument": "kick",
+      "bar": 10,
+      "beat": 1
+    },
+    {
+      "time": 35.322581,
+      "instrument": "hihat",
+      "bar": 10,
+      "beat": 1.5
+    },
+    {
+      "time": 35.806452,
+      "instrument": "hihat",
+      "bar": 10,
+      "beat": 2
+    },
+    {
+      "time": 35.806452,
+      "instrument": "snare",
+      "bar": 10,
+      "beat": 2
+    },
+    {
+      "time": 36.290323,
+      "instrument": "hihat",
+      "bar": 10,
+      "beat": 2.5
+    },
+    {
+      "time": 36.774194,
+      "instrument": "hihat",
+      "bar": 10,
+      "beat": 3
+    },
+    {
+      "time": 36.774194,
+      "instrument": "kick",
+      "bar": 10,
+      "beat": 3
+    },
+    {
+      "time": 37.258065,
+      "instrument": "hihat",
+      "bar": 10,
+      "beat": 3.5
+    },
+    {
+      "time": 37.258065,
+      "instrument": "kick",
+      "bar": 10,
+      "beat": 3.5
+    },
+    {
+      "time": 37.741935,
+      "instrument": "hihat",
+      "bar": 10,
+      "beat": 4
+    },
+    {
+      "time": 37.741935,
+      "instrument": "snare",
+      "bar": 10,
+      "beat": 4
+    },
+    {
+      "time": 38.225806,
+      "instrument": "hihat",
+      "bar": 10,
+      "beat": 4.5
+    },
+    {
+      "time": 38.709677,
+      "instrument": "hihat",
+      "bar": 11,
+      "beat": 1
+    },
+    {
+      "time": 38.709677,
+      "instrument": "kick",
+      "bar": 11,
+      "beat": 1
+    },
+    {
+      "time": 39.193548,
+      "instrument": "hihat",
+      "bar": 11,
+      "beat": 1.5
+    },
+    {
+      "time": 39.677419,
+      "instrument": "hihat",
+      "bar": 11,
+      "beat": 2
+    },
+    {
+      "time": 39.677419,
+      "instrument": "snare",
+      "bar": 11,
+      "beat": 2
+    },
+    {
+      "time": 40.16129,
+      "instrument": "hihat",
+      "bar": 11,
+      "beat": 2.5
+    },
+    {
+      "time": 40.645161,
+      "instrument": "hihat",
+      "bar": 11,
+      "beat": 3
+    },
+    {
+      "time": 40.645161,
+      "instrument": "kick",
+      "bar": 11,
+      "beat": 3
+    },
+    {
+      "time": 41.129032,
+      "instrument": "hihat",
+      "bar": 11,
+      "beat": 3.5
+    },
+    {
+      "time": 41.129032,
+      "instrument": "kick",
+      "bar": 11,
+      "beat": 3.5
+    },
+    {
+      "time": 41.612903,
+      "instrument": "hihat",
+      "bar": 11,
+      "beat": 4
+    },
+    {
+      "time": 41.612903,
+      "instrument": "snare",
+      "bar": 11,
+      "beat": 4
+    },
+    {
+      "time": 42.096774,
+      "instrument": "hihat",
+      "bar": 11,
+      "beat": 4.5
+    },
+    {
+      "time": 42.580645,
+      "instrument": "hihat",
+      "bar": 12,
+      "beat": 1
+    },
+    {
+      "time": 42.580645,
+      "instrument": "kick",
+      "bar": 12,
+      "beat": 1
+    },
+    {
+      "time": 43.064516,
+      "instrument": "hihat",
+      "bar": 12,
+      "beat": 1.5
+    },
+    {
+      "time": 43.548387,
+      "instrument": "hihat",
+      "bar": 12,
+      "beat": 2
+    },
+    {
+      "time": 43.548387,
+      "instrument": "snare",
+      "bar": 12,
+      "beat": 2
+    },
+    {
+      "time": 44.032258,
+      "instrument": "hihat",
+      "bar": 12,
+      "beat": 2.5
+    },
+    {
+      "time": 44.516129,
+      "instrument": "hihat",
+      "bar": 12,
+      "beat": 3
+    },
+    {
+      "time": 44.516129,
+      "instrument": "kick",
+      "bar": 12,
+      "beat": 3
+    },
+    {
+      "time": 45,
+      "instrument": "hihat",
+      "bar": 12,
+      "beat": 3.5
+    },
+    {
+      "time": 45,
+      "instrument": "kick",
+      "bar": 12,
+      "beat": 3.5
+    },
+    {
+      "time": 45.483871,
+      "instrument": "hihat",
+      "bar": 12,
+      "beat": 4
+    },
+    {
+      "time": 45.483871,
+      "instrument": "snare",
+      "bar": 12,
+      "beat": 4
+    },
+    {
+      "time": 45.967742,
+      "instrument": "hihat",
+      "bar": 12,
+      "beat": 4.5
+    },
+    {
+      "time": 46.451613,
+      "instrument": "hihat",
+      "bar": 13,
+      "beat": 1
+    },
+    {
+      "time": 46.451613,
+      "instrument": "kick",
+      "bar": 13,
+      "beat": 1
+    },
+    {
+      "time": 46.935484,
+      "instrument": "hihat",
+      "bar": 13,
+      "beat": 1.5
+    },
+    {
+      "time": 47.419355,
+      "instrument": "hihat",
+      "bar": 13,
+      "beat": 2
+    },
+    {
+      "time": 47.419355,
+      "instrument": "snare",
+      "bar": 13,
+      "beat": 2
+    },
+    {
+      "time": 47.903226,
+      "instrument": "hihat",
+      "bar": 13,
+      "beat": 2.5
+    },
+    {
+      "time": 48.387097,
+      "instrument": "hihat",
+      "bar": 13,
+      "beat": 3
+    },
+    {
+      "time": 48.387097,
+      "instrument": "kick",
+      "bar": 13,
+      "beat": 3
+    },
+    {
+      "time": 48.870968,
+      "instrument": "hihat",
+      "bar": 13,
+      "beat": 3.5
+    },
+    {
+      "time": 48.870968,
+      "instrument": "kick",
+      "bar": 13,
+      "beat": 3.5
+    },
+    {
+      "time": 49.354839,
+      "instrument": "hihat",
+      "bar": 13,
+      "beat": 4
+    },
+    {
+      "time": 49.354839,
+      "instrument": "snare",
+      "bar": 13,
+      "beat": 4
+    },
+    {
+      "time": 49.83871,
+      "instrument": "hihat",
+      "bar": 13,
+      "beat": 4.5
+    },
+    {
+      "time": 50.322581,
+      "instrument": "hihat",
+      "bar": 14,
+      "beat": 1
+    },
+    {
+      "time": 50.322581,
+      "instrument": "kick",
+      "bar": 14,
+      "beat": 1
+    },
+    {
+      "time": 50.806452,
+      "instrument": "hihat",
+      "bar": 14,
+      "beat": 1.5
+    },
+    {
+      "time": 51.290323,
+      "instrument": "hihat",
+      "bar": 14,
+      "beat": 2
+    },
+    {
+      "time": 51.290323,
+      "instrument": "snare",
+      "bar": 14,
+      "beat": 2
+    },
+    {
+      "time": 51.774194,
+      "instrument": "hihat",
+      "bar": 14,
+      "beat": 2.5
+    },
+    {
+      "time": 52.258065,
+      "instrument": "hihat",
+      "bar": 14,
+      "beat": 3
+    },
+    {
+      "time": 52.258065,
+      "instrument": "kick",
+      "bar": 14,
+      "beat": 3
+    },
+    {
+      "time": 52.741935,
+      "instrument": "hihat",
+      "bar": 14,
+      "beat": 3.5
+    },
+    {
+      "time": 52.741935,
+      "instrument": "kick",
+      "bar": 14,
+      "beat": 3.5
+    },
+    {
+      "time": 53.225806,
+      "instrument": "hihat",
+      "bar": 14,
+      "beat": 4
+    },
+    {
+      "time": 53.225806,
+      "instrument": "snare",
+      "bar": 14,
+      "beat": 4
+    },
+    {
+      "time": 53.709677,
+      "instrument": "hihat",
+      "bar": 14,
+      "beat": 4.5
+    },
+    {
+      "time": 54.193548,
+      "instrument": "crash",
+      "bar": 15,
+      "beat": 1
+    },
+    {
+      "time": 54.193548,
+      "instrument": "kick",
+      "bar": 15,
+      "beat": 1
+    },
+    {
+      "time": 54.677419,
+      "instrument": "hihat",
+      "bar": 15,
+      "beat": 1.5
+    },
+    {
+      "time": 55.16129,
+      "instrument": "hihat",
+      "bar": 15,
+      "beat": 2
+    },
+    {
+      "time": 55.16129,
+      "instrument": "snare",
+      "bar": 15,
+      "beat": 2
+    },
+    {
+      "time": 55.645161,
+      "instrument": "hihat",
+      "bar": 15,
+      "beat": 2.5
+    },
+    {
+      "time": 56.129032,
+      "instrument": "hihat",
+      "bar": 15,
+      "beat": 3
+    },
+    {
+      "time": 56.129032,
+      "instrument": "kick",
+      "bar": 15,
+      "beat": 3
+    },
+    {
+      "time": 56.612903,
+      "instrument": "hihat",
+      "bar": 15,
+      "beat": 3.5
+    },
+    {
+      "time": 56.612903,
+      "instrument": "kick",
+      "bar": 15,
+      "beat": 3.5
+    },
+    {
+      "time": 57.096774,
+      "instrument": "hihat",
+      "bar": 15,
+      "beat": 4
+    },
+    {
+      "time": 57.096774,
+      "instrument": "snare",
+      "bar": 15,
+      "beat": 4
+    },
+    {
+      "time": 57.580645,
+      "instrument": "hihat",
+      "bar": 15,
+      "beat": 4.5
+    },
+    {
+      "time": 58.064516,
+      "instrument": "hihat",
+      "bar": 16,
+      "beat": 1
+    },
+    {
+      "time": 58.064516,
+      "instrument": "kick",
+      "bar": 16,
+      "beat": 1
+    },
+    {
+      "time": 58.548387,
+      "instrument": "hihat",
+      "bar": 16,
+      "beat": 1.5
+    },
+    {
+      "time": 59.032258,
+      "instrument": "hihat",
+      "bar": 16,
+      "beat": 2
+    },
+    {
+      "time": 59.032258,
+      "instrument": "snare",
+      "bar": 16,
+      "beat": 2
+    },
+    {
+      "time": 59.516129,
+      "instrument": "hihat",
+      "bar": 16,
+      "beat": 2.5
+    },
+    {
+      "time": 60,
+      "instrument": "hihat",
+      "bar": 16,
+      "beat": 3
+    },
+    {
+      "time": 60,
+      "instrument": "kick",
+      "bar": 16,
+      "beat": 3
+    },
+    {
+      "time": 60.483871,
+      "instrument": "hihat",
+      "bar": 16,
+      "beat": 3.5
+    },
+    {
+      "time": 60.483871,
+      "instrument": "kick",
+      "bar": 16,
+      "beat": 3.5
+    },
+    {
+      "time": 60.967742,
+      "instrument": "hihat",
+      "bar": 16,
+      "beat": 4
+    },
+    {
+      "time": 60.967742,
+      "instrument": "snare",
+      "bar": 16,
+      "beat": 4
+    },
+    {
+      "time": 61.451613,
+      "instrument": "hihat",
+      "bar": 16,
+      "beat": 4.5
+    },
+    {
+      "time": 61.935484,
+      "instrument": "hihat",
+      "bar": 17,
+      "beat": 1
+    },
+    {
+      "time": 61.935484,
+      "instrument": "kick",
+      "bar": 17,
+      "beat": 1
+    },
+    {
+      "time": 62.419355,
+      "instrument": "hihat",
+      "bar": 17,
+      "beat": 1.5
+    },
+    {
+      "time": 62.903226,
+      "instrument": "hihat",
+      "bar": 17,
+      "beat": 2
+    },
+    {
+      "time": 62.903226,
+      "instrument": "snare",
+      "bar": 17,
+      "beat": 2
+    },
+    {
+      "time": 63.387097,
+      "instrument": "hihat",
+      "bar": 17,
+      "beat": 2.5
+    },
+    {
+      "time": 63.870968,
+      "instrument": "hihat",
+      "bar": 17,
+      "beat": 3
+    },
+    {
+      "time": 63.870968,
+      "instrument": "kick",
+      "bar": 17,
+      "beat": 3
+    },
+    {
+      "time": 64.354839,
+      "instrument": "hihat",
+      "bar": 17,
+      "beat": 3.5
+    },
+    {
+      "time": 64.354839,
+      "instrument": "kick",
+      "bar": 17,
+      "beat": 3.5
+    },
+    {
+      "time": 64.83871,
+      "instrument": "hihat",
+      "bar": 17,
+      "beat": 4
+    },
+    {
+      "time": 64.83871,
+      "instrument": "snare",
+      "bar": 17,
+      "beat": 4
+    },
+    {
+      "time": 65.322581,
+      "instrument": "hihat",
+      "bar": 17,
+      "beat": 4.5
+    },
+    {
+      "time": 65.806452,
+      "instrument": "hihat",
+      "bar": 18,
+      "beat": 1
+    },
+    {
+      "time": 65.806452,
+      "instrument": "kick",
+      "bar": 18,
+      "beat": 1
+    },
+    {
+      "time": 66.290323,
+      "instrument": "hihat",
+      "bar": 18,
+      "beat": 1.5
+    },
+    {
+      "time": 66.774194,
+      "instrument": "hihat",
+      "bar": 18,
+      "beat": 2
+    },
+    {
+      "time": 66.774194,
+      "instrument": "snare",
+      "bar": 18,
+      "beat": 2
+    },
+    {
+      "time": 67.258065,
+      "instrument": "hihat",
+      "bar": 18,
+      "beat": 2.5
+    },
+    {
+      "time": 67.741935,
+      "instrument": "hihat",
+      "bar": 18,
+      "beat": 3
+    },
+    {
+      "time": 67.741935,
+      "instrument": "kick",
+      "bar": 18,
+      "beat": 3
+    },
+    {
+      "time": 68.225806,
+      "instrument": "hihat",
+      "bar": 18,
+      "beat": 3.5
+    },
+    {
+      "time": 68.225806,
+      "instrument": "kick",
+      "bar": 18,
+      "beat": 3.5
+    },
+    {
+      "time": 68.709677,
+      "instrument": "hihat-open",
+      "bar": 18,
+      "beat": 4
+    },
+    {
+      "time": 68.709677,
+      "instrument": "snare",
+      "bar": 18,
+      "beat": 4
+    },
+    {
+      "time": 69.677419,
+      "instrument": "crash",
+      "bar": 19,
+      "beat": 1
+    },
+    {
+      "time": 69.677419,
+      "instrument": "kick",
+      "bar": 19,
+      "beat": 1
+    },
+    {
+      "time": 70.16129,
+      "instrument": "hihat",
+      "bar": 19,
+      "beat": 1.5
+    },
+    {
+      "time": 70.645161,
+      "instrument": "hihat",
+      "bar": 19,
+      "beat": 2
+    },
+    {
+      "time": 70.645161,
+      "instrument": "snare",
+      "bar": 19,
+      "beat": 2
+    },
+    {
+      "time": 71.129032,
+      "instrument": "hihat",
+      "bar": 19,
+      "beat": 2.5
+    },
+    {
+      "time": 71.612903,
+      "instrument": "hihat",
+      "bar": 19,
+      "beat": 3
+    },
+    {
+      "time": 71.612903,
+      "instrument": "kick",
+      "bar": 19,
+      "beat": 3
+    },
+    {
+      "time": 72.096774,
+      "instrument": "hihat",
+      "bar": 19,
+      "beat": 3.5
+    },
+    {
+      "time": 72.096774,
+      "instrument": "kick",
+      "bar": 19,
+      "beat": 3.5
+    },
+    {
+      "time": 72.580645,
+      "instrument": "hihat",
+      "bar": 19,
+      "beat": 4
+    },
+    {
+      "time": 72.580645,
+      "instrument": "snare",
+      "bar": 19,
+      "beat": 4
+    },
+    {
+      "time": 73.064516,
+      "instrument": "hihat",
+      "bar": 19,
+      "beat": 4.5
+    },
+    {
+      "time": 73.548387,
+      "instrument": "hihat",
+      "bar": 20,
+      "beat": 1
+    },
+    {
+      "time": 73.548387,
+      "instrument": "kick",
+      "bar": 20,
+      "beat": 1
+    },
+    {
+      "time": 74.032258,
+      "instrument": "hihat",
+      "bar": 20,
+      "beat": 1.5
+    },
+    {
+      "time": 74.516129,
+      "instrument": "hihat",
+      "bar": 20,
+      "beat": 2
+    },
+    {
+      "time": 74.516129,
+      "instrument": "snare",
+      "bar": 20,
+      "beat": 2
+    },
+    {
+      "time": 75,
+      "instrument": "hihat",
+      "bar": 20,
+      "beat": 2.5
+    },
+    {
+      "time": 75.483871,
+      "instrument": "hihat",
+      "bar": 20,
+      "beat": 3
+    },
+    {
+      "time": 75.483871,
+      "instrument": "kick",
+      "bar": 20,
+      "beat": 3
+    },
+    {
+      "time": 75.967742,
+      "instrument": "hihat",
+      "bar": 20,
+      "beat": 3.5
+    },
+    {
+      "time": 75.967742,
+      "instrument": "kick",
+      "bar": 20,
+      "beat": 3.5
+    },
+    {
+      "time": 76.451613,
+      "instrument": "hihat",
+      "bar": 20,
+      "beat": 4
+    },
+    {
+      "time": 76.451613,
+      "instrument": "snare",
+      "bar": 20,
+      "beat": 4
+    },
+    {
+      "time": 76.935484,
+      "instrument": "hihat",
+      "bar": 20,
+      "beat": 4.5
+    },
+    {
+      "time": 77.419355,
+      "instrument": "hihat",
+      "bar": 21,
+      "beat": 1
+    },
+    {
+      "time": 77.419355,
+      "instrument": "kick",
+      "bar": 21,
+      "beat": 1
+    },
+    {
+      "time": 77.903226,
+      "instrument": "hihat",
+      "bar": 21,
+      "beat": 1.5
+    },
+    {
+      "time": 78.387097,
+      "instrument": "hihat",
+      "bar": 21,
+      "beat": 2
+    },
+    {
+      "time": 78.387097,
+      "instrument": "snare",
+      "bar": 21,
+      "beat": 2
+    },
+    {
+      "time": 78.870968,
+      "instrument": "hihat",
+      "bar": 21,
+      "beat": 2.5
+    },
+    {
+      "time": 79.354839,
+      "instrument": "hihat",
+      "bar": 21,
+      "beat": 3
+    },
+    {
+      "time": 79.354839,
+      "instrument": "kick",
+      "bar": 21,
+      "beat": 3
+    },
+    {
+      "time": 79.83871,
+      "instrument": "hihat",
+      "bar": 21,
+      "beat": 3.5
+    },
+    {
+      "time": 79.83871,
+      "instrument": "kick",
+      "bar": 21,
+      "beat": 3.5
+    },
+    {
+      "time": 80.322581,
+      "instrument": "hihat",
+      "bar": 21,
+      "beat": 4
+    },
+    {
+      "time": 80.322581,
+      "instrument": "snare",
+      "bar": 21,
+      "beat": 4
+    },
+    {
+      "time": 80.806452,
+      "instrument": "hihat",
+      "bar": 21,
+      "beat": 4.5
+    },
+    {
+      "time": 81.290323,
+      "instrument": "hihat",
+      "bar": 22,
+      "beat": 1
+    },
+    {
+      "time": 81.290323,
+      "instrument": "kick",
+      "bar": 22,
+      "beat": 1
+    },
+    {
+      "time": 81.774194,
+      "instrument": "hihat",
+      "bar": 22,
+      "beat": 1.5
+    },
+    {
+      "time": 82.258065,
+      "instrument": "hihat",
+      "bar": 22,
+      "beat": 2
+    },
+    {
+      "time": 82.258065,
+      "instrument": "snare",
+      "bar": 22,
+      "beat": 2
+    },
+    {
+      "time": 82.741935,
+      "instrument": "hihat",
+      "bar": 22,
+      "beat": 2.5
+    },
+    {
+      "time": 83.225806,
+      "instrument": "hihat",
+      "bar": 22,
+      "beat": 3
+    },
+    {
+      "time": 83.225806,
+      "instrument": "kick",
+      "bar": 22,
+      "beat": 3
+    },
+    {
+      "time": 83.709677,
+      "instrument": "hihat",
+      "bar": 22,
+      "beat": 3.5
+    },
+    {
+      "time": 83.709677,
+      "instrument": "kick",
+      "bar": 22,
+      "beat": 3.5
+    },
+    {
+      "time": 84.193548,
+      "instrument": "hihat",
+      "bar": 22,
+      "beat": 4
+    },
+    {
+      "time": 84.193548,
+      "instrument": "snare",
+      "bar": 22,
+      "beat": 4
+    },
+    {
+      "time": 84.677419,
+      "instrument": "hihat",
+      "bar": 22,
+      "beat": 4.5
+    },
+    {
+      "time": 85.16129,
+      "instrument": "hihat",
+      "bar": 23,
+      "beat": 1
+    },
+    {
+      "time": 85.16129,
+      "instrument": "kick",
+      "bar": 23,
+      "beat": 1
+    },
+    {
+      "time": 85.645161,
+      "instrument": "hihat",
+      "bar": 23,
+      "beat": 1.5
+    },
+    {
+      "time": 86.129032,
+      "instrument": "hihat",
+      "bar": 23,
+      "beat": 2
+    },
+    {
+      "time": 86.129032,
+      "instrument": "snare",
+      "bar": 23,
+      "beat": 2
+    },
+    {
+      "time": 86.612903,
+      "instrument": "hihat",
+      "bar": 23,
+      "beat": 2.5
+    },
+    {
+      "time": 87.096774,
+      "instrument": "hihat",
+      "bar": 23,
+      "beat": 3
+    },
+    {
+      "time": 87.096774,
+      "instrument": "kick",
+      "bar": 23,
+      "beat": 3
+    },
+    {
+      "time": 87.580645,
+      "instrument": "hihat",
+      "bar": 23,
+      "beat": 3.5
+    },
+    {
+      "time": 87.580645,
+      "instrument": "kick",
+      "bar": 23,
+      "beat": 3.5
+    },
+    {
+      "time": 88.064516,
+      "instrument": "hihat",
+      "bar": 23,
+      "beat": 4
+    },
+    {
+      "time": 88.064516,
+      "instrument": "snare",
+      "bar": 23,
+      "beat": 4
+    },
+    {
+      "time": 88.548387,
+      "instrument": "hihat",
+      "bar": 23,
+      "beat": 4.5
+    },
+    {
+      "time": 89.032258,
+      "instrument": "hihat",
+      "bar": 24,
+      "beat": 1
+    },
+    {
+      "time": 89.032258,
+      "instrument": "kick",
+      "bar": 24,
+      "beat": 1
+    },
+    {
+      "time": 89.516129,
+      "instrument": "hihat",
+      "bar": 24,
+      "beat": 1.5
+    },
+    {
+      "time": 90,
+      "instrument": "hihat",
+      "bar": 24,
+      "beat": 2
+    },
+    {
+      "time": 90,
+      "instrument": "snare",
+      "bar": 24,
+      "beat": 2
+    },
+    {
+      "time": 90.483871,
+      "instrument": "hihat",
+      "bar": 24,
+      "beat": 2.5
+    },
+    {
+      "time": 90.967742,
+      "instrument": "hihat",
+      "bar": 24,
+      "beat": 3
+    },
+    {
+      "time": 90.967742,
+      "instrument": "kick",
+      "bar": 24,
+      "beat": 3
+    },
+    {
+      "time": 91.451613,
+      "instrument": "hihat",
+      "bar": 24,
+      "beat": 3.5
+    },
+    {
+      "time": 91.451613,
+      "instrument": "kick",
+      "bar": 24,
+      "beat": 3.5
+    },
+    {
+      "time": 91.935484,
+      "instrument": "hihat",
+      "bar": 24,
+      "beat": 4
+    },
+    {
+      "time": 91.935484,
+      "instrument": "snare",
+      "bar": 24,
+      "beat": 4
+    },
+    {
+      "time": 92.903226,
+      "instrument": "kick",
+      "bar": 25,
+      "beat": 1
+    },
+    {
+      "time": 92.903226,
+      "instrument": "crash",
+      "bar": 25,
+      "beat": 1
+    },
+    {
+      "time": 93.387097,
+      "instrument": "ride",
+      "bar": 25,
+      "beat": 1.5
+    },
+    {
+      "time": 93.870968,
+      "instrument": "ride",
+      "bar": 25,
+      "beat": 2
+    },
+    {
+      "time": 93.870968,
+      "instrument": "snare",
+      "bar": 25,
+      "beat": 2
+    },
+    {
+      "time": 94.354839,
+      "instrument": "ride",
+      "bar": 25,
+      "beat": 2.5
+    },
+    {
+      "time": 94.83871,
+      "instrument": "kick",
+      "bar": 25,
+      "beat": 3
+    },
+    {
+      "time": 94.83871,
+      "instrument": "ride",
+      "bar": 25,
+      "beat": 3
+    },
+    {
+      "time": 95.322581,
+      "instrument": "kick",
+      "bar": 25,
+      "beat": 3.5
+    },
+    {
+      "time": 95.322581,
+      "instrument": "ride",
+      "bar": 25,
+      "beat": 3.5
+    },
+    {
+      "time": 95.806452,
+      "instrument": "ride",
+      "bar": 25,
+      "beat": 4
+    },
+    {
+      "time": 95.806452,
+      "instrument": "snare",
+      "bar": 25,
+      "beat": 4
+    },
+    {
+      "time": 96.290323,
+      "instrument": "ride",
+      "bar": 25,
+      "beat": 4.5
+    },
+    {
+      "time": 96.774194,
+      "instrument": "kick",
+      "bar": 26,
+      "beat": 1
+    },
+    {
+      "time": 96.774194,
+      "instrument": "ride",
+      "bar": 26,
+      "beat": 1
+    },
+    {
+      "time": 97.258065,
+      "instrument": "ride",
+      "bar": 26,
+      "beat": 1.5
+    },
+    {
+      "time": 97.741935,
+      "instrument": "ride",
+      "bar": 26,
+      "beat": 2
+    },
+    {
+      "time": 97.741935,
+      "instrument": "snare",
+      "bar": 26,
+      "beat": 2
+    },
+    {
+      "time": 98.225806,
+      "instrument": "ride",
+      "bar": 26,
+      "beat": 2.5
+    },
+    {
+      "time": 98.709677,
+      "instrument": "kick",
+      "bar": 26,
+      "beat": 3
+    },
+    {
+      "time": 98.709677,
+      "instrument": "ride",
+      "bar": 26,
+      "beat": 3
+    },
+    {
+      "time": 99.193548,
+      "instrument": "kick",
+      "bar": 26,
+      "beat": 3.5
+    },
+    {
+      "time": 99.193548,
+      "instrument": "ride",
+      "bar": 26,
+      "beat": 3.5
+    },
+    {
+      "time": 99.677419,
+      "instrument": "ride",
+      "bar": 26,
+      "beat": 4
+    },
+    {
+      "time": 99.677419,
+      "instrument": "snare",
+      "bar": 26,
+      "beat": 4
+    },
+    {
+      "time": 100.16129,
+      "instrument": "ride",
+      "bar": 26,
+      "beat": 4.5
+    },
+    {
+      "time": 100.645161,
+      "instrument": "kick",
+      "bar": 27,
+      "beat": 1
+    },
+    {
+      "time": 100.645161,
+      "instrument": "ride",
+      "bar": 27,
+      "beat": 1
+    },
+    {
+      "time": 101.129032,
+      "instrument": "ride",
+      "bar": 27,
+      "beat": 1.5
+    },
+    {
+      "time": 101.612903,
+      "instrument": "ride",
+      "bar": 27,
+      "beat": 2
+    },
+    {
+      "time": 101.612903,
+      "instrument": "snare",
+      "bar": 27,
+      "beat": 2
+    },
+    {
+      "time": 102.096774,
+      "instrument": "ride",
+      "bar": 27,
+      "beat": 2.5
+    },
+    {
+      "time": 102.580645,
+      "instrument": "kick",
+      "bar": 27,
+      "beat": 3
+    },
+    {
+      "time": 102.580645,
+      "instrument": "ride",
+      "bar": 27,
+      "beat": 3
+    },
+    {
+      "time": 103.064516,
+      "instrument": "kick",
+      "bar": 27,
+      "beat": 3.5
+    },
+    {
+      "time": 103.064516,
+      "instrument": "ride",
+      "bar": 27,
+      "beat": 3.5
+    },
+    {
+      "time": 103.548387,
+      "instrument": "ride",
+      "bar": 27,
+      "beat": 4
+    },
+    {
+      "time": 103.548387,
+      "instrument": "snare",
+      "bar": 27,
+      "beat": 4
+    },
+    {
+      "time": 104.032258,
+      "instrument": "ride",
+      "bar": 27,
+      "beat": 4.5
+    },
+    {
+      "time": 104.516129,
+      "instrument": "kick",
+      "bar": 28,
+      "beat": 1
+    },
+    {
+      "time": 104.516129,
+      "instrument": "ride",
+      "bar": 28,
+      "beat": 1
+    },
+    {
+      "time": 105,
+      "instrument": "ride",
+      "bar": 28,
+      "beat": 1.5
+    },
+    {
+      "time": 105.483871,
+      "instrument": "ride",
+      "bar": 28,
+      "beat": 2
+    },
+    {
+      "time": 105.483871,
+      "instrument": "snare",
+      "bar": 28,
+      "beat": 2
+    },
+    {
+      "time": 105.967742,
+      "instrument": "ride",
+      "bar": 28,
+      "beat": 2.5
+    },
+    {
+      "time": 106.451613,
+      "instrument": "kick",
+      "bar": 28,
+      "beat": 3
+    },
+    {
+      "time": 106.451613,
+      "instrument": "ride",
+      "bar": 28,
+      "beat": 3
+    },
+    {
+      "time": 106.935484,
+      "instrument": "kick",
+      "bar": 28,
+      "beat": 3.5
+    },
+    {
+      "time": 106.935484,
+      "instrument": "ride",
+      "bar": 28,
+      "beat": 3.5
+    },
+    {
+      "time": 107.419355,
+      "instrument": "ride",
+      "bar": 28,
+      "beat": 4
+    },
+    {
+      "time": 107.419355,
+      "instrument": "snare",
+      "bar": 28,
+      "beat": 4
+    },
+    {
+      "time": 107.903226,
+      "instrument": "ride",
+      "bar": 28,
+      "beat": 4.5
+    },
+    {
+      "time": 108.387097,
+      "instrument": "kick",
+      "bar": 29,
+      "beat": 1
+    },
+    {
+      "time": 108.387097,
+      "instrument": "ride",
+      "bar": 29,
+      "beat": 1
+    },
+    {
+      "time": 108.870968,
+      "instrument": "ride",
+      "bar": 29,
+      "beat": 1.5
+    },
+    {
+      "time": 109.354839,
+      "instrument": "ride",
+      "bar": 29,
+      "beat": 2
+    },
+    {
+      "time": 109.354839,
+      "instrument": "snare",
+      "bar": 29,
+      "beat": 2
+    },
+    {
+      "time": 109.83871,
+      "instrument": "ride",
+      "bar": 29,
+      "beat": 2.5
+    },
+    {
+      "time": 110.322581,
+      "instrument": "kick",
+      "bar": 29,
+      "beat": 3
+    },
+    {
+      "time": 110.322581,
+      "instrument": "ride",
+      "bar": 29,
+      "beat": 3
+    },
+    {
+      "time": 110.806452,
+      "instrument": "kick",
+      "bar": 29,
+      "beat": 3.5
+    },
+    {
+      "time": 110.806452,
+      "instrument": "ride",
+      "bar": 29,
+      "beat": 3.5
+    },
+    {
+      "time": 111.290323,
+      "instrument": "ride",
+      "bar": 29,
+      "beat": 4
+    },
+    {
+      "time": 111.290323,
+      "instrument": "snare",
+      "bar": 29,
+      "beat": 4
+    },
+    {
+      "time": 111.774194,
+      "instrument": "ride",
+      "bar": 29,
+      "beat": 4.5
+    },
+    {
+      "time": 112.258065,
+      "instrument": "kick",
+      "bar": 30,
+      "beat": 1
+    },
+    {
+      "time": 112.258065,
+      "instrument": "ride",
+      "bar": 30,
+      "beat": 1
+    },
+    {
+      "time": 112.741935,
+      "instrument": "ride",
+      "bar": 30,
+      "beat": 1.5
+    },
+    {
+      "time": 113.225806,
+      "instrument": "ride",
+      "bar": 30,
+      "beat": 2
+    },
+    {
+      "time": 113.225806,
+      "instrument": "snare",
+      "bar": 30,
+      "beat": 2
+    },
+    {
+      "time": 113.709677,
+      "instrument": "ride",
+      "bar": 30,
+      "beat": 2.5
+    },
+    {
+      "time": 114.193548,
+      "instrument": "kick",
+      "bar": 30,
+      "beat": 3
+    },
+    {
+      "time": 114.193548,
+      "instrument": "ride",
+      "bar": 30,
+      "beat": 3
+    },
+    {
+      "time": 114.677419,
+      "instrument": "kick",
+      "bar": 30,
+      "beat": 3.5
+    },
+    {
+      "time": 114.677419,
+      "instrument": "ride",
+      "bar": 30,
+      "beat": 3.5
+    },
+    {
+      "time": 115.16129,
+      "instrument": "ride",
+      "bar": 30,
+      "beat": 4
+    },
+    {
+      "time": 115.16129,
+      "instrument": "snare",
+      "bar": 30,
+      "beat": 4
+    },
+    {
+      "time": 115.645161,
+      "instrument": "ride",
+      "bar": 30,
+      "beat": 4.5
+    },
+    {
+      "time": 116.129032,
+      "instrument": "kick",
+      "bar": 31,
+      "beat": 1
+    },
+    {
+      "time": 116.129032,
+      "instrument": "ride",
+      "bar": 31,
+      "beat": 1
+    },
+    {
+      "time": 116.612903,
+      "instrument": "ride",
+      "bar": 31,
+      "beat": 1.5
+    },
+    {
+      "time": 117.096774,
+      "instrument": "ride",
+      "bar": 31,
+      "beat": 2
+    },
+    {
+      "time": 117.096774,
+      "instrument": "snare",
+      "bar": 31,
+      "beat": 2
+    },
+    {
+      "time": 117.580645,
+      "instrument": "ride",
+      "bar": 31,
+      "beat": 2.5
+    },
+    {
+      "time": 118.064516,
+      "instrument": "kick",
+      "bar": 31,
+      "beat": 3
+    },
+    {
+      "time": 118.064516,
+      "instrument": "ride",
+      "bar": 31,
+      "beat": 3
+    },
+    {
+      "time": 118.548387,
+      "instrument": "kick",
+      "bar": 31,
+      "beat": 3.5
+    },
+    {
+      "time": 118.548387,
+      "instrument": "ride",
+      "bar": 31,
+      "beat": 3.5
+    },
+    {
+      "time": 119.032258,
+      "instrument": "ride",
+      "bar": 31,
+      "beat": 4
+    },
+    {
+      "time": 119.032258,
+      "instrument": "snare",
+      "bar": 31,
+      "beat": 4
+    },
+    {
+      "time": 119.516129,
+      "instrument": "ride",
+      "bar": 31,
+      "beat": 4.5
+    },
+    {
+      "time": 120,
+      "instrument": "kick",
+      "bar": 32,
+      "beat": 1
+    },
+    {
+      "time": 120,
+      "instrument": "ride",
+      "bar": 32,
+      "beat": 1
+    },
+    {
+      "time": 120.483871,
+      "instrument": "ride",
+      "bar": 32,
+      "beat": 1.5
+    },
+    {
+      "time": 120.967742,
+      "instrument": "ride",
+      "bar": 32,
+      "beat": 2
+    },
+    {
+      "time": 120.967742,
+      "instrument": "snare",
+      "bar": 32,
+      "beat": 2
+    },
+    {
+      "time": 121.451613,
+      "instrument": "ride",
+      "bar": 32,
+      "beat": 2.5
+    },
+    {
+      "time": 121.935484,
+      "instrument": "kick",
+      "bar": 32,
+      "beat": 3
+    },
+    {
+      "time": 121.935484,
+      "instrument": "ride",
+      "bar": 32,
+      "beat": 3
+    },
+    {
+      "time": 122.419355,
+      "instrument": "kick",
+      "bar": 32,
+      "beat": 3.5
+    },
+    {
+      "time": 122.419355,
+      "instrument": "ride",
+      "bar": 32,
+      "beat": 3.5
+    },
+    {
+      "time": 122.903226,
+      "instrument": "ride",
+      "bar": 32,
+      "beat": 4
+    },
+    {
+      "time": 122.903226,
+      "instrument": "snare",
+      "bar": 32,
+      "beat": 4
+    },
+    {
+      "time": 123.387097,
+      "instrument": "ride",
+      "bar": 32,
+      "beat": 4.5
+    },
+    {
+      "time": 123.870968,
+      "instrument": "kick",
+      "bar": 33,
+      "beat": 1
+    },
+    {
+      "time": 123.870968,
+      "instrument": "ride",
+      "bar": 33,
+      "beat": 1
+    },
+    {
+      "time": 124.354839,
+      "instrument": "ride",
+      "bar": 33,
+      "beat": 1.5
+    },
+    {
+      "time": 124.83871,
+      "instrument": "ride",
+      "bar": 33,
+      "beat": 2
+    },
+    {
+      "time": 124.83871,
+      "instrument": "snare",
+      "bar": 33,
+      "beat": 2
+    },
+    {
+      "time": 125.322581,
+      "instrument": "ride",
+      "bar": 33,
+      "beat": 2.5
+    },
+    {
+      "time": 125.806452,
+      "instrument": "kick",
+      "bar": 33,
+      "beat": 3
+    },
+    {
+      "time": 125.806452,
+      "instrument": "ride",
+      "bar": 33,
+      "beat": 3
+    },
+    {
+      "time": 126.290323,
+      "instrument": "kick",
+      "bar": 33,
+      "beat": 3.5
+    },
+    {
+      "time": 126.290323,
+      "instrument": "ride",
+      "bar": 33,
+      "beat": 3.5
+    },
+    {
+      "time": 126.774194,
+      "instrument": "ride",
+      "bar": 33,
+      "beat": 4
+    },
+    {
+      "time": 126.774194,
+      "instrument": "snare",
+      "bar": 33,
+      "beat": 4
+    },
+    {
+      "time": 127.258065,
+      "instrument": "ride",
+      "bar": 33,
+      "beat": 4.5
+    },
+    {
+      "time": 127.741935,
+      "instrument": "kick",
+      "bar": 34,
+      "beat": 1
+    },
+    {
+      "time": 127.741935,
+      "instrument": "ride",
+      "bar": 34,
+      "beat": 1
+    },
+    {
+      "time": 128.225806,
+      "instrument": "ride",
+      "bar": 34,
+      "beat": 1.5
+    },
+    {
+      "time": 128.709677,
+      "instrument": "ride",
+      "bar": 34,
+      "beat": 2
+    },
+    {
+      "time": 128.709677,
+      "instrument": "snare",
+      "bar": 34,
+      "beat": 2
+    },
+    {
+      "time": 129.193548,
+      "instrument": "ride",
+      "bar": 34,
+      "beat": 2.5
+    },
+    {
+      "time": 129.677419,
+      "instrument": "kick",
+      "bar": 34,
+      "beat": 3
+    },
+    {
+      "time": 129.677419,
+      "instrument": "ride",
+      "bar": 34,
+      "beat": 3
+    },
+    {
+      "time": 130.16129,
+      "instrument": "kick",
+      "bar": 34,
+      "beat": 3.5
+    },
+    {
+      "time": 130.16129,
+      "instrument": "ride",
+      "bar": 34,
+      "beat": 3.5
+    },
+    {
+      "time": 130.645161,
+      "instrument": "ride",
+      "bar": 34,
+      "beat": 4
+    },
+    {
+      "time": 130.645161,
+      "instrument": "snare",
+      "bar": 34,
+      "beat": 4
+    },
+    {
+      "time": 131.129032,
+      "instrument": "ride",
+      "bar": 34,
+      "beat": 4.5
+    },
+    {
+      "time": 131.612903,
+      "instrument": "kick",
+      "bar": 35,
+      "beat": 1
+    },
+    {
+      "time": 131.612903,
+      "instrument": "crash",
+      "bar": 35,
+      "beat": 1
+    },
+    {
+      "time": 132.096774,
+      "instrument": "ride",
+      "bar": 35,
+      "beat": 1.5
+    },
+    {
+      "time": 132.580645,
+      "instrument": "ride",
+      "bar": 35,
+      "beat": 2
+    },
+    {
+      "time": 132.580645,
+      "instrument": "snare",
+      "bar": 35,
+      "beat": 2
+    },
+    {
+      "time": 133.064516,
+      "instrument": "ride",
+      "bar": 35,
+      "beat": 2.5
+    },
+    {
+      "time": 133.548387,
+      "instrument": "kick",
+      "bar": 35,
+      "beat": 3
+    },
+    {
+      "time": 133.548387,
+      "instrument": "ride",
+      "bar": 35,
+      "beat": 3
+    },
+    {
+      "time": 134.032258,
+      "instrument": "kick",
+      "bar": 35,
+      "beat": 3.5
+    },
+    {
+      "time": 134.032258,
+      "instrument": "ride",
+      "bar": 35,
+      "beat": 3.5
+    },
+    {
+      "time": 134.516129,
+      "instrument": "ride",
+      "bar": 35,
+      "beat": 4
+    },
+    {
+      "time": 134.516129,
+      "instrument": "snare",
+      "bar": 35,
+      "beat": 4
+    },
+    {
+      "time": 135,
+      "instrument": "ride",
+      "bar": 35,
+      "beat": 4.5
+    },
+    {
+      "time": 135.483871,
+      "instrument": "kick",
+      "bar": 36,
+      "beat": 1
+    },
+    {
+      "time": 135.483871,
+      "instrument": "ride",
+      "bar": 36,
+      "beat": 1
+    },
+    {
+      "time": 135.967742,
+      "instrument": "ride",
+      "bar": 36,
+      "beat": 1.5
+    },
+    {
+      "time": 136.451613,
+      "instrument": "ride",
+      "bar": 36,
+      "beat": 2
+    },
+    {
+      "time": 136.451613,
+      "instrument": "snare",
+      "bar": 36,
+      "beat": 2
+    },
+    {
+      "time": 136.935484,
+      "instrument": "ride",
+      "bar": 36,
+      "beat": 2.5
+    },
+    {
+      "time": 137.419355,
+      "instrument": "kick",
+      "bar": 36,
+      "beat": 3
+    },
+    {
+      "time": 137.419355,
+      "instrument": "ride",
+      "bar": 36,
+      "beat": 3
+    },
+    {
+      "time": 137.903226,
+      "instrument": "kick",
+      "bar": 36,
+      "beat": 3.5
+    },
+    {
+      "time": 137.903226,
+      "instrument": "ride",
+      "bar": 36,
+      "beat": 3.5
+    },
+    {
+      "time": 138.387097,
+      "instrument": "ride",
+      "bar": 36,
+      "beat": 4
+    },
+    {
+      "time": 138.387097,
+      "instrument": "snare",
+      "bar": 36,
+      "beat": 4
+    },
+    {
+      "time": 138.870968,
+      "instrument": "ride",
+      "bar": 36,
+      "beat": 4.5
+    },
+    {
+      "time": 139.354839,
+      "instrument": "kick",
+      "bar": 37,
+      "beat": 1
+    },
+    {
+      "time": 139.354839,
+      "instrument": "ride",
+      "bar": 37,
+      "beat": 1
+    },
+    {
+      "time": 139.83871,
+      "instrument": "ride",
+      "bar": 37,
+      "beat": 1.5
+    },
+    {
+      "time": 140.322581,
+      "instrument": "ride",
+      "bar": 37,
+      "beat": 2
+    },
+    {
+      "time": 140.322581,
+      "instrument": "snare",
+      "bar": 37,
+      "beat": 2
+    },
+    {
+      "time": 140.806452,
+      "instrument": "ride",
+      "bar": 37,
+      "beat": 2.5
+    },
+    {
+      "time": 141.290323,
+      "instrument": "kick",
+      "bar": 37,
+      "beat": 3
+    },
+    {
+      "time": 141.290323,
+      "instrument": "ride",
+      "bar": 37,
+      "beat": 3
+    },
+    {
+      "time": 141.774194,
+      "instrument": "kick",
+      "bar": 37,
+      "beat": 3.5
+    },
+    {
+      "time": 141.774194,
+      "instrument": "ride",
+      "bar": 37,
+      "beat": 3.5
+    },
+    {
+      "time": 142.258065,
+      "instrument": "ride",
+      "bar": 37,
+      "beat": 4
+    },
+    {
+      "time": 142.258065,
+      "instrument": "snare",
+      "bar": 37,
+      "beat": 4
+    },
+    {
+      "time": 142.741935,
+      "instrument": "ride",
+      "bar": 37,
+      "beat": 4.5
+    },
+    {
+      "time": 143.225806,
+      "instrument": "kick",
+      "bar": 38,
+      "beat": 1
+    },
+    {
+      "time": 143.225806,
+      "instrument": "ride",
+      "bar": 38,
+      "beat": 1
+    },
+    {
+      "time": 143.709677,
+      "instrument": "ride",
+      "bar": 38,
+      "beat": 1.5
+    },
+    {
+      "time": 144.193548,
+      "instrument": "ride",
+      "bar": 38,
+      "beat": 2
+    },
+    {
+      "time": 144.193548,
+      "instrument": "snare",
+      "bar": 38,
+      "beat": 2
+    },
+    {
+      "time": 144.677419,
+      "instrument": "ride",
+      "bar": 38,
+      "beat": 2.5
+    },
+    {
+      "time": 145.16129,
+      "instrument": "kick",
+      "bar": 38,
+      "beat": 3
+    },
+    {
+      "time": 145.16129,
+      "instrument": "ride",
+      "bar": 38,
+      "beat": 3
+    },
+    {
+      "time": 145.645161,
+      "instrument": "kick",
+      "bar": 38,
+      "beat": 3.5
+    },
+    {
+      "time": 145.645161,
+      "instrument": "ride",
+      "bar": 38,
+      "beat": 3.5
+    },
+    {
+      "time": 146.129032,
+      "instrument": "ride",
+      "bar": 38,
+      "beat": 4
+    },
+    {
+      "time": 146.129032,
+      "instrument": "snare",
+      "bar": 38,
+      "beat": 4
+    },
+    {
+      "time": 146.612903,
+      "instrument": "ride",
+      "bar": 38,
+      "beat": 4.5
+    },
+    {
+      "time": 147.096774,
+      "instrument": "kick",
+      "bar": 39,
+      "beat": 1
+    },
+    {
+      "time": 147.096774,
+      "instrument": "crash",
+      "bar": 39,
+      "beat": 1
+    },
+    {
+      "time": 147.580645,
+      "instrument": "ride",
+      "bar": 39,
+      "beat": 1.5
+    },
+    {
+      "time": 148.064516,
+      "instrument": "ride",
+      "bar": 39,
+      "beat": 2
+    },
+    {
+      "time": 148.064516,
+      "instrument": "snare",
+      "bar": 39,
+      "beat": 2
+    },
+    {
+      "time": 148.548387,
+      "instrument": "ride",
+      "bar": 39,
+      "beat": 2.5
+    },
+    {
+      "time": 149.032258,
+      "instrument": "kick",
+      "bar": 39,
+      "beat": 3
+    },
+    {
+      "time": 149.032258,
+      "instrument": "ride",
+      "bar": 39,
+      "beat": 3
+    },
+    {
+      "time": 149.516129,
+      "instrument": "kick",
+      "bar": 39,
+      "beat": 3.5
+    },
+    {
+      "time": 149.516129,
+      "instrument": "ride",
+      "bar": 39,
+      "beat": 3.5
+    },
+    {
+      "time": 150,
+      "instrument": "ride",
+      "bar": 39,
+      "beat": 4
+    },
+    {
+      "time": 150,
+      "instrument": "snare",
+      "bar": 39,
+      "beat": 4
+    },
+    {
+      "time": 150.483871,
+      "instrument": "ride",
+      "bar": 39,
+      "beat": 4.5
+    },
+    {
+      "time": 150.967742,
+      "instrument": "kick",
+      "bar": 40,
+      "beat": 1
+    },
+    {
+      "time": 150.967742,
+      "instrument": "ride",
+      "bar": 40,
+      "beat": 1
+    },
+    {
+      "time": 151.451613,
+      "instrument": "ride",
+      "bar": 40,
+      "beat": 1.5
+    },
+    {
+      "time": 151.935484,
+      "instrument": "ride",
+      "bar": 40,
+      "beat": 2
+    },
+    {
+      "time": 151.935484,
+      "instrument": "snare",
+      "bar": 40,
+      "beat": 2
+    },
+    {
+      "time": 152.419355,
+      "instrument": "ride",
+      "bar": 40,
+      "beat": 2.5
+    },
+    {
+      "time": 152.903226,
+      "instrument": "kick",
+      "bar": 40,
+      "beat": 3
+    },
+    {
+      "time": 152.903226,
+      "instrument": "ride",
+      "bar": 40,
+      "beat": 3
+    },
+    {
+      "time": 153.387097,
+      "instrument": "kick",
+      "bar": 40,
+      "beat": 3.5
+    },
+    {
+      "time": 153.387097,
+      "instrument": "ride",
+      "bar": 40,
+      "beat": 3.5
+    },
+    {
+      "time": 153.870968,
+      "instrument": "ride",
+      "bar": 40,
+      "beat": 4
+    },
+    {
+      "time": 153.870968,
+      "instrument": "snare",
+      "bar": 40,
+      "beat": 4
+    },
+    {
+      "time": 154.354839,
+      "instrument": "ride",
+      "bar": 40,
+      "beat": 4.5
+    },
+    {
+      "time": 154.83871,
+      "instrument": "kick",
+      "bar": 41,
+      "beat": 1
+    },
+    {
+      "time": 154.83871,
+      "instrument": "ride",
+      "bar": 41,
+      "beat": 1
+    },
+    {
+      "time": 155.322581,
+      "instrument": "ride",
+      "bar": 41,
+      "beat": 1.5
+    },
+    {
+      "time": 155.806452,
+      "instrument": "ride",
+      "bar": 41,
+      "beat": 2
+    },
+    {
+      "time": 155.806452,
+      "instrument": "snare",
+      "bar": 41,
+      "beat": 2
+    },
+    {
+      "time": 156.290323,
+      "instrument": "ride",
+      "bar": 41,
+      "beat": 2.5
+    },
+    {
+      "time": 156.774194,
+      "instrument": "kick",
+      "bar": 41,
+      "beat": 3
+    },
+    {
+      "time": 156.774194,
+      "instrument": "ride",
+      "bar": 41,
+      "beat": 3
+    },
+    {
+      "time": 157.258065,
+      "instrument": "kick",
+      "bar": 41,
+      "beat": 3.5
+    },
+    {
+      "time": 157.258065,
+      "instrument": "ride",
+      "bar": 41,
+      "beat": 3.5
+    },
+    {
+      "time": 157.741935,
+      "instrument": "ride",
+      "bar": 41,
+      "beat": 4
+    },
+    {
+      "time": 157.741935,
+      "instrument": "snare",
+      "bar": 41,
+      "beat": 4
+    },
+    {
+      "time": 158.225806,
+      "instrument": "ride",
+      "bar": 41,
+      "beat": 4.5
+    },
+    {
+      "time": 158.709677,
+      "instrument": "kick",
+      "bar": 42,
+      "beat": 1
+    },
+    {
+      "time": 158.709677,
+      "instrument": "ride",
+      "bar": 42,
+      "beat": 1
+    },
+    {
+      "time": 159.193548,
+      "instrument": "ride",
+      "bar": 42,
+      "beat": 1.5
+    },
+    {
+      "time": 159.677419,
+      "instrument": "ride",
+      "bar": 42,
+      "beat": 2
+    },
+    {
+      "time": 159.677419,
+      "instrument": "snare",
+      "bar": 42,
+      "beat": 2
+    },
+    {
+      "time": 160.16129,
+      "instrument": "ride",
+      "bar": 42,
+      "beat": 2.5
+    },
+    {
+      "time": 160.645161,
+      "instrument": "kick",
+      "bar": 42,
+      "beat": 3
+    },
+    {
+      "time": 160.645161,
+      "instrument": "ride",
+      "bar": 42,
+      "beat": 3
+    },
+    {
+      "time": 161.129032,
+      "instrument": "kick",
+      "bar": 42,
+      "beat": 3.5
+    },
+    {
+      "time": 161.129032,
+      "instrument": "ride",
+      "bar": 42,
+      "beat": 3.5
+    },
+    {
+      "time": 161.612903,
+      "instrument": "ride",
+      "bar": 42,
+      "beat": 4
+    },
+    {
+      "time": 161.612903,
+      "instrument": "snare",
+      "bar": 42,
+      "beat": 4
+    },
+    {
+      "time": 162.096774,
+      "instrument": "ride",
+      "bar": 42,
+      "beat": 4.5
+    },
+    {
+      "time": 162.580645,
+      "instrument": "kick",
+      "bar": 43,
+      "beat": 1
+    },
+    {
+      "time": 162.580645,
+      "instrument": "crash",
+      "bar": 43,
+      "beat": 1
+    },
+    {
+      "time": 163.064516,
+      "instrument": "ride",
+      "bar": 43,
+      "beat": 1.5
+    },
+    {
+      "time": 163.548387,
+      "instrument": "ride",
+      "bar": 43,
+      "beat": 2
+    },
+    {
+      "time": 163.548387,
+      "instrument": "snare",
+      "bar": 43,
+      "beat": 2
+    },
+    {
+      "time": 164.032258,
+      "instrument": "ride",
+      "bar": 43,
+      "beat": 2.5
+    },
+    {
+      "time": 164.516129,
+      "instrument": "kick",
+      "bar": 43,
+      "beat": 3
+    },
+    {
+      "time": 164.516129,
+      "instrument": "ride",
+      "bar": 43,
+      "beat": 3
+    },
+    {
+      "time": 165,
+      "instrument": "kick",
+      "bar": 43,
+      "beat": 3.5
+    },
+    {
+      "time": 165,
+      "instrument": "ride",
+      "bar": 43,
+      "beat": 3.5
+    },
+    {
+      "time": 165.483871,
+      "instrument": "ride",
+      "bar": 43,
+      "beat": 4
+    },
+    {
+      "time": 165.483871,
+      "instrument": "snare",
+      "bar": 43,
+      "beat": 4
+    },
+    {
+      "time": 165.967742,
+      "instrument": "ride",
+      "bar": 43,
+      "beat": 4.5
+    },
+    {
+      "time": 166.451613,
+      "instrument": "kick",
+      "bar": 44,
+      "beat": 1
+    },
+    {
+      "time": 166.451613,
+      "instrument": "ride",
+      "bar": 44,
+      "beat": 1
+    },
+    {
+      "time": 166.935484,
+      "instrument": "ride",
+      "bar": 44,
+      "beat": 1.5
+    },
+    {
+      "time": 167.419355,
+      "instrument": "ride",
+      "bar": 44,
+      "beat": 2
+    },
+    {
+      "time": 167.419355,
+      "instrument": "snare",
+      "bar": 44,
+      "beat": 2
+    },
+    {
+      "time": 167.903226,
+      "instrument": "ride",
+      "bar": 44,
+      "beat": 2.5
+    },
+    {
+      "time": 168.387097,
+      "instrument": "kick",
+      "bar": 44,
+      "beat": 3
+    },
+    {
+      "time": 168.387097,
+      "instrument": "ride",
+      "bar": 44,
+      "beat": 3
+    },
+    {
+      "time": 168.870968,
+      "instrument": "kick",
+      "bar": 44,
+      "beat": 3.5
+    },
+    {
+      "time": 168.870968,
+      "instrument": "ride",
+      "bar": 44,
+      "beat": 3.5
+    },
+    {
+      "time": 169.354839,
+      "instrument": "ride",
+      "bar": 44,
+      "beat": 4
+    },
+    {
+      "time": 169.354839,
+      "instrument": "snare",
+      "bar": 44,
+      "beat": 4
+    },
+    {
+      "time": 169.83871,
+      "instrument": "ride",
+      "bar": 44,
+      "beat": 4.5
+    },
+    {
+      "time": 170.322581,
+      "instrument": "kick",
+      "bar": 45,
+      "beat": 1
+    },
+    {
+      "time": 170.322581,
+      "instrument": "ride",
+      "bar": 45,
+      "beat": 1
+    },
+    {
+      "time": 170.806452,
+      "instrument": "ride",
+      "bar": 45,
+      "beat": 1.5
+    },
+    {
+      "time": 171.290323,
+      "instrument": "ride",
+      "bar": 45,
+      "beat": 2
+    },
+    {
+      "time": 171.290323,
+      "instrument": "snare",
+      "bar": 45,
+      "beat": 2
+    },
+    {
+      "time": 171.774194,
+      "instrument": "ride",
+      "bar": 45,
+      "beat": 2.5
+    },
+    {
+      "time": 172.258065,
+      "instrument": "kick",
+      "bar": 45,
+      "beat": 3
+    },
+    {
+      "time": 172.258065,
+      "instrument": "ride",
+      "bar": 45,
+      "beat": 3
+    },
+    {
+      "time": 172.741935,
+      "instrument": "kick",
+      "bar": 45,
+      "beat": 3.5
+    },
+    {
+      "time": 172.741935,
+      "instrument": "ride",
+      "bar": 45,
+      "beat": 3.5
+    },
+    {
+      "time": 173.225806,
+      "instrument": "ride",
+      "bar": 45,
+      "beat": 4
+    },
+    {
+      "time": 173.225806,
+      "instrument": "snare",
+      "bar": 45,
+      "beat": 4
+    },
+    {
+      "time": 173.709677,
+      "instrument": "ride",
+      "bar": 45,
+      "beat": 4.5
+    },
+    {
+      "time": 174.193548,
+      "instrument": "kick",
+      "bar": 46,
+      "beat": 1
+    },
+    {
+      "time": 174.193548,
+      "instrument": "ride",
+      "bar": 46,
+      "beat": 1
+    },
+    {
+      "time": 174.677419,
+      "instrument": "ride",
+      "bar": 46,
+      "beat": 1.5
+    },
+    {
+      "time": 175.16129,
+      "instrument": "ride",
+      "bar": 46,
+      "beat": 2
+    },
+    {
+      "time": 175.16129,
+      "instrument": "snare",
+      "bar": 46,
+      "beat": 2
+    },
+    {
+      "time": 175.645161,
+      "instrument": "ride",
+      "bar": 46,
+      "beat": 2.5
+    },
+    {
+      "time": 176.129032,
+      "instrument": "kick",
+      "bar": 46,
+      "beat": 3
+    },
+    {
+      "time": 176.129032,
+      "instrument": "ride",
+      "bar": 46,
+      "beat": 3
+    },
+    {
+      "time": 176.612903,
+      "instrument": "kick",
+      "bar": 46,
+      "beat": 3.5
+    },
+    {
+      "time": 176.612903,
+      "instrument": "ride",
+      "bar": 46,
+      "beat": 3.5
+    },
+    {
+      "time": 177.096774,
+      "instrument": "ride",
+      "bar": 46,
+      "beat": 4
+    },
+    {
+      "time": 177.096774,
+      "instrument": "snare",
+      "bar": 46,
+      "beat": 4
+    },
+    {
+      "time": 177.580645,
+      "instrument": "ride",
+      "bar": 46,
+      "beat": 4.5
+    },
+    {
+      "time": 178.064516,
+      "instrument": "kick",
+      "bar": 47,
+      "beat": 1
+    },
+    {
+      "time": 178.064516,
+      "instrument": "ride",
+      "bar": 47,
+      "beat": 1
+    },
+    {
+      "time": 178.548387,
+      "instrument": "ride",
+      "bar": 47,
+      "beat": 1.5
+    },
+    {
+      "time": 179.032258,
+      "instrument": "ride",
+      "bar": 47,
+      "beat": 2
+    },
+    {
+      "time": 179.032258,
+      "instrument": "snare",
+      "bar": 47,
+      "beat": 2
+    },
+    {
+      "time": 179.516129,
+      "instrument": "ride",
+      "bar": 47,
+      "beat": 2.5
+    },
+    {
+      "time": 180,
+      "instrument": "kick",
+      "bar": 47,
+      "beat": 3
+    },
+    {
+      "time": 180,
+      "instrument": "ride",
+      "bar": 47,
+      "beat": 3
+    },
+    {
+      "time": 180.483871,
+      "instrument": "kick",
+      "bar": 47,
+      "beat": 3.5
+    },
+    {
+      "time": 180.483871,
+      "instrument": "ride",
+      "bar": 47,
+      "beat": 3.5
+    },
+    {
+      "time": 180.967742,
+      "instrument": "ride",
+      "bar": 47,
+      "beat": 4
+    },
+    {
+      "time": 180.967742,
+      "instrument": "snare",
+      "bar": 47,
+      "beat": 4
+    },
+    {
+      "time": 181.451613,
+      "instrument": "ride",
+      "bar": 47,
+      "beat": 4.5
+    },
+    {
+      "time": 181.935484,
+      "instrument": "kick",
+      "bar": 48,
+      "beat": 1
+    },
+    {
+      "time": 181.935484,
+      "instrument": "ride",
+      "bar": 48,
+      "beat": 1
+    },
+    {
+      "time": 182.419355,
+      "instrument": "ride",
+      "bar": 48,
+      "beat": 1.5
+    },
+    {
+      "time": 182.903226,
+      "instrument": "ride",
+      "bar": 48,
+      "beat": 2
+    },
+    {
+      "time": 182.903226,
+      "instrument": "snare",
+      "bar": 48,
+      "beat": 2
+    },
+    {
+      "time": 183.387097,
+      "instrument": "ride",
+      "bar": 48,
+      "beat": 2.5
+    },
+    {
+      "time": 183.870968,
+      "instrument": "kick",
+      "bar": 48,
+      "beat": 3
+    },
+    {
+      "time": 183.870968,
+      "instrument": "ride",
+      "bar": 48,
+      "beat": 3
+    },
+    {
+      "time": 184.354839,
+      "instrument": "kick",
+      "bar": 48,
+      "beat": 3.5
+    },
+    {
+      "time": 184.354839,
+      "instrument": "ride",
+      "bar": 48,
+      "beat": 3.5
+    },
+    {
+      "time": 184.83871,
+      "instrument": "ride",
+      "bar": 48,
+      "beat": 4
+    },
+    {
+      "time": 184.83871,
+      "instrument": "snare",
+      "bar": 48,
+      "beat": 4
+    },
+    {
+      "time": 185.322581,
+      "instrument": "ride",
+      "bar": 48,
+      "beat": 4.5
+    },
+    {
+      "time": 185.806452,
+      "instrument": "kick",
+      "bar": 49,
+      "beat": 1
+    },
+    {
+      "time": 185.806452,
+      "instrument": "ride",
+      "bar": 49,
+      "beat": 1
+    },
+    {
+      "time": 186.290323,
+      "instrument": "ride",
+      "bar": 49,
+      "beat": 1.5
+    },
+    {
+      "time": 186.774194,
+      "instrument": "ride",
+      "bar": 49,
+      "beat": 2
+    },
+    {
+      "time": 186.774194,
+      "instrument": "snare",
+      "bar": 49,
+      "beat": 2
+    },
+    {
+      "time": 187.258065,
+      "instrument": "ride",
+      "bar": 49,
+      "beat": 2.5
+    },
+    {
+      "time": 187.741935,
+      "instrument": "kick",
+      "bar": 49,
+      "beat": 3
+    },
+    {
+      "time": 187.741935,
+      "instrument": "ride",
+      "bar": 49,
+      "beat": 3
+    },
+    {
+      "time": 188.225806,
+      "instrument": "kick",
+      "bar": 49,
+      "beat": 3.5
+    },
+    {
+      "time": 188.225806,
+      "instrument": "ride",
+      "bar": 49,
+      "beat": 3.5
+    },
+    {
+      "time": 188.709677,
+      "instrument": "ride",
+      "bar": 49,
+      "beat": 4
+    },
+    {
+      "time": 188.709677,
+      "instrument": "snare",
+      "bar": 49,
+      "beat": 4
+    },
+    {
+      "time": 189.193548,
+      "instrument": "ride",
+      "bar": 49,
+      "beat": 4.5
+    },
+    {
+      "time": 189.677419,
+      "instrument": "kick",
+      "bar": 50,
+      "beat": 1
+    },
+    {
+      "time": 189.677419,
+      "instrument": "ride",
+      "bar": 50,
+      "beat": 1
+    },
+    {
+      "time": 190.16129,
+      "instrument": "ride",
+      "bar": 50,
+      "beat": 1.5
+    },
+    {
+      "time": 190.645161,
+      "instrument": "ride",
+      "bar": 50,
+      "beat": 2
+    },
+    {
+      "time": 190.645161,
+      "instrument": "snare",
+      "bar": 50,
+      "beat": 2
+    },
+    {
+      "time": 191.129032,
+      "instrument": "ride",
+      "bar": 50,
+      "beat": 2.5
+    },
+    {
+      "time": 191.612903,
+      "instrument": "kick",
+      "bar": 50,
+      "beat": 3
+    },
+    {
+      "time": 191.612903,
+      "instrument": "ride",
+      "bar": 50,
+      "beat": 3
+    },
+    {
+      "time": 192.096774,
+      "instrument": "kick",
+      "bar": 50,
+      "beat": 3.5
+    },
+    {
+      "time": 192.096774,
+      "instrument": "ride",
+      "bar": 50,
+      "beat": 3.5
+    },
+    {
+      "time": 192.580645,
+      "instrument": "ride",
+      "bar": 50,
+      "beat": 4
+    },
+    {
+      "time": 192.580645,
+      "instrument": "snare",
+      "bar": 50,
+      "beat": 4
+    },
+    {
+      "time": 193.064516,
+      "instrument": "ride",
+      "bar": 50,
+      "beat": 4.5
+    },
+    {
+      "time": 193.548387,
+      "instrument": "kick",
+      "bar": 51,
+      "beat": 1
+    },
+    {
+      "time": 193.548387,
+      "instrument": "crash",
+      "bar": 51,
+      "beat": 1
+    },
+    {
+      "time": 194.032258,
+      "instrument": "ride",
+      "bar": 51,
+      "beat": 1.5
+    },
+    {
+      "time": 194.516129,
+      "instrument": "ride",
+      "bar": 51,
+      "beat": 2
+    },
+    {
+      "time": 194.516129,
+      "instrument": "snare",
+      "bar": 51,
+      "beat": 2
+    },
+    {
+      "time": 195,
+      "instrument": "ride",
+      "bar": 51,
+      "beat": 2.5
+    },
+    {
+      "time": 195.483871,
+      "instrument": "kick",
+      "bar": 51,
+      "beat": 3
+    },
+    {
+      "time": 195.483871,
+      "instrument": "ride",
+      "bar": 51,
+      "beat": 3
+    },
+    {
+      "time": 195.967742,
+      "instrument": "kick",
+      "bar": 51,
+      "beat": 3.5
+    },
+    {
+      "time": 195.967742,
+      "instrument": "ride",
+      "bar": 51,
+      "beat": 3.5
+    },
+    {
+      "time": 196.451613,
+      "instrument": "ride",
+      "bar": 51,
+      "beat": 4
+    },
+    {
+      "time": 196.451613,
+      "instrument": "snare",
+      "bar": 51,
+      "beat": 4
+    },
+    {
+      "time": 196.935484,
+      "instrument": "ride",
+      "bar": 51,
+      "beat": 4.5
+    },
+    {
+      "time": 197.419355,
+      "instrument": "kick",
+      "bar": 52,
+      "beat": 1
+    },
+    {
+      "time": 197.419355,
+      "instrument": "ride",
+      "bar": 52,
+      "beat": 1
+    },
+    {
+      "time": 197.903226,
+      "instrument": "ride",
+      "bar": 52,
+      "beat": 1.5
+    },
+    {
+      "time": 198.387097,
+      "instrument": "ride",
+      "bar": 52,
+      "beat": 2
+    },
+    {
+      "time": 198.387097,
+      "instrument": "snare",
+      "bar": 52,
+      "beat": 2
+    },
+    {
+      "time": 198.870968,
+      "instrument": "ride",
+      "bar": 52,
+      "beat": 2.5
+    },
+    {
+      "time": 199.354839,
+      "instrument": "kick",
+      "bar": 52,
+      "beat": 3
+    },
+    {
+      "time": 199.354839,
+      "instrument": "ride",
+      "bar": 52,
+      "beat": 3
+    },
+    {
+      "time": 199.83871,
+      "instrument": "kick",
+      "bar": 52,
+      "beat": 3.5
+    },
+    {
+      "time": 199.83871,
+      "instrument": "ride",
+      "bar": 52,
+      "beat": 3.5
+    },
+    {
+      "time": 200.322581,
+      "instrument": "ride",
+      "bar": 52,
+      "beat": 4
+    },
+    {
+      "time": 200.322581,
+      "instrument": "snare",
+      "bar": 52,
+      "beat": 4
+    },
+    {
+      "time": 200.806452,
+      "instrument": "ride",
+      "bar": 52,
+      "beat": 4.5
+    },
+    {
+      "time": 201.290323,
+      "instrument": "kick",
+      "bar": 53,
+      "beat": 1
+    },
+    {
+      "time": 201.290323,
+      "instrument": "ride",
+      "bar": 53,
+      "beat": 1
+    },
+    {
+      "time": 201.774194,
+      "instrument": "ride",
+      "bar": 53,
+      "beat": 1.5
+    },
+    {
+      "time": 202.258065,
+      "instrument": "ride",
+      "bar": 53,
+      "beat": 2
+    },
+    {
+      "time": 202.258065,
+      "instrument": "snare",
+      "bar": 53,
+      "beat": 2
+    },
+    {
+      "time": 202.741935,
+      "instrument": "ride",
+      "bar": 53,
+      "beat": 2.5
+    },
+    {
+      "time": 203.225806,
+      "instrument": "kick",
+      "bar": 53,
+      "beat": 3
+    },
+    {
+      "time": 203.225806,
+      "instrument": "ride",
+      "bar": 53,
+      "beat": 3
+    },
+    {
+      "time": 203.709677,
+      "instrument": "kick",
+      "bar": 53,
+      "beat": 3.5
+    },
+    {
+      "time": 203.709677,
+      "instrument": "ride",
+      "bar": 53,
+      "beat": 3.5
+    },
+    {
+      "time": 204.193548,
+      "instrument": "ride",
+      "bar": 53,
+      "beat": 4
+    },
+    {
+      "time": 204.193548,
+      "instrument": "snare",
+      "bar": 53,
+      "beat": 4
+    },
+    {
+      "time": 204.677419,
+      "instrument": "ride",
+      "bar": 53,
+      "beat": 4.5
+    },
+    {
+      "time": 205.16129,
+      "instrument": "kick",
+      "bar": 54,
+      "beat": 1
+    },
+    {
+      "time": 205.16129,
+      "instrument": "ride",
+      "bar": 54,
+      "beat": 1
+    },
+    {
+      "time": 205.645161,
+      "instrument": "ride",
+      "bar": 54,
+      "beat": 1.5
+    },
+    {
+      "time": 206.129032,
+      "instrument": "ride",
+      "bar": 54,
+      "beat": 2
+    },
+    {
+      "time": 206.129032,
+      "instrument": "snare",
+      "bar": 54,
+      "beat": 2
+    },
+    {
+      "time": 206.612903,
+      "instrument": "ride",
+      "bar": 54,
+      "beat": 2.5
+    },
+    {
+      "time": 207.096774,
+      "instrument": "kick",
+      "bar": 54,
+      "beat": 3
+    },
+    {
+      "time": 207.096774,
+      "instrument": "ride",
+      "bar": 54,
+      "beat": 3
+    },
+    {
+      "time": 207.580645,
+      "instrument": "kick",
+      "bar": 54,
+      "beat": 3.5
+    },
+    {
+      "time": 207.580645,
+      "instrument": "ride",
+      "bar": 54,
+      "beat": 3.5
+    },
+    {
+      "time": 208.064516,
+      "instrument": "ride",
+      "bar": 54,
+      "beat": 4
+    },
+    {
+      "time": 208.064516,
+      "instrument": "snare",
+      "bar": 54,
+      "beat": 4
+    },
+    {
+      "time": 208.548387,
+      "instrument": "ride",
+      "bar": 54,
+      "beat": 4.5
+    },
+    {
+      "time": 209.032258,
+      "instrument": "kick",
+      "bar": 55,
+      "beat": 1
+    },
+    {
+      "time": 209.032258,
+      "instrument": "ride",
+      "bar": 55,
+      "beat": 1
+    },
+    {
+      "time": 209.516129,
+      "instrument": "ride",
+      "bar": 55,
+      "beat": 1.5
+    },
+    {
+      "time": 210,
+      "instrument": "ride",
+      "bar": 55,
+      "beat": 2
+    },
+    {
+      "time": 210,
+      "instrument": "snare",
+      "bar": 55,
+      "beat": 2
+    },
+    {
+      "time": 210.483871,
+      "instrument": "ride",
+      "bar": 55,
+      "beat": 2.5
+    },
+    {
+      "time": 210.967742,
+      "instrument": "kick",
+      "bar": 55,
+      "beat": 3
+    },
+    {
+      "time": 210.967742,
+      "instrument": "ride",
+      "bar": 55,
+      "beat": 3
+    },
+    {
+      "time": 211.451613,
+      "instrument": "kick",
+      "bar": 55,
+      "beat": 3.5
+    },
+    {
+      "time": 211.451613,
+      "instrument": "ride",
+      "bar": 55,
+      "beat": 3.5
+    },
+    {
+      "time": 211.935484,
+      "instrument": "ride",
+      "bar": 55,
+      "beat": 4
+    },
+    {
+      "time": 211.935484,
+      "instrument": "snare",
+      "bar": 55,
+      "beat": 4
+    },
+    {
+      "time": 212.419355,
+      "instrument": "ride",
+      "bar": 55,
+      "beat": 4.5
+    },
+    {
+      "time": 212.903226,
+      "instrument": "kick",
+      "bar": 56,
+      "beat": 1
+    },
+    {
+      "time": 212.903226,
+      "instrument": "ride",
+      "bar": 56,
+      "beat": 1
+    },
+    {
+      "time": 213.387097,
+      "instrument": "ride",
+      "bar": 56,
+      "beat": 1.5
+    },
+    {
+      "time": 213.870968,
+      "instrument": "ride",
+      "bar": 56,
+      "beat": 2
+    },
+    {
+      "time": 213.870968,
+      "instrument": "snare",
+      "bar": 56,
+      "beat": 2
+    },
+    {
+      "time": 214.354839,
+      "instrument": "ride",
+      "bar": 56,
+      "beat": 2.5
+    },
+    {
+      "time": 214.83871,
+      "instrument": "kick",
+      "bar": 56,
+      "beat": 3
+    },
+    {
+      "time": 214.83871,
+      "instrument": "ride",
+      "bar": 56,
+      "beat": 3
+    },
+    {
+      "time": 215.322581,
+      "instrument": "kick",
+      "bar": 56,
+      "beat": 3.5
+    },
+    {
+      "time": 215.322581,
+      "instrument": "ride",
+      "bar": 56,
+      "beat": 3.5
+    },
+    {
+      "time": 215.806452,
+      "instrument": "ride",
+      "bar": 56,
+      "beat": 4
+    },
+    {
+      "time": 215.806452,
+      "instrument": "snare",
+      "bar": 56,
+      "beat": 4
+    },
+    {
+      "time": 216.290323,
+      "instrument": "ride",
+      "bar": 56,
+      "beat": 4.5
+    },
+    {
+      "time": 216.774194,
+      "instrument": "kick",
+      "bar": 57,
+      "beat": 1
+    },
+    {
+      "time": 216.774194,
+      "instrument": "crash",
+      "bar": 57,
+      "beat": 1
+    },
+    {
+      "time": 217.258065,
+      "instrument": "ride",
+      "bar": 57,
+      "beat": 1.5
+    },
+    {
+      "time": 217.741935,
+      "instrument": "ride",
+      "bar": 57,
+      "beat": 2
+    },
+    {
+      "time": 217.741935,
+      "instrument": "snare",
+      "bar": 57,
+      "beat": 2
+    },
+    {
+      "time": 218.225806,
+      "instrument": "ride",
+      "bar": 57,
+      "beat": 2.5
+    },
+    {
+      "time": 218.709677,
+      "instrument": "kick",
+      "bar": 57,
+      "beat": 3
+    },
+    {
+      "time": 218.709677,
+      "instrument": "ride",
+      "bar": 57,
+      "beat": 3
+    },
+    {
+      "time": 219.193548,
+      "instrument": "kick",
+      "bar": 57,
+      "beat": 3.5
+    },
+    {
+      "time": 219.193548,
+      "instrument": "ride",
+      "bar": 57,
+      "beat": 3.5
+    },
+    {
+      "time": 219.677419,
+      "instrument": "ride",
+      "bar": 57,
+      "beat": 4
+    },
+    {
+      "time": 219.677419,
+      "instrument": "snare",
+      "bar": 57,
+      "beat": 4
+    },
+    {
+      "time": 220.16129,
+      "instrument": "ride",
+      "bar": 57,
+      "beat": 4.5
+    },
+    {
+      "time": 220.645161,
+      "instrument": "kick",
+      "bar": 58,
+      "beat": 1
+    },
+    {
+      "time": 220.645161,
+      "instrument": "ride",
+      "bar": 58,
+      "beat": 1
+    },
+    {
+      "time": 221.129032,
+      "instrument": "ride",
+      "bar": 58,
+      "beat": 1.5
+    },
+    {
+      "time": 221.612903,
+      "instrument": "ride",
+      "bar": 58,
+      "beat": 2
+    },
+    {
+      "time": 221.612903,
+      "instrument": "snare",
+      "bar": 58,
+      "beat": 2
+    },
+    {
+      "time": 222.096774,
+      "instrument": "ride",
+      "bar": 58,
+      "beat": 2.5
+    },
+    {
+      "time": 222.580645,
+      "instrument": "kick",
+      "bar": 58,
+      "beat": 3
+    },
+    {
+      "time": 222.580645,
+      "instrument": "ride",
+      "bar": 58,
+      "beat": 3
+    },
+    {
+      "time": 223.064516,
+      "instrument": "kick",
+      "bar": 58,
+      "beat": 3.5
+    },
+    {
+      "time": 223.064516,
+      "instrument": "ride",
+      "bar": 58,
+      "beat": 3.5
+    },
+    {
+      "time": 223.548387,
+      "instrument": "snare",
+      "bar": 58,
+      "beat": 4
+    },
+    {
+      "time": 224.032258,
+      "instrument": "floorTom",
+      "bar": 58,
+      "beat": 4.5
+    },
+    {
+      "time": 224.516129,
+      "instrument": "kick",
+      "bar": 59,
+      "beat": 1
+    },
+    {
+      "time": 224.516129,
+      "instrument": "crash",
+      "bar": 59,
+      "beat": 1
+    },
+    {
+      "time": 225,
+      "instrument": "ride",
+      "bar": 59,
+      "beat": 1.5
+    },
+    {
+      "time": 225.483871,
+      "instrument": "ride",
+      "bar": 59,
+      "beat": 2
+    },
+    {
+      "time": 225.483871,
+      "instrument": "snare",
+      "bar": 59,
+      "beat": 2
+    },
+    {
+      "time": 225.967742,
+      "instrument": "ride",
+      "bar": 59,
+      "beat": 2.5
+    },
+    {
+      "time": 226.451613,
+      "instrument": "kick",
+      "bar": 59,
+      "beat": 3
+    },
+    {
+      "time": 226.451613,
+      "instrument": "ride",
+      "bar": 59,
+      "beat": 3
+    },
+    {
+      "time": 226.935484,
+      "instrument": "kick",
+      "bar": 59,
+      "beat": 3.5
+    },
+    {
+      "time": 226.935484,
+      "instrument": "ride",
+      "bar": 59,
+      "beat": 3.5
+    },
+    {
+      "time": 227.419355,
+      "instrument": "ride",
+      "bar": 59,
+      "beat": 4
+    },
+    {
+      "time": 227.419355,
+      "instrument": "snare",
+      "bar": 59,
+      "beat": 4
+    },
+    {
+      "time": 227.903226,
+      "instrument": "ride",
+      "bar": 59,
+      "beat": 4.5
+    },
+    {
+      "time": 228.387097,
+      "instrument": "kick",
+      "bar": 60,
+      "beat": 1
+    },
+    {
+      "time": 228.387097,
+      "instrument": "ride",
+      "bar": 60,
+      "beat": 1
+    },
+    {
+      "time": 228.870968,
+      "instrument": "ride",
+      "bar": 60,
+      "beat": 1.5
+    },
+    {
+      "time": 229.354839,
+      "instrument": "ride",
+      "bar": 60,
+      "beat": 2
+    },
+    {
+      "time": 229.354839,
+      "instrument": "snare",
+      "bar": 60,
+      "beat": 2
+    },
+    {
+      "time": 229.83871,
+      "instrument": "ride",
+      "bar": 60,
+      "beat": 2.5
+    },
+    {
+      "time": 230.322581,
+      "instrument": "kick",
+      "bar": 60,
+      "beat": 3
+    },
+    {
+      "time": 230.322581,
+      "instrument": "ride",
+      "bar": 60,
+      "beat": 3
+    },
+    {
+      "time": 230.806452,
+      "instrument": "kick",
+      "bar": 60,
+      "beat": 3.5
+    },
+    {
+      "time": 230.806452,
+      "instrument": "ride",
+      "bar": 60,
+      "beat": 3.5
+    },
+    {
+      "time": 231.290323,
+      "instrument": "ride",
+      "bar": 60,
+      "beat": 4
+    },
+    {
+      "time": 231.290323,
+      "instrument": "snare",
+      "bar": 60,
+      "beat": 4
+    },
+    {
+      "time": 231.774194,
+      "instrument": "ride",
+      "bar": 60,
+      "beat": 4.5
+    },
+    {
+      "time": 232.258065,
+      "instrument": "kick",
+      "bar": 61,
+      "beat": 1
+    },
+    {
+      "time": 232.258065,
+      "instrument": "ride",
+      "bar": 61,
+      "beat": 1
+    },
+    {
+      "time": 232.741935,
+      "instrument": "ride",
+      "bar": 61,
+      "beat": 1.5
+    },
+    {
+      "time": 233.225806,
+      "instrument": "ride",
+      "bar": 61,
+      "beat": 2
+    },
+    {
+      "time": 233.225806,
+      "instrument": "snare",
+      "bar": 61,
+      "beat": 2
+    },
+    {
+      "time": 233.709677,
+      "instrument": "ride",
+      "bar": 61,
+      "beat": 2.5
+    },
+    {
+      "time": 234.193548,
+      "instrument": "kick",
+      "bar": 61,
+      "beat": 3
+    },
+    {
+      "time": 234.193548,
+      "instrument": "ride",
+      "bar": 61,
+      "beat": 3
+    },
+    {
+      "time": 234.677419,
+      "instrument": "kick",
+      "bar": 61,
+      "beat": 3.5
+    },
+    {
+      "time": 234.677419,
+      "instrument": "ride",
+      "bar": 61,
+      "beat": 3.5
+    },
+    {
+      "time": 235.16129,
+      "instrument": "ride",
+      "bar": 61,
+      "beat": 4
+    },
+    {
+      "time": 235.16129,
+      "instrument": "snare",
+      "bar": 61,
+      "beat": 4
+    },
+    {
+      "time": 235.645161,
+      "instrument": "ride",
+      "bar": 61,
+      "beat": 4.5
+    },
+    {
+      "time": 236.129032,
+      "instrument": "kick",
+      "bar": 62,
+      "beat": 1
+    },
+    {
+      "time": 236.129032,
+      "instrument": "ride",
+      "bar": 62,
+      "beat": 1
+    },
+    {
+      "time": 236.612903,
+      "instrument": "ride",
+      "bar": 62,
+      "beat": 1.5
+    },
+    {
+      "time": 237.096774,
+      "instrument": "ride",
+      "bar": 62,
+      "beat": 2
+    },
+    {
+      "time": 237.096774,
+      "instrument": "snare",
+      "bar": 62,
+      "beat": 2
+    },
+    {
+      "time": 237.580645,
+      "instrument": "ride",
+      "bar": 62,
+      "beat": 2.5
+    },
+    {
+      "time": 238.064516,
+      "instrument": "kick",
+      "bar": 62,
+      "beat": 3
+    },
+    {
+      "time": 238.064516,
+      "instrument": "ride",
+      "bar": 62,
+      "beat": 3
+    },
+    {
+      "time": 238.548387,
+      "instrument": "kick",
+      "bar": 62,
+      "beat": 3.5
+    },
+    {
+      "time": 238.548387,
+      "instrument": "ride",
+      "bar": 62,
+      "beat": 3.5
+    },
+    {
+      "time": 239.032258,
+      "instrument": "ride",
+      "bar": 62,
+      "beat": 4
+    },
+    {
+      "time": 239.032258,
+      "instrument": "snare",
+      "bar": 62,
+      "beat": 4
+    },
+    {
+      "time": 239.516129,
+      "instrument": "ride",
+      "bar": 62,
+      "beat": 4.5
+    },
+    {
+      "time": 240,
+      "instrument": "kick",
+      "bar": 63,
+      "beat": 1
+    },
+    {
+      "time": 240,
+      "instrument": "ride",
+      "bar": 63,
+      "beat": 1
+    },
+    {
+      "time": 240.483871,
+      "instrument": "ride",
+      "bar": 63,
+      "beat": 1.5
+    },
+    {
+      "time": 240.967742,
+      "instrument": "ride",
+      "bar": 63,
+      "beat": 2
+    },
+    {
+      "time": 240.967742,
+      "instrument": "snare",
+      "bar": 63,
+      "beat": 2
+    },
+    {
+      "time": 241.451613,
+      "instrument": "ride",
+      "bar": 63,
+      "beat": 2.5
+    },
+    {
+      "time": 241.935484,
+      "instrument": "kick",
+      "bar": 63,
+      "beat": 3
+    },
+    {
+      "time": 241.935484,
+      "instrument": "ride",
+      "bar": 63,
+      "beat": 3
+    },
+    {
+      "time": 242.419355,
+      "instrument": "kick",
+      "bar": 63,
+      "beat": 3.5
+    },
+    {
+      "time": 242.419355,
+      "instrument": "ride",
+      "bar": 63,
+      "beat": 3.5
+    },
+    {
+      "time": 242.903226,
+      "instrument": "ride",
+      "bar": 63,
+      "beat": 4
+    },
+    {
+      "time": 242.903226,
+      "instrument": "snare",
+      "bar": 63,
+      "beat": 4
+    },
+    {
+      "time": 243.387097,
+      "instrument": "ride",
+      "bar": 63,
+      "beat": 4.5
+    },
+    {
+      "time": 243.870968,
+      "instrument": "kick",
+      "bar": 64,
+      "beat": 1
+    },
+    {
+      "time": 243.870968,
+      "instrument": "ride",
+      "bar": 64,
+      "beat": 1
+    },
+    {
+      "time": 244.354839,
+      "instrument": "ride",
+      "bar": 64,
+      "beat": 1.5
+    },
+    {
+      "time": 244.83871,
+      "instrument": "ride",
+      "bar": 64,
+      "beat": 2
+    },
+    {
+      "time": 244.83871,
+      "instrument": "snare",
+      "bar": 64,
+      "beat": 2
+    },
+    {
+      "time": 245.322581,
+      "instrument": "ride",
+      "bar": 64,
+      "beat": 2.5
+    },
+    {
+      "time": 245.806452,
+      "instrument": "kick",
+      "bar": 64,
+      "beat": 3
+    },
+    {
+      "time": 245.806452,
+      "instrument": "ride",
+      "bar": 64,
+      "beat": 3
+    },
+    {
+      "time": 246.290323,
+      "instrument": "kick",
+      "bar": 64,
+      "beat": 3.5
+    },
+    {
+      "time": 246.290323,
+      "instrument": "ride",
+      "bar": 64,
+      "beat": 3.5
+    },
+    {
+      "time": 246.774194,
+      "instrument": "ride",
+      "bar": 64,
+      "beat": 4
+    },
+    {
+      "time": 246.774194,
+      "instrument": "snare",
+      "bar": 64,
+      "beat": 4
+    },
+    {
+      "time": 247.258065,
+      "instrument": "ride",
+      "bar": 64,
+      "beat": 4.5
+    },
+    {
+      "time": 247.741935,
+      "instrument": "kick",
+      "bar": 65,
+      "beat": 1
+    },
+    {
+      "time": 247.741935,
+      "instrument": "ride",
+      "bar": 65,
+      "beat": 1
+    },
+    {
+      "time": 248.225806,
+      "instrument": "ride",
+      "bar": 65,
+      "beat": 1.5
+    },
+    {
+      "time": 248.709677,
+      "instrument": "ride",
+      "bar": 65,
+      "beat": 2
+    },
+    {
+      "time": 248.709677,
+      "instrument": "snare",
+      "bar": 65,
+      "beat": 2
+    },
+    {
+      "time": 249.193548,
+      "instrument": "ride",
+      "bar": 65,
+      "beat": 2.5
+    },
+    {
+      "time": 249.677419,
+      "instrument": "kick",
+      "bar": 65,
+      "beat": 3
+    },
+    {
+      "time": 249.677419,
+      "instrument": "ride",
+      "bar": 65,
+      "beat": 3
+    },
+    {
+      "time": 250.16129,
+      "instrument": "kick",
+      "bar": 65,
+      "beat": 3.5
+    },
+    {
+      "time": 250.16129,
+      "instrument": "ride",
+      "bar": 65,
+      "beat": 3.5
+    },
+    {
+      "time": 250.645161,
+      "instrument": "ride",
+      "bar": 65,
+      "beat": 4
+    },
+    {
+      "time": 250.645161,
+      "instrument": "snare",
+      "bar": 65,
+      "beat": 4
+    },
+    {
+      "time": 251.129032,
+      "instrument": "ride",
+      "bar": 65,
+      "beat": 4.5
+    },
+    {
+      "time": 251.612903,
+      "instrument": "kick",
+      "bar": 66,
+      "beat": 1
+    },
+    {
+      "time": 251.612903,
+      "instrument": "ride",
+      "bar": 66,
+      "beat": 1
+    },
+    {
+      "time": 252.096774,
+      "instrument": "ride",
+      "bar": 66,
+      "beat": 1.5
+    },
+    {
+      "time": 252.580645,
+      "instrument": "ride",
+      "bar": 66,
+      "beat": 2
+    },
+    {
+      "time": 252.580645,
+      "instrument": "snare",
+      "bar": 66,
+      "beat": 2
+    },
+    {
+      "time": 253.064516,
+      "instrument": "ride",
+      "bar": 66,
+      "beat": 2.5
+    },
+    {
+      "time": 253.548387,
+      "instrument": "kick",
+      "bar": 66,
+      "beat": 3
+    },
+    {
+      "time": 253.548387,
+      "instrument": "ride",
+      "bar": 66,
+      "beat": 3
+    },
+    {
+      "time": 254.032258,
+      "instrument": "kick",
+      "bar": 66,
+      "beat": 3.5
+    },
+    {
+      "time": 254.032258,
+      "instrument": "ride",
+      "bar": 66,
+      "beat": 3.5
+    },
+    {
+      "time": 254.516129,
+      "instrument": "ride",
+      "bar": 66,
+      "beat": 4
+    },
+    {
+      "time": 254.516129,
+      "instrument": "snare",
+      "bar": 66,
+      "beat": 4
+    },
+    {
+      "time": 255,
+      "instrument": "ride",
+      "bar": 66,
+      "beat": 4.5
+    },
+    {
+      "time": 255.483871,
+      "instrument": "kick",
+      "bar": 67,
+      "beat": 1
+    },
+    {
+      "time": 255.483871,
+      "instrument": "crash",
+      "bar": 67,
+      "beat": 1
+    },
+    {
+      "time": 255.967742,
+      "instrument": "ride",
+      "bar": 67,
+      "beat": 1.5
+    },
+    {
+      "time": 256.451613,
+      "instrument": "ride",
+      "bar": 67,
+      "beat": 2
+    },
+    {
+      "time": 256.451613,
+      "instrument": "snare",
+      "bar": 67,
+      "beat": 2
+    },
+    {
+      "time": 256.935484,
+      "instrument": "ride",
+      "bar": 67,
+      "beat": 2.5
+    },
+    {
+      "time": 257.419355,
+      "instrument": "kick",
+      "bar": 67,
+      "beat": 3
+    },
+    {
+      "time": 257.419355,
+      "instrument": "ride",
+      "bar": 67,
+      "beat": 3
+    },
+    {
+      "time": 257.903226,
+      "instrument": "kick",
+      "bar": 67,
+      "beat": 3.5
+    },
+    {
+      "time": 257.903226,
+      "instrument": "ride",
+      "bar": 67,
+      "beat": 3.5
+    },
+    {
+      "time": 258.387097,
+      "instrument": "ride",
+      "bar": 67,
+      "beat": 4
+    },
+    {
+      "time": 258.387097,
+      "instrument": "snare",
+      "bar": 67,
+      "beat": 4
+    },
+    {
+      "time": 258.870968,
+      "instrument": "ride",
+      "bar": 67,
+      "beat": 4.5
+    },
+    {
+      "time": 259.354839,
+      "instrument": "kick",
+      "bar": 68,
+      "beat": 1
+    },
+    {
+      "time": 259.354839,
+      "instrument": "ride",
+      "bar": 68,
+      "beat": 1
+    },
+    {
+      "time": 259.83871,
+      "instrument": "ride",
+      "bar": 68,
+      "beat": 1.5
+    },
+    {
+      "time": 260.322581,
+      "instrument": "ride",
+      "bar": 68,
+      "beat": 2
+    },
+    {
+      "time": 260.322581,
+      "instrument": "snare",
+      "bar": 68,
+      "beat": 2
+    },
+    {
+      "time": 260.806452,
+      "instrument": "ride",
+      "bar": 68,
+      "beat": 2.5
+    },
+    {
+      "time": 261.290323,
+      "instrument": "kick",
+      "bar": 68,
+      "beat": 3
+    },
+    {
+      "time": 261.290323,
+      "instrument": "ride",
+      "bar": 68,
+      "beat": 3
+    },
+    {
+      "time": 261.774194,
+      "instrument": "kick",
+      "bar": 68,
+      "beat": 3.5
+    },
+    {
+      "time": 261.774194,
+      "instrument": "ride",
+      "bar": 68,
+      "beat": 3.5
+    },
+    {
+      "time": 262.258065,
+      "instrument": "ride",
+      "bar": 68,
+      "beat": 4
+    },
+    {
+      "time": 262.258065,
+      "instrument": "snare",
+      "bar": 68,
+      "beat": 4
+    },
+    {
+      "time": 262.741935,
+      "instrument": "ride",
+      "bar": 68,
+      "beat": 4.5
+    },
+    {
+      "time": 263.225806,
+      "instrument": "kick",
+      "bar": 69,
+      "beat": 1
+    },
+    {
+      "time": 263.225806,
+      "instrument": "crash",
+      "bar": 69,
+      "beat": 1
+    },
+    {
+      "time": 263.709677,
+      "instrument": "ride",
+      "bar": 69,
+      "beat": 1.5
+    },
+    {
+      "time": 264.193548,
+      "instrument": "ride",
+      "bar": 69,
+      "beat": 2
+    },
+    {
+      "time": 264.193548,
+      "instrument": "snare",
+      "bar": 69,
+      "beat": 2
+    },
+    {
+      "time": 264.677419,
+      "instrument": "ride",
+      "bar": 69,
+      "beat": 2.5
+    },
+    {
+      "time": 265.16129,
+      "instrument": "kick",
+      "bar": 69,
+      "beat": 3
+    },
+    {
+      "time": 265.16129,
+      "instrument": "ride",
+      "bar": 69,
+      "beat": 3
+    },
+    {
+      "time": 265.645161,
+      "instrument": "kick",
+      "bar": 69,
+      "beat": 3.5
+    },
+    {
+      "time": 265.645161,
+      "instrument": "ride",
+      "bar": 69,
+      "beat": 3.5
+    },
+    {
+      "time": 266.129032,
+      "instrument": "ride",
+      "bar": 69,
+      "beat": 4
+    },
+    {
+      "time": 266.129032,
+      "instrument": "snare",
+      "bar": 69,
+      "beat": 4
+    },
+    {
+      "time": 266.612903,
+      "instrument": "ride",
+      "bar": 69,
+      "beat": 4.5
+    },
+    {
+      "time": 267.096774,
+      "instrument": "kick",
+      "bar": 70,
+      "beat": 1
+    },
+    {
+      "time": 267.096774,
+      "instrument": "ride",
+      "bar": 70,
+      "beat": 1
+    },
+    {
+      "time": 267.580645,
+      "instrument": "ride",
+      "bar": 70,
+      "beat": 1.5
+    },
+    {
+      "time": 268.064516,
+      "instrument": "ride",
+      "bar": 70,
+      "beat": 2
+    },
+    {
+      "time": 268.064516,
+      "instrument": "snare",
+      "bar": 70,
+      "beat": 2
+    },
+    {
+      "time": 268.548387,
+      "instrument": "ride",
+      "bar": 70,
+      "beat": 2.5
+    },
+    {
+      "time": 269.032258,
+      "instrument": "kick",
+      "bar": 70,
+      "beat": 3
+    },
+    {
+      "time": 269.032258,
+      "instrument": "ride",
+      "bar": 70,
+      "beat": 3
+    },
+    {
+      "time": 269.516129,
+      "instrument": "kick",
+      "bar": 70,
+      "beat": 3.5
+    },
+    {
+      "time": 269.516129,
+      "instrument": "ride",
+      "bar": 70,
+      "beat": 3.5
+    },
+    {
+      "time": 270,
+      "instrument": "ride",
+      "bar": 70,
+      "beat": 4
+    },
+    {
+      "time": 270,
+      "instrument": "snare",
+      "bar": 70,
+      "beat": 4
+    },
+    {
+      "time": 270.483871,
+      "instrument": "ride",
+      "bar": 70,
+      "beat": 4.5
+    },
+    {
+      "time": 270.967742,
+      "instrument": "kick",
+      "bar": 71,
+      "beat": 1
+    },
+    {
+      "time": 270.967742,
+      "instrument": "ride",
+      "bar": 71,
+      "beat": 1
+    },
+    {
+      "time": 271.451613,
+      "instrument": "ride",
+      "bar": 71,
+      "beat": 1.5
+    },
+    {
+      "time": 271.935484,
+      "instrument": "ride",
+      "bar": 71,
+      "beat": 2
+    },
+    {
+      "time": 271.935484,
+      "instrument": "snare",
+      "bar": 71,
+      "beat": 2
+    },
+    {
+      "time": 272.419355,
+      "instrument": "ride",
+      "bar": 71,
+      "beat": 2.5
+    },
+    {
+      "time": 272.903226,
+      "instrument": "kick",
+      "bar": 71,
+      "beat": 3
+    },
+    {
+      "time": 272.903226,
+      "instrument": "ride",
+      "bar": 71,
+      "beat": 3
+    },
+    {
+      "time": 273.387097,
+      "instrument": "kick",
+      "bar": 71,
+      "beat": 3.5
+    },
+    {
+      "time": 273.387097,
+      "instrument": "ride",
+      "bar": 71,
+      "beat": 3.5
+    },
+    {
+      "time": 273.870968,
+      "instrument": "ride",
+      "bar": 71,
+      "beat": 4
+    },
+    {
+      "time": 273.870968,
+      "instrument": "snare",
+      "bar": 71,
+      "beat": 4
+    },
+    {
+      "time": 274.354839,
+      "instrument": "ride",
+      "bar": 71,
+      "beat": 4.5
+    },
+    {
+      "time": 274.83871,
+      "instrument": "kick",
+      "bar": 72,
+      "beat": 1
+    },
+    {
+      "time": 274.83871,
+      "instrument": "ride",
+      "bar": 72,
+      "beat": 1
+    },
+    {
+      "time": 275.322581,
+      "instrument": "ride",
+      "bar": 72,
+      "beat": 1.5
+    },
+    {
+      "time": 275.806452,
+      "instrument": "ride",
+      "bar": 72,
+      "beat": 2
+    },
+    {
+      "time": 275.806452,
+      "instrument": "snare",
+      "bar": 72,
+      "beat": 2
+    },
+    {
+      "time": 276.290323,
+      "instrument": "ride",
+      "bar": 72,
+      "beat": 2.5
+    },
+    {
+      "time": 276.774194,
+      "instrument": "kick",
+      "bar": 72,
+      "beat": 3
+    },
+    {
+      "time": 276.774194,
+      "instrument": "ride",
+      "bar": 72,
+      "beat": 3
+    },
+    {
+      "time": 277.258065,
+      "instrument": "kick",
+      "bar": 72,
+      "beat": 3.5
+    },
+    {
+      "time": 277.258065,
+      "instrument": "ride",
+      "bar": 72,
+      "beat": 3.5
+    },
+    {
+      "time": 277.741935,
+      "instrument": "ride",
+      "bar": 72,
+      "beat": 4
+    },
+    {
+      "time": 277.741935,
+      "instrument": "snare",
+      "bar": 72,
+      "beat": 4
+    },
+    {
+      "time": 278.225806,
+      "instrument": "ride",
+      "bar": 72,
+      "beat": 4.5
+    },
+    {
+      "time": 278.709677,
+      "instrument": "kick",
+      "bar": 73,
+      "beat": 1
+    },
+    {
+      "time": 278.709677,
+      "instrument": "crash",
+      "bar": 73,
+      "beat": 1
+    },
+    {
+      "time": 279.193548,
+      "instrument": "ride",
+      "bar": 73,
+      "beat": 1.5
+    },
+    {
+      "time": 279.677419,
+      "instrument": "ride",
+      "bar": 73,
+      "beat": 2
+    },
+    {
+      "time": 279.677419,
+      "instrument": "snare",
+      "bar": 73,
+      "beat": 2
+    },
+    {
+      "time": 280.16129,
+      "instrument": "ride",
+      "bar": 73,
+      "beat": 2.5
+    },
+    {
+      "time": 280.645161,
+      "instrument": "kick",
+      "bar": 73,
+      "beat": 3
+    },
+    {
+      "time": 280.645161,
+      "instrument": "ride",
+      "bar": 73,
+      "beat": 3
+    },
+    {
+      "time": 281.129032,
+      "instrument": "kick",
+      "bar": 73,
+      "beat": 3.5
+    },
+    {
+      "time": 281.129032,
+      "instrument": "ride",
+      "bar": 73,
+      "beat": 3.5
+    },
+    {
+      "time": 281.612903,
+      "instrument": "ride",
+      "bar": 73,
+      "beat": 4
+    },
+    {
+      "time": 281.612903,
+      "instrument": "snare",
+      "bar": 73,
+      "beat": 4
+    },
+    {
+      "time": 282.096774,
+      "instrument": "ride",
+      "bar": 73,
+      "beat": 4.5
+    },
+    {
+      "time": 282.580645,
+      "instrument": "kick",
+      "bar": 74,
+      "beat": 1
+    },
+    {
+      "time": 282.580645,
+      "instrument": "ride",
+      "bar": 74,
+      "beat": 1
+    },
+    {
+      "time": 283.064516,
+      "instrument": "ride",
+      "bar": 74,
+      "beat": 1.5
+    },
+    {
+      "time": 283.548387,
+      "instrument": "ride",
+      "bar": 74,
+      "beat": 2
+    },
+    {
+      "time": 283.548387,
+      "instrument": "snare",
+      "bar": 74,
+      "beat": 2
+    },
+    {
+      "time": 284.032258,
+      "instrument": "ride",
+      "bar": 74,
+      "beat": 2.5
+    },
+    {
+      "time": 284.516129,
+      "instrument": "kick",
+      "bar": 74,
+      "beat": 3
+    },
+    {
+      "time": 284.516129,
+      "instrument": "ride",
+      "bar": 74,
+      "beat": 3
+    },
+    {
+      "time": 285,
+      "instrument": "kick",
+      "bar": 74,
+      "beat": 3.5
+    },
+    {
+      "time": 285,
+      "instrument": "ride",
+      "bar": 74,
+      "beat": 3.5
+    },
+    {
+      "time": 285.483871,
+      "instrument": "ride",
+      "bar": 74,
+      "beat": 4
+    },
+    {
+      "time": 285.483871,
+      "instrument": "snare",
+      "bar": 74,
+      "beat": 4
+    },
+    {
+      "time": 285.967742,
+      "instrument": "ride",
+      "bar": 74,
+      "beat": 4.5
+    },
+    {
+      "time": 286.451613,
+      "instrument": "kick",
+      "bar": 75,
+      "beat": 1
+    },
+    {
+      "time": 286.451613,
+      "instrument": "ride",
+      "bar": 75,
+      "beat": 1
+    },
+    {
+      "time": 286.935484,
+      "instrument": "ride",
+      "bar": 75,
+      "beat": 1.5
+    },
+    {
+      "time": 287.419355,
+      "instrument": "ride",
+      "bar": 75,
+      "beat": 2
+    },
+    {
+      "time": 287.419355,
+      "instrument": "snare",
+      "bar": 75,
+      "beat": 2
+    },
+    {
+      "time": 287.903226,
+      "instrument": "ride",
+      "bar": 75,
+      "beat": 2.5
+    },
+    {
+      "time": 288.387097,
+      "instrument": "kick",
+      "bar": 75,
+      "beat": 3
+    },
+    {
+      "time": 288.387097,
+      "instrument": "ride",
+      "bar": 75,
+      "beat": 3
+    },
+    {
+      "time": 288.870968,
+      "instrument": "kick",
+      "bar": 75,
+      "beat": 3.5
+    },
+    {
+      "time": 288.870968,
+      "instrument": "ride",
+      "bar": 75,
+      "beat": 3.5
+    },
+    {
+      "time": 289.354839,
+      "instrument": "ride",
+      "bar": 75,
+      "beat": 4
+    },
+    {
+      "time": 289.354839,
+      "instrument": "snare",
+      "bar": 75,
+      "beat": 4
+    },
+    {
+      "time": 289.83871,
+      "instrument": "ride",
+      "bar": 75,
+      "beat": 4.5
+    },
+    {
+      "time": 290.322581,
+      "instrument": "kick",
+      "bar": 76,
+      "beat": 1
+    },
+    {
+      "time": 290.322581,
+      "instrument": "ride",
+      "bar": 76,
+      "beat": 1
+    },
+    {
+      "time": 290.806452,
+      "instrument": "ride",
+      "bar": 76,
+      "beat": 1.5
+    },
+    {
+      "time": 291.290323,
+      "instrument": "ride",
+      "bar": 76,
+      "beat": 2
+    },
+    {
+      "time": 291.290323,
+      "instrument": "snare",
+      "bar": 76,
+      "beat": 2
+    },
+    {
+      "time": 291.774194,
+      "instrument": "ride",
+      "bar": 76,
+      "beat": 2.5
+    },
+    {
+      "time": 292.258065,
+      "instrument": "kick",
+      "bar": 76,
+      "beat": 3
+    },
+    {
+      "time": 292.258065,
+      "instrument": "ride",
+      "bar": 76,
+      "beat": 3
+    },
+    {
+      "time": 292.741935,
+      "instrument": "kick",
+      "bar": 76,
+      "beat": 3.5
+    },
+    {
+      "time": 292.741935,
+      "instrument": "ride",
+      "bar": 76,
+      "beat": 3.5
+    },
+    {
+      "time": 293.225806,
+      "instrument": "ride",
+      "bar": 76,
+      "beat": 4
+    },
+    {
+      "time": 293.225806,
+      "instrument": "snare",
+      "bar": 76,
+      "beat": 4
+    },
+    {
+      "time": 293.709677,
+      "instrument": "hihat-open",
+      "bar": 76,
+      "beat": 4.5
+    }
+  ],
+  "transcriptionStatus": "PARTIALLY SHEET-REVIEWED DRAFT; not a verified complete transcription",
+  "originalBarsPreserved": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "extensionBars": [
+    5,
+    75
+  ],
+  "syncPolicy": "Keep existing working audioStartOffsetSeconds/chartOffsetSeconds/calibrationOffsetMs and countdown scheduling in the VR implementation unchanged. Do not reset or infer values from this file.",
+  "endTimeSeconds": 298.064516,
+  "scoreNotes": "Full screenshot reviewed for bar layout and visible main-note rhythms. Original 1-4 preserved; 5-75 corrected where legible; 76 transcribed from the last line; 77 is an explicit whole-bar rest. No notes generated beyond the score.",
+  "originalDraft": {
+    "file": "love_full_75_bars_DRAFT.json",
+    "sha256": "f32d7883d887d9514f694894cbd2c64077f8ecdd841b36d8872a544fc9df1b13",
+    "bars": 75,
+    "notes": 975
+  },
+  "sheetReview": {
+    "source": "사랑으로 악보.png",
+    "status": "partial",
+    "barCountEvidence": "Right-page lines: 39-42,43-46,47-50,51-54,55-58,59-63,64-68,69-72,73-76, then bar 77 rest.",
+    "reviewed": [
+      "Visible kick/snare main groove beats in bars 5-76",
+      "Closed H.H. instruction at bar 9 and Ride instruction at bar 25/39",
+      "Open quarter-note at bar 18 beat 4",
+      "Quarter-note ending of bar 24",
+      "Main rhythmic outline of bar 58 fill",
+      "Final played measure and whole-bar rest"
+    ],
+    "corrections": [
+      {
+        "bar": 5,
+        "beat": 1,
+        "from": "ride",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 9,
+        "beat": 1,
+        "from": "hihat",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 15,
+        "beat": 1,
+        "from": "hihat",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 19,
+        "beat": 1,
+        "from": "hihat",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 25,
+        "beat": 1,
+        "from": "ride",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 35,
+        "beat": 1,
+        "from": "ride",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 39,
+        "beat": 1,
+        "from": "ride",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 43,
+        "beat": 1,
+        "from": "ride",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 51,
+        "beat": 1,
+        "from": "ride",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 57,
+        "beat": 1,
+        "from": "ride",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 59,
+        "beat": 1,
+        "from": "ride",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 67,
+        "beat": 1,
+        "from": "ride",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 69,
+        "beat": 1,
+        "from": "ride",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 73,
+        "beat": 1,
+        "from": "ride",
+        "to": "crash",
+        "reason": "Higher cymbal x-note with accent; crash interpretation"
+      },
+      {
+        "bar": 18,
+        "beat": 4,
+        "from": "hihat",
+        "to": "hihat-open",
+        "reason": "Open circle above beat-4 quarter-note"
+      },
+      {
+        "bar": 18,
+        "beat": 4.5,
+        "from": "hihat",
+        "to": null,
+        "reason": "Beat-4 open hi-hat is a quarter-note"
+      },
+      {
+        "bar": 24,
+        "beat": 4.5,
+        "from": "hihat",
+        "to": null,
+        "reason": "Beat-4 cymbal/snare is a quarter-note"
+      },
+      {
+        "bar": 58,
+        "beat": 4,
+        "from": "ride",
+        "to": null,
+        "reason": "Beat 4 is a snare fill, not a cymbal hit"
+      },
+      {
+        "bar": 58,
+        "beat": 4.5,
+        "from": "ride",
+        "to": "floorTom",
+        "reason": "Lower solid head at the last eighth; floor-tom assignment provisional"
+      }
+    ],
+    "unresolved": [
+      {
+        "bars": [
+          5,
+          9,
+          15,
+          19,
+          25,
+          35,
+          39,
+          43,
+          51,
+          57,
+          59,
+          67,
+          69,
+          73
+        ],
+        "issue": "Higher accented cymbal mapped conventionally to crash; no notation legend supplied to prove timbre."
+      },
+      {
+        "bars": [
+          58
+        ],
+        "issue": "Small snare grace note before beat 4 has no exact measured time. Not synthesized at an arbitrary offset. Last lower solid head mapped provisionally to floorTom."
+      },
+      {
+        "bars": [
+          76
+        ],
+        "issue": "Final open-circle cymbal mapped provisionally to hihat-open despite preceding Ride instruction."
+      },
+      {
+        "bars": [
+          5,
+          76
+        ],
+        "issue": "Mixed MP3 performance timing/drift and each individual sounding stroke have not been manually validated. JSON time values and working clock are preserved."
+      }
+    ]
+  }
+}

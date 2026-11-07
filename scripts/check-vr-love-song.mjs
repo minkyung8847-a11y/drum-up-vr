@@ -19,7 +19,7 @@ try {
     window.T.Scene.prototype.updateMatrixWorld=function(...args){if(this.getObjectByName('vr-unified-panel'))window.scene=this;return update.apply(this,args);};
     window.musicStarts=[];
     const original=AudioBufferSourceNode.prototype.start;
-    AudioBufferSourceNode.prototype.start=function(...args){if(this.buffer?.duration>20)window.musicStarts.push({when:args[0],scheduledAt:this.context.currentTime,offset:args[1],duration:args[2],context:this.context,buffer:this.buffer});return original.apply(this,args);};
+    AudioBufferSourceNode.prototype.start=function(...args){if(this.buffer?.duration>20)window.musicStarts.push({when:args[0],scheduledAt:this.context.currentTime,offset:args[1],duration:args[2],context:this.context,buffer:this.buffer,source:this});return original.apply(this,args);};
   });
   await page.waitForFunction(()=>window.scene);
   await page.getByRole('button',{name:'Enter VR',exact:true}).click();
@@ -66,10 +66,11 @@ try {
     return start.duration===undefined&&Math.abs(start.when-start.scheduledAt-(4*60/62+.035))<.025&&count.visible&&count.userData.label==='3';
   }),'START schedules MP3 after four beats and shows 3');
   const countdown=await page.evaluate(async()=>{
-    const labels=new Set(),start=window.musicStarts.at(-1),end=performance.now()+7000;
-    while(start.context.currentTime<start.when+.03&&performance.now()<end){
+    const labels=new Set(),start=window.musicStarts.at(-1),end=performance.now()+10000;
+    while(performance.now()<end){
       window.panelStep();const count=window.scene.getObjectByName('vr-song-countdown');
       if(count.visible)labels.add(count.userData.label);
+      if(!count.visible&&start.context.currentTime>=start.when)break;
       await new Promise(resolve=>setTimeout(resolve,30));
     }
     window.panelStep();
@@ -120,6 +121,17 @@ try {
   });
   assert.equal(timed.count,52);assert.deepEqual(timed.counts,{ride:32,kick:12,snare:8});
   for(const key of ['scheduled','earlyAbsent','visible','simultaneous','frozen','noFake'])assert(timed[key],key);assert.equal(timed.total,52);
+  // Emit the real source's ended event without waiting five minutes. This tests
+  // end handling and UI, not a claim of a full-length physical headset run.
+  await page.evaluate(()=>window.musicStarts.at(-1).source.stop());
+  await page.waitForFunction(()=>window.scene.getObjectByName('vr-unified-panel').userData.panelState.songResults);
+  assert(await page.evaluate(()=>{
+    window.panelStep(4);const state=window.scene.getObjectByName('vr-unified-panel').userData.panelState,r=state.songResults;
+    const cleared=window.scene.getObjectByName('note-highway-anchor').children.filter(n=>n.name.startsWith('note-')).every(n=>!n.visible);
+    const totals=r.perfect+r.great+r.miss===985&&Number.isFinite(r.accuracy);
+    window.panelClick(window.input,512,800);
+    return totals&&cleared&&!window.scene.getObjectByName('vr-note-lanes').visible&&!state.songResults&&state.tab==='MUSIC'&&!state.minimized;
+  }),'Actual ended event opens full-song results and Trigger returns to MUSIC with notes cleared');
   assert.deepEqual(errors,[]);
-  console.log('PASS: VR love. selection/detail raycasts, actual MP3 decoding and preview isolation, scheduled four-beat count-in, 52 authored notes, shared audio clock, simultaneous judgments, pause/resume and no invented notes. Quest 3 hardware and recording alignment NOT verified.');
+  console.log('PASS: VR love. selection/detail raycasts, actual MP3 and full-chart loading, preview isolation, unchanged four-beat count-in/opening clock, signed sync controls, ended-event 985-note results and Trigger return. Quest 3 hardware and full transcription NOT verified.');
 }finally{await browser?.close();await vite.close();}

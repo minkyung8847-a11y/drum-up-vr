@@ -51,7 +51,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   mesh.name = 'vr-unified-panel'; mesh.renderOrder = 1000; mesh.visible = false; scene.add(mesh);
   mesh.userData.panelState = state;
   const detail = createVRSongDetail(mesh, {
-    onStart: async offset => { const started = await options.onSongStart?.(offset); if (started === false) return false; state.minimized = true; dirty = true; return true; },
+    onStart: async offset => { const started = await options.onSongStart?.(offset); if (started === false) return false; state.songResults = undefined; state.minimized = true; dirty = true; return true; },
     onPreview: async () => { await options.onSongPreview?.(); },
     onClose: () => options.onSongPreviewStop?.(),
   });
@@ -164,11 +164,12 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     return action ? { hit, action, x, y } : null;
   }
   function activate(action: PanelAction) {
+    if (action.kind === 'results') { state.songResults = undefined; state.tab = 'MUSIC'; state.minimized = false; dirty = true; return; }
     if (action.kind === 'noteSync') {
       state.noteSyncMs = setNoteSyncMs(action.index ? state.noteSyncMs + action.index * 10 : 0);
       options.onNoteSync?.(state.noteSyncMs); dirty = true; return;
     }
-    if (action.kind === 'tab') { state.tab = PANEL_TABS[action.index]; state.hover = ''; state.minimized = false; if (state.tab !== 'MUSIC') detail.close(); }
+    if (action.kind === 'tab') { state.songResults = undefined; state.tab = PANEL_TABS[action.index]; state.hover = ''; state.minimized = false; if (state.tab !== 'MUSIC') detail.close(); }
     else if (action.kind === 'genre') { state.genre = PANEL_GENRES[action.index]; state.scroll = 0; }
     else if (action.kind === 'song') { state.song = action.index; detail.select(DEMO_SONGS[action.index]); }
     else if (action.kind === 'detail') void detail.activate(action.index);
@@ -237,6 +238,11 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   }
   return {
     mesh, state,
+    showSongResults(perfect: number, great: number, miss: number) {
+      const total = perfect + great + miss;
+      state.songResults = { perfect, great, miss, accuracy: total ? (perfect + great * .7) / total * 100 : 0 };
+      state.minimized = false; detail.close(); dirty = true;
+    },
     show() { mesh.visible = true; dirty = true; },
     hide() { mesh.visible = false; options.onSongPreviewStop?.(); resetInput(); pointers.forEach(({ line, dot }) => { line.visible = dot.visible = false; }); },
     setBackground(id: DrumEnvironmentId) { if (state.background !== id) { state.background = id; dirty = true; } },

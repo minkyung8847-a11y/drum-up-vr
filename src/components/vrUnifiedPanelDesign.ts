@@ -26,13 +26,14 @@ export interface UnifiedPanelState {
   rhythm: 'idle' | 'playing' | 'paused' | 'finished'; bpm: number;
   perfect: number; great: number; miss: number; countIn?: number; noteSyncMs: number;
   judgment?: 'Perfect' | 'Great' | 'Miss';
+  songResults?: { perfect: number; great: number; miss: number; accuracy: number };
 }
 export function filteredSongs(state: UnifiedPanelState) {
   return DEMO_SONGS.map((song, id) => ({ ...song, id }))
     .filter(song => state.genre === 'All' || (song.genres as readonly string[]).includes(state.genre));
 }
 export const maxSongScroll = (state: UnifiedPanelState) => Math.max(0, filteredSongs(state).length * SONG_LIST.row - SONG_LIST.height);
-export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move' | 'detail' | 'noteSync'; index: number };
+export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move' | 'detail' | 'noteSync' | 'results'; index: number };
 export function panelActionAt(state: UnifiedPanelState, x: number, y: number): PanelAction | null {
   for (let index = 0; index < 4; index++) {
     if (Math.hypot(x - [200, 432, 656, 880][index], y - 106) <= 86)
@@ -41,6 +42,7 @@ export function panelActionAt(state: UnifiedPanelState, x: number, y: number): P
   if (state.minimized) return null;
   if (x < 12 || x > 1012 || y < 226 || y > 898) return null;
   const action = (kind: PanelAction['kind'], index: number): PanelAction => ({ key: `${kind}-${index}`, kind, index });
+  if (state.songResults) return x >= 180 && x <= 844 && y >= 770 && y <= 842 ? action('results', 0) : action('panel', 0);
   if (state.tab === 'PRACTICE' && state.practice === 'RUDIMENT' && y >= 660 && y <= 728 && x >= 60 && x <= 964) {
     const index = Math.floor((x - 60) / 310);
     if (index < 3 && (x - 60) % 310 <= 284) return action('rhythm', index);
@@ -199,6 +201,17 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
   rounded(ctx, 12, 226, 1000, 672, 20);
   ctx.fillStyle = '#17191e'; ctx.fill(); ctx.strokeStyle = '#c7c9d4'; ctx.lineWidth = 1.8; ctx.stroke();
   rounded(ctx, 15, 229, 994, 666, 17); ctx.strokeStyle = '#ffffff24'; ctx.lineWidth = .8; ctx.stroke();
+  if (state.songResults) {
+    title(ctx, 'RESULTS', 'MUSIC');
+    const result = state.songResults;
+    [['PERFECT', result.perfect], ['GREAT', result.great], ['MISS', result.miss], ['ACCURACY', `${result.accuracy.toFixed(1)}%`]].forEach(([label, value], index) => {
+      ctx.textAlign = 'left'; ctx.font = '600 28px Arial'; ctx.fillStyle = '#cbd2de'; ctx.fillText(String(label), 180, 410 + index * 85);
+      ctx.textAlign = 'right'; ctx.fillStyle = '#f4f6fb'; ctx.font = '600 36px Arial'; ctx.fillText(String(value), 844, 410 + index * 85);
+    });
+    card(ctx, state, 'results-0', 180, 770, 664, 72, true);
+    ctx.textAlign = 'center'; ctx.font = '600 25px Arial'; ctx.fillStyle = '#f5f7ff'; ctx.fillText('BACK TO MUSIC', 512, 816);
+    return;
+  }
   if (state.tab === 'MUSIC') {
     title(ctx, 'SONG SELECT', 'MUSIC');
     card(ctx, state, 'search', 894, 249, 92, 52, false, 26);

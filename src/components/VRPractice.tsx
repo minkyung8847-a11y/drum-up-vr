@@ -26,7 +26,7 @@ import { attachXRKickInput } from '../pedal/xrKickInput';
 import { createVRUnifiedPanel } from './vrUnifiedPanel';
 import { createSongMedia, songBpmAt } from './songPlayback';
 import type { SongPlayback } from './songPlayback';
-import { createVRMusicAudio, LOVE_ROOT, LOVE_COUNT_IN, parseLoveChart } from './vrMusicSong';
+import { createVRMusicAudio, LOVE_ROOT, LOVE_COUNT_IN, validateLoveFullChart } from './vrMusicSong';
 import type { VRMusicTransport } from './vrMusicSong';
 import { createVRSongCountdown } from './vrSongDetail';
 import { getNoteSyncMs } from './vrNoteSync';
@@ -231,10 +231,13 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         musicAudio.stopPreview();
         // Resume synchronously from the actual XR Trigger activation, before fetching.
         await musicAudio.unlock();
-        const [transport, response] = await Promise.all([musicAudio.transport(), fetch(`${LOVE_ROOT}love_first_4_bars.json`)]);
+        const [transport, response, openingResponse] = await Promise.all([musicAudio.transport(),
+          fetch(`${LOVE_ROOT}love_full_75_bars_DRAFT.json`), fetch(`${LOVE_ROOT}love_first_4_bars.json`)]);
         try {
           if (!response.ok) throw Error(`Chart HTTP ${response.status}`);
-          const notes = parseLoveChart(await response.json()).map(note => ({ ...note, time: note.time + chartOffsetSeconds }));
+          if (!openingResponse.ok) throw Error(`Opening chart HTTP ${openingResponse.status}`);
+          const fullChart = await response.json();
+          const notes = validateLoveFullChart(fullChart, await openingResponse.json()).map(note => ({ ...note, time: note.time + chartOffsetSeconds }));
           if (disposed || request !== musicRequest || !isVisibleXR() || !noteLanes) { transport.dispose(); return false; }
           highway?.dispose(); loveTransport?.dispose(); loveTransport = transport;
           highway = createVRNoteHighway(scene, rhythmSurfaces, noteLanes.paths,
@@ -243,11 +246,17 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
               noteSyncMs: getNoteSyncMs(), timingDebug: {
                 contextAt: time => transport.contextTimeAt(time), outputTime: () => transport.outputTime(),
               },
-              onResults: (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time),
+              onResults: (perfect, great, miss, time) => {
+                unifiedPanel.setSongResults(perfect, great, miss, time);
+                if (unifiedPanel.state.rhythm === 'finished') {
+                  if (noteLanes) noteLanes.lines.visible = false;
+                  unifiedPanel.showSongResults(perfect, great, miss);
+                }
+              },
             });
           noteLanes.lines.visible = true;
           unifiedPanel.setRhythmBpm(62);
-          console.info('[DRUM UP VR MUSIC] love. · 52 authored notes · chartOffsetSeconds', chartOffsetSeconds);
+          console.info('[DRUM UP VR MUSIC] love. full score', { notes: notes.length, bars: fullChart.bars, chartOffsetSeconds, transcriptionStatus: fullChart.transcriptionStatus });
           console.table(notes.map(note => ({ instrument: note.instrument, chartOffsetSeconds, noteSyncMs: getNoteSyncMs(),
             targetMP3Seconds: note.time + getNoteSyncMs() / 1000,
             spawnSecondsFromStart: LOVE_COUNT_IN + note.time + getNoteSyncMs() / 1000 - 3,
