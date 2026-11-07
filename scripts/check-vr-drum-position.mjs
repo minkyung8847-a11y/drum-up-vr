@@ -116,7 +116,29 @@ try {
     const fixedPanelPose = panel.matrixWorld.clone();
     session.head.position[0] += .1; session.step();
     const worldFixed = panel.matrixWorld.equals(fixedPanelPose);
-    aim(left, panel); click(left); row(left, 0);
+    aim(left, panel);
+    // Completed Trigger selection must work even without a forwarded start.
+    emit('select', left); session.step();
+    const settingsAlreadyPaused = !oldLines.visible && !chart.visible;
+    const settingsSoundCount = window.sounds.length, settingsPulseCount = session.pulses.length;
+    session.squeeze(right); session.step(3);
+    // Attempt a physical snare stroke before entering the inner edit screen.
+    const snareRoot = roots.get('snare');
+    const snareHead = snareRoot.children.find(object => object.isMesh && object.userData.drumType === 'snare' && object.position.y > 0);
+    const snareNormal = new T.Vector3(0, 1, 0).applyNormalMatrix(new T.Matrix3().getNormalMatrix(snareHead.matrixWorld));
+    const snareTarget = snareHead.getWorldPosition(new T.Vector3()).addScaledVector(snareNormal, .12);
+    const menuStick = rig.children.map(object => object.getObjectByName('right-stick-grip'))
+      .find(object => object?.parent.name.startsWith('controller-'));
+    const menuOffset = menuStick.parent.parent.worldToLocal(menuStick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3()));
+    const menuAxis = new T.Vector3(1, 0, 0), menuPitch = -23 * Math.PI / 180;
+    menuOffset.applyAxisAngle(menuAxis, menuPitch);
+    right.gripSpace.tracked = false; session.step();
+    right.gripSpace.position = rig.worldToLocal(snareTarget).sub(menuOffset).toArray();
+    right.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(menuAxis, menuPitch).toArray();
+    right.gripSpace.tracked = true; session.step(6);
+    right.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(menuAxis, menuPitch - .05).toArray(); session.step(2);
+    const settingsAlreadySilent = window.sounds.length === settingsSoundCount && session.pulses.length === settingsPulseCount;
+    row(left, 0);
     const hidden = !oldLines.visible && !chart.visible;
     const frozenPosition = note.position.clone();
     const soundCount = window.sounds.length, pulseCount = session.pulses.length;
@@ -223,7 +245,7 @@ try {
     const editableInAR = !get('vr-note-lanes').visible && !chart.visible;
     row(right, 3);
     const doneInAR = chart.visible && get('vr-note-lanes').visible;
-    return { stereo, worldFixed, wasMoving, hidden, silentEdit, frozen, hihatMoved, smallTomMoved,
+    return { stereo, worldFixed, wasMoving, settingsAlreadyPaused, settingsAlreadySilent, hidden, silentEdit, frozen, hihatMoved, smallTomMoved,
       middleTomMoved, rotated, savedAll, preserved, rebuilt, sameTargets, resumed, endpointsRetargeted,
       noteArrivesAtMovedTarget, kickJudgedAfterEdit, movedHiHatCanBeStruck, arPreservesLayout, editableInAR, doneInAR };
   });

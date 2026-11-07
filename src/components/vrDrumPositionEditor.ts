@@ -4,7 +4,7 @@ import type { createVRDrumLayout } from './vrDrumLayout';
 
 export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRManager, rig: THREE.Group,
   layout: ReturnType<typeof createVRDrumLayout>, surfaces: DrumHitSurface[], targets: THREE.Object3D[],
-  callbacks: { onEditing: (active: boolean) => void; onMenu: (open: boolean) => void }) {
+  callbacks: { onMenu: (open: boolean) => void }) {
   const canvas = document.createElement('canvas');
   canvas.width = 512; canvas.height = 480;
   const context = canvas.getContext('2d')!;
@@ -49,6 +49,8 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
   const bindings = new Map<XRInputSource, ReturnType<typeof xr.getController>>();
   const controllers = [0, 1, 2, 3].map(index => xr.getController(index));
   const held = new Set<XRInputSource>();
+  const handledSelect = new Set<XRInputSource>();
+  let inputSession: XRSession | null = null;
   const grabs = new Map<XRInputSource, { root: THREE.Object3D; offset: THREE.Vector3;
     controller: THREE.Quaternion; rotation: THREE.Quaternion; rotate: boolean }>();
   const lineGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -1)]);
@@ -65,12 +67,12 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
     line.name = `drum-position-outline-${surface.id}`; line.visible = false; line.renderOrder = 10;
     scene.add(line); return [surface.id, { line, surface }] as const;
   }));
-  function releaseAll() { grabs.clear(); held.clear(); }
+  function releaseAll() { grabs.clear(); held.clear(); handledSelect.clear(); }
   function setOpen(value: boolean) { open = value; callbacks.onMenu(open); draw(); }
   function setEditing(value: boolean) {
     if (editing === value) return;
-    releaseAll(); editing = value; status = '';
-    callbacks.onEditing(value); draw();
+    grabs.clear(); editing = value; status = '';
+    draw();
   }
   function cast(source: THREE.Group) {
     source.updateWorldMatrix(true, false);
@@ -78,19 +80,37 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
     raycaster.ray.origin.setFromMatrixPosition(source.matrixWorld);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
   }
-  function moveGrab(grab: NonNullable<ReturnType<typeof grabs.get>>, source: THREE.Group) {
+  function castInput(event: XRInputSourceEvent) {
+    const input = event.inputSource, reference = xr.getReferenceSpace();
+    if (!panel.visible || inputSession?.visibilityState !== 'visible' || input.hand || !input.gripSpace
+      || input.targetRayMode !== 'tracked-pointer' || !reference) return false;
+    const pose = event.frame.getPose(input.targetRaySpace, reference);
+    if (!pose || pose.emulatedPosition) return false;
+    rig.updateWorldMatrix(true, false);
+    world.fromArray(pose.transform.matrix).premultiply(rig.matrixWorld);
+    rotation.extractRotation(world);
+    raycaster.ray.origin.setFromMatrixPosition(world);
+    raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
+    return true;
+  }
+  function moveGrab(grab: NonNullable<ReturnType<typeof grabs.get>>, matrix: THREE.Matrix4) {
     if (grab.rotate) {
-      source.getWorldQuaternion(controllerRotation);
+      controllerRotation.setFromRotationMatrix(rotation.extractRotation(matrix));
       deltaRotation.copy(controllerRotation).multiply(grab.controller).multiply(grab.rotation);
       grab.root.parent!.getWorldQuaternion(parentRotation).invert();
       grab.root.quaternion.copy(parentRotation.multiply(deltaRotation));
     } else {
-      source.getWorldPosition(controllerPosition).add(grab.offset);
+      controllerPosition.setFromMatrixPosition(matrix).add(grab.offset);
       grab.root.position.copy(grab.root.parent!.worldToLocal(controllerPosition));
     }
     grab.root.updateWorldMatrix(true, true);
   }
-  const menuHit = () => panel.visible ? raycaster.intersectObject(panel, false)[0] : undefined;
+  const menuHit = () => {
+    if (!panel.visible) return;
+    // UI can resize/reposition between XR frames. Raycast its current matrix.
+    panel.updateWorldMatrix(true, false);
+    return raycaster.intersectObject(panel, false)[0];
+  };
   const rootAtRay = () => {
     const hit = raycaster.intersectObjects(targets, false)[0];
     let root: THREE.Object3D | null = hit?.object ?? null;
@@ -110,36 +130,52 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
       grabs.clear(); status = layout.save() ? 'POSITION SAVED' : 'SAVE UNAVAILABLE · browser storage'; draw();
     } else if (row === 2) {
       grabs.clear(); layout.reset(); status = 'DEFAULT POSITION RESTORED';
-      // Outside edit mode, use the same pause/retarget/resume transaction.
-      if (!editing) { callbacks.onEditing(true); callbacks.onEditing(false); }
+      // The whole SETTINGS session is paused; commit targets on DONE.
       draw();
     } else { setEditing(false); setOpen(false); }
   }
+  const start = (event: XRInputSourceEvent) => {
+    const input = event.inputSource;
+    if (held.has(input) || !castInput(event)) return;
+    held.add(input); handledSelect.add(input);
+    const menu = menuHit();
+    if (menu?.uv) { menuAction(menu.uv); return; }
+    if (!editing) return;
+    const { root } = rootAtRay();
+    if (!root || [...grabs.values()].some(grab => grab.root === root)) return;
+    grabs.set(input, { root, offset: root.getWorldPosition(new THREE.Vector3()).sub(raycaster.ray.origin),
+      controller: new THREE.Quaternion().setFromRotationMatrix(rotation.extractRotation(world)).invert(),
+      rotation: root.getWorldQuaternion(new THREE.Quaternion()), rotate });
+  };
+  const end = (event: XRInputSourceEvent) => {
+    const grab = grabs.get(event.inputSource);
+    if (editing && grab && castInput(event)) moveGrab(grab, world);
+    grabs.delete(event.inputSource); held.delete(event.inputSource);
+  };
+  const select = (event: XRInputSourceEvent) => {
+    // Accept the same completed Trigger action as the other XR menus. A
+    // selectstart + select sequence must still activate only one button.
+    if (handledSelect.delete(event.inputSource) || !castInput(event)) return;
+    const menu = menuHit();
+    if (menu?.uv) menuAction(menu.uv);
+  };
+  function setSession(session: XRSession | null) {
+    if (session === inputSession) return;
+    inputSession?.removeEventListener('selectstart', start);
+    inputSession?.removeEventListener('selectend', end);
+    inputSession?.removeEventListener('select', select);
+    releaseAll(); inputSession = session;
+    session?.addEventListener('selectstart', start);
+    session?.addEventListener('selectend', end);
+    session?.addEventListener('select', select);
+  }
   const listeners = controllers.map(source => {
     const connected = (event: { data: XRInputSource }) => { bindings.set(event.data, source); };
-    const disconnected = (event: { data: XRInputSource }) => { grabs.delete(event.data); held.delete(event.data); bindings.delete(event.data); };
-    const start = (event: { data: XRInputSource }) => {
-      const input = event.data;
-      if (!panel.visible || xr.getSession()?.visibilityState !== 'visible' || input.hand || !input.gripSpace
-        || input.targetRayMode !== 'tracked-pointer' || !source.visible || held.has(input)) return;
-      held.add(input); cast(source);
-      const menu = menuHit();
-      if (menu?.uv) { menuAction(menu.uv); return; }
-      if (!editing) return;
-      const { root } = rootAtRay();
-      if (!root || [...grabs.values()].some(grab => grab.root === root)) return;
-      grabs.set(input, { root, offset: root.getWorldPosition(new THREE.Vector3()).sub(raycaster.ray.origin),
-        controller: source.getWorldQuaternion(new THREE.Quaternion()).invert(),
-        rotation: root.getWorldQuaternion(new THREE.Quaternion()), rotate });
-    };
-    const end = (event: { data: XRInputSource }) => {
-      const grab = grabs.get(event.data);
-      if (editing && grab && source.visible) moveGrab(grab, source);
-      grabs.delete(event.data); held.delete(event.data);
+    const disconnected = (event: { data: XRInputSource }) => {
+      grabs.delete(event.data); held.delete(event.data); handledSelect.delete(event.data); bindings.delete(event.data);
     };
     source.addEventListener('connected', connected); source.addEventListener('disconnected', disconnected);
-    source.addEventListener('selectstart', start); source.addEventListener('selectend', end);
-    return { connected, disconnected, start, end };
+    return { connected, disconnected };
   });
   function updateOutline(id: string) {
     const outline = outlines.get(id); if (!outline) return;
@@ -165,6 +201,7 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
       if (!retain) { setEditing(false); setOpen(false); }
     },
     update(session: XRSession | null, viewer: XRViewerPose | null, frame?: XRFrame) {
+      setSession(session);
       rays.forEach(ray => { ray.visible = false; });
       for (const { line } of outlines.values()) line.visible = false;
       if (!panel.visible || session?.visibilityState !== 'visible' || !viewer) { releaseAll(); return; }
@@ -186,7 +223,8 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
         }
         const grab = grabs.get(input);
         if (editing && grab) {
-          moveGrab(grab, source);
+          source.updateWorldMatrix(true, false);
+          moveGrab(grab, source.matrixWorld);
           updateOutline(grab.root.userData.positionEditRoot);
         }
         cast(source);
@@ -200,10 +238,10 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
       }
     },
     dispose() {
+      setSession(null);
       controllers.forEach((source, index) => {
         const listener = listeners[index];
         source.removeEventListener('connected', listener.connected); source.removeEventListener('disconnected', listener.disconnected);
-        source.removeEventListener('selectstart', listener.start); source.removeEventListener('selectend', listener.end);
         rays[index].removeFromParent();
       });
       for (const { line } of outlines.values()) { line.removeFromParent(); line.geometry.dispose(); }

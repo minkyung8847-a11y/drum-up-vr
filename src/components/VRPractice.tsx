@@ -171,7 +171,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     hiHatRef.current = pressed => {
       const session = renderer.xr.getSession();
       const visible = session ? session.visibilityState === 'visible' : document.visibilityState === 'visible';
-      interaction.setHiHatClosed(visible && pressed);
+      interaction.setHiHatClosed(visible && pressed, !positionEditing);
       return visible;
     };
     unlockKickRef.current = async () => (await drumSynth.unlock()) && audioReady;
@@ -246,8 +246,8 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     });
     const positionEditor = createVRDrumPositionEditor(scene, renderer.xr, rig, drumLayout,
       kit.hitSurfaces, kit.raycastTargets, {
-        onMenu: open => arModeWindow.setInputBlocked(open),
-        onEditing: active => {
+        onMenu: active => {
+          arModeWindow.setInputBlocked(active);
           const now = performance.now();
           positionEditing = active;
           interaction.update(1);
