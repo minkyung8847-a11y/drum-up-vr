@@ -98,7 +98,7 @@ try {
       session.step(2);
     };
     const click = input => { emit('selectstart', input); emit('selectend', input); emit('select', input); session.step(); };
-    const row = (input, index) => { aim(input, panel, 0, .5 - (112.5 + index * 80) / 480); click(input); };
+    const row = (input, index) => { aim(input, panel, 0, .5 - (112.5 + index * 80) / panel.material.map.image.height); click(input); };
     // Use existing rhythm control; its authored pattern and timeline stay alive.
     const rhythm = get('vr-rhythm-controls');
     aim(right, rhythm, -.124, .005);
@@ -161,20 +161,23 @@ try {
       input.gripSpace.quaternion = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 0, -1), normal.negate()).toArray();
       session.step(2);
     };
-    const drag = (input, id, delta) => {
+    const drag = (input, id, delta, gamepadOnly = false) => {
       const root = roots.get(id); aimAtDrum(input, id);
       const before = root.getWorldPosition(new T.Vector3());
-      emit('selectstart', input); session.step();
+      if (gamepadOnly) { input.gamepad.buttons[0].pressed = true; input.gamepad.buttons[0].value = 1; }
+      else emit('selectstart', input);
+      session.step();
       const noJump = root.getWorldPosition(new T.Vector3()).distanceTo(before) < 1e-8;
       input.gripSpace.position = input.gripSpace.position.map((value, index) => value + delta[index]); session.step(3);
       const moved = root.getWorldPosition(new T.Vector3()).distanceTo(before.clone().add(new T.Vector3(...delta))) < 1e-7;
       const outline = get(`drum-position-outline-${id}`).visible;
-      emit('selectend', input);
+      if (gamepadOnly) { input.gamepad.buttons[0].pressed = false; input.gamepad.buttons[0].value = 0; session.step(); }
+      else emit('selectend', input);
       const released = root.position.clone(); input.gripSpace.position[0] += .1; session.step(2);
       const fixed = root.position.equals(released);
       return noJump && moved && outline && fixed;
     };
-    const hihatMoved = drag(left, 'hihat', [.12, .06, -.08]);
+    const hihatMoved = drag(left, 'hihat', [.12, .06, -.08], true);
     const smallTomMoved = drag(right, 'smallTom', [-.08, .05, -.07]);
     const middleTomMoved = drag(left, 'middleTom', [.08, .02, -.08]);
     row(right, 0); aimAtDrum(right, 'snare');
@@ -297,26 +300,53 @@ try {
     const rig = scene.getObjectByName('player-rig'), panel = scene.getObjectByName('vr-drum-position-settings');
     const root = scene.getObjectByName('vr-drum-kit').children.find(object => object.userData.positionEditRoot === 'hihat');
     const rest = root.position.clone(), input = session.connect('right'); session.step(3);
+    // Quest target-ray and grip origins/directions are distinct spaces.
+    input.targetRaySpace = { position: [0, 0, 0], quaternion: [0, 0, 0, 1], tracked: true };
+    input.gripSpace.position = [-2, 1, -2];
+    let hoverSeen = false, pressSeen = false, oncePerPress = true;
     const click = y => {
-      input.gripSpace.position = rig.worldToLocal(panel.localToWorld(new T.Vector3(0, y, .55))).toArray();
-      input.gripSpace.quaternion = panel.quaternion.toArray(); session.step(2);
-      for (const type of ['selectstart', 'selectend', 'select']) session.emit(type, { inputSource: input, frame: session.frame() });
-      session.step();
+      input.targetRaySpace.position = rig.worldToLocal(panel.localToWorld(new T.Vector3(0, y, .55))).toArray();
+      input.targetRaySpace.quaternion = panel.quaternion.toArray(); session.step(2);
+      const opening = panel.material.map.image.height === 80;
+      if (opening) {
+        const color = [...panel.material.map.image.getContext('2d').getImageData(10, 10, 1, 1).data].slice(0, 3);
+        hoverSeen = panel.userData.hoveredRow === -1 && color.join(',') === '38,49,61'
+          && scene.getObjectByName('drum-position-pointer-0').visible;
+      }
+      // No DOM/XR select event is emitted: exercise live gamepad fallback.
+      input.gamepad.buttons[0].pressed = true; input.gamepad.buttons[0].value = 1; session.step();
+      if (opening) {
+        const color = [...panel.material.map.image.getContext('2d').getImageData(10, 10, 1, 1).data].slice(0, 3);
+        pressSeen = panel.userData.pressedRow === -1 && panel.material.map.image.height === 560 && color.join(',') === '70,83,98';
+        session.step(10);
+        oncePerPress = !panel.userData.editing;
+        // Delayed native events for that same press cannot enter edit mode.
+        for (const type of ['selectstart', 'select', 'selectend']) session.emit(type, { inputSource: input, frame: session.frame() });
+        oncePerPress &&= !panel.userData.editing;
+      }
+      input.gamepad.buttons[0].pressed = false; input.gamepad.buttons[0].value = 0; session.step();
     };
     let draws = 0; panel.onBeforeRender = () => draws++; session.step(); panel.onBeforeRender = () => {};
-    click(0); click(.5 - 112.5 / 480);
-    const editing = !scene.getObjectByName('vr-note-lanes').visible;
+    input.gamepad.buttons[1].pressed = true; input.gamepad.buttons[1].value = 1; session.step(2);
+    const gripDoesNotSelect = panel.material.map.image.height === 80 && !panel.userData.editing;
+    input.gamepad.buttons[1].pressed = false; input.gamepad.buttons[1].value = 0; session.step();
+    click(0); click(.5 - 112.5 / panel.material.map.image.height);
+    const editing = panel.userData.editing && !scene.getObjectByName('vr-note-lanes').visible;
     root.position.x += .15; root.updateWorldMatrix(true, true);
-    click(.5 - 192.5 / 480);
+    click(.5 - 192.5 / panel.material.map.image.height);
     const { DRUM_POSITION_STORAGE } = await import('/src/components/vrDrumLayout.ts');
     const saved = !!localStorage.getItem(DRUM_POSITION_STORAGE);
-    click(.5 - 272.5 / 480);
+    click(.5 - 272.5 / panel.material.map.image.height);
     const reset = root.position.equals(rest) && !localStorage.getItem(DRUM_POSITION_STORAGE);
-    click(.5 - 352.5 / 480);
-    return { nativeSession: session.mode === 'immersive-vr', visible: panel.visible, draws, editing, saved, reset,
-      done: scene.getObjectByName('vr-note-lanes').visible };
+    click(.5 - 352.5 / panel.material.map.image.height);
+    const done = scene.getObjectByName('vr-note-lanes').visible;
+    click(0); click(.5 - 432.5 / panel.material.map.image.height);
+    const close = panel.material.map.image.height === 80 && scene.getObjectByName('vr-note-lanes').visible;
+    return { nativeSession: session.mode === 'immersive-vr', visible: panel.visible, draws, hoverSeen, pressSeen, oncePerPress, editing, saved, reset,
+      done, close, gripDoesNotSelect };
   });
-  assert.deepEqual(nativeVR, { nativeSession: true, visible: true, draws: 2, editing: true, saved: true, reset: true, done: true });
+  assert.deepEqual(nativeVR, { nativeSession: true, visible: true, draws: 2, hoverSeen: true, pressSeen: true, oncePerPress: true,
+    editing: true, saved: true, reset: true, done: true, close: true, gripDoesNotSelect: true });
   assert.deepEqual(errors, []);
   console.log('PASS: saved kit reload, actual immersive-vr without AR support, stereo settings, save/reset UI and DONE. Physical Quest 3 controller/compositor behavior NOT tested.');
 } finally { await browser?.close(); await vite.close(); }

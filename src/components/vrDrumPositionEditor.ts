@@ -10,33 +10,43 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
   const context = canvas.getContext('2d')!;
   const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
-    map: texture, transparent: true, depthTest: false, depthWrite: false, toneMapped: false,
+    map: texture, transparent: true, depthTest: false, depthWrite: false, toneMapped: false, side: THREE.DoubleSide,
   }));
   panel.name = 'vr-drum-position-settings'; panel.renderOrder = 1005; panel.visible = false;
+  panel.userData.editing = false;
   scene.add(panel);
   let open = false, editing = false, rotate = false, placed = false, status = '';
+  let hoveredRow = -2, pressedRow = -2, pressedUntil = 0;
   const panelTop = new THREE.Vector3(), panelUp = new THREE.Vector3(0, 1, 0);
   const placePanel = () => panel.position.copy(panelTop).addScaledVector(panelUp, -panel.scale.y / 2);
   function draw() {
-    canvas.height = open ? 480 : 80;
+    canvas.height = open ? 560 : 80;
     panel.scale.set(.58, .58 * canvas.height / 512, 1);
     if (placed) placePanel();
     context.fillStyle = '#101114'; context.fillRect(0, 0, 512, canvas.height);
-    context.strokeStyle = '#87909b'; context.lineWidth = 3;
+    if (hoveredRow === -1 || pressedRow === -1) {
+      context.fillStyle = pressedRow === -1 ? '#465362' : '#26313d';
+      context.fillRect(4, 4, 504, 72);
+    }
+    context.strokeStyle = hoveredRow !== -2 ? '#eef1f5' : '#87909b'; context.lineWidth = 3;
     context.strokeRect(2, 2, 508, canvas.height - 4);
     context.fillStyle = '#eef1f5'; context.textAlign = 'center'; context.font = '600 30px Arial';
     context.fillText(open && editing ? 'DRUM POSITION EDIT' : 'SETTINGS', 256, 49);
     if (open) {
       const labels = [editing ? `MODE: ${rotate ? 'ROTATE' : 'MOVE'}` : 'DRUM POSITION EDIT',
-        'SAVE POSITION', 'RESET POSITION', 'DONE'];
+        'SAVE POSITION', 'RESET POSITION', 'DONE', 'CLOSE'];
       labels.forEach((label, index) => {
+        if (hoveredRow === index || pressedRow === index) {
+          context.fillStyle = pressedRow === index ? '#465362' : '#26313d';
+          context.fillRect(20, 80 + index * 80, 472, 65);
+        }
         context.strokeStyle = '#64717f'; context.strokeRect(20, 80 + index * 80, 472, 65);
         context.font = '600 28px Arial'; context.fillStyle = '#eef1f5';
         context.fillText(label, 256, 123 + index * 80);
       });
       context.font = '20px Arial'; context.fillStyle = '#b6c1cc';
-      context.fillText(status || (editing ? 'Point · hold Trigger · move · release' : 'Individual drum and stand placement'), 256, 443, 480);
-      context.fillText('GRIP assignments are unchanged', 256, 470);
+      context.fillText(status || (editing ? 'Point · hold Trigger · move · release' : 'Individual drum and stand placement'), 256, 523, 480);
+      context.fillText('DRUM INPUT PAUSED · DONE TO PLAY', 256, 550);
     }
     texture.needsUpdate = true;
   }
@@ -46,18 +56,24 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
   const point = new THREE.Vector3(), controllerPosition = new THREE.Vector3();
   const controllerRotation = new THREE.Quaternion(), parentRotation = new THREE.Quaternion();
   const deltaRotation = new THREE.Quaternion();
-  const bindings = new Map<XRInputSource, ReturnType<typeof xr.getController>>();
-  const controllers = [0, 1, 2, 3].map(index => xr.getController(index));
+  const rayForward = new THREE.Vector3(0, 0, -1);
   const held = new Set<XRInputSource>();
+  const triggerDown = new Map<XRInputSource, boolean>();
   const handledSelect = new Set<XRInputSource>();
   let inputSession: XRSession | null = null;
   const grabs = new Map<XRInputSource, { root: THREE.Object3D; offset: THREE.Vector3;
     controller: THREE.Quaternion; rotation: THREE.Quaternion; rotate: boolean }>();
   const lineGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -1)]);
   const lineMaterial = new THREE.LineBasicMaterial({ color: 0xdce7f0, transparent: true, opacity: .65, depthTest: false });
-  const rays = controllers.map((source, index) => {
+  const dotGeometry = new THREE.SphereGeometry(.007, 8, 6);
+  const dotMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false, toneMapped: false });
+  const dots: THREE.Mesh[] = [];
+  const rays = Array.from({ length: 4 }, (_, index) => {
     const ray = new THREE.Line(lineGeometry, lineMaterial);
-    ray.name = `drum-position-ray-${index}`; ray.visible = false; ray.renderOrder = 1006; source.add(ray); return ray;
+    ray.name = `drum-position-ray-${index}`; ray.visible = false; ray.renderOrder = 1006;
+    const dot = new THREE.Mesh(dotGeometry, dotMaterial);
+    dot.name = `drum-position-pointer-${index}`; dot.visible = false; dot.renderOrder = 1007;
+    dots.push(dot); scene.add(ray, dot); return ray;
   });
   const outlineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: .6, depthTest: false });
   const outlines = new Map(surfaces.map(surface => {
@@ -67,24 +83,18 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
     line.name = `drum-position-outline-${surface.id}`; line.visible = false; line.renderOrder = 10;
     scene.add(line); return [surface.id, { line, surface }] as const;
   }));
-  function releaseAll() { grabs.clear(); held.clear(); handledSelect.clear(); }
+  function releaseAll() { grabs.clear(); held.clear(); handledSelect.clear(); triggerDown.clear(); }
   function setOpen(value: boolean) { open = value; callbacks.onMenu(open); draw(); }
   function setEditing(value: boolean) {
     if (editing === value) return;
-    grabs.clear(); editing = value; status = '';
+    grabs.clear(); editing = value; panel.userData.editing = value; status = '';
     draw();
   }
-  function cast(source: THREE.Group) {
-    source.updateWorldMatrix(true, false);
-    rotation.extractRotation(source.matrixWorld);
-    raycaster.ray.origin.setFromMatrixPosition(source.matrixWorld);
-    raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
-  }
-  function castInput(event: XRInputSourceEvent) {
-    const input = event.inputSource, reference = xr.getReferenceSpace();
+  function castInput(input: XRInputSource, frame: XRFrame) {
+    const reference = xr.getReferenceSpace();
     if (!panel.visible || inputSession?.visibilityState !== 'visible' || input.hand || !input.gripSpace
       || input.targetRayMode !== 'tracked-pointer' || !reference) return false;
-    const pose = event.frame.getPose(input.targetRaySpace, reference);
+    const pose = frame.getPose(input.targetRaySpace, reference);
     if (!pose || pose.emulatedPosition) return false;
     rig.updateWorldMatrix(true, false);
     world.fromArray(pose.transform.matrix).premultiply(rig.matrixWorld);
@@ -117,12 +127,18 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
     while (root && !root.userData.positionEditRoot) root = root.parent;
     return { hit, root };
   };
-  function menuAction(uv: THREE.Vector2) {
+  function rowAt(uv: THREE.Vector2) {
+    if (!open) return -1;
     const y = (1 - uv.y) * canvas.height;
-    if (!open) { setOpen(true); return; }
-    if (uv.x < 20 / 512 || uv.x > 492 / 512) return;
+    if (uv.x < 20 / 512 || uv.x > 492 / 512) return -2;
     const row = Math.floor((y - 80) / 80);
-    if (row < 0 || row > 3 || (y - 80) % 80 > 65) return;
+    return row >= 0 && row <= 4 && (y - 80) % 80 <= 65 ? row : -2;
+  }
+  function menuAction(uv: THREE.Vector2) {
+    const row = rowAt(uv);
+    if (row === -2) return;
+    pressedRow = row; pressedUntil = performance.now() + 140;
+    if (!open) { setOpen(true); return; }
     if (row === 0) {
       if (!editing) setEditing(true);
       else { grabs.clear(); rotate = !rotate; draw(); }
@@ -134,9 +150,8 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
       draw();
     } else { setEditing(false); setOpen(false); }
   }
-  const start = (event: XRInputSourceEvent) => {
-    const input = event.inputSource;
-    if (held.has(input) || !castInput(event)) return;
+  function begin(input: XRInputSource, frame: XRFrame) {
+    if (held.has(input) || !castInput(input, frame)) return;
     held.add(input); handledSelect.add(input);
     const menu = menuHit();
     if (menu?.uv) { menuAction(menu.uv); return; }
@@ -146,37 +161,38 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
     grabs.set(input, { root, offset: root.getWorldPosition(new THREE.Vector3()).sub(raycaster.ray.origin),
       controller: new THREE.Quaternion().setFromRotationMatrix(rotation.extractRotation(world)).invert(),
       rotation: root.getWorldQuaternion(new THREE.Quaternion()), rotate });
-  };
-  const end = (event: XRInputSourceEvent) => {
-    const grab = grabs.get(event.inputSource);
-    if (editing && grab && castInput(event)) moveGrab(grab, world);
-    grabs.delete(event.inputSource); held.delete(event.inputSource);
-  };
+  }
+  function finish(input: XRInputSource, frame: XRFrame) {
+    const grab = grabs.get(input);
+    if (editing && grab && castInput(input, frame)) moveGrab(grab, world);
+    grabs.delete(input); held.delete(input);
+  }
+  const start = (event: XRInputSourceEvent) => begin(event.inputSource, event.frame);
+  const end = (event: XRInputSourceEvent) => finish(event.inputSource, event.frame);
   const select = (event: XRInputSourceEvent) => {
     // Accept the same completed Trigger action as the other XR menus. A
     // selectstart + select sequence must still activate only one button.
-    if (handledSelect.delete(event.inputSource) || !castInput(event)) return;
+    if (handledSelect.delete(event.inputSource) || !castInput(event.inputSource, event.frame)) return;
     const menu = menuHit();
     if (menu?.uv) menuAction(menu.uv);
+  };
+  const sourcesChanged = (event: XRInputSourcesChangeEvent) => {
+    for (const input of event.removed) {
+      grabs.delete(input); held.delete(input); handledSelect.delete(input); triggerDown.delete(input);
+    }
   };
   function setSession(session: XRSession | null) {
     if (session === inputSession) return;
     inputSession?.removeEventListener('selectstart', start);
     inputSession?.removeEventListener('selectend', end);
     inputSession?.removeEventListener('select', select);
+    inputSession?.removeEventListener('inputsourceschange', sourcesChanged);
     releaseAll(); inputSession = session;
     session?.addEventListener('selectstart', start);
     session?.addEventListener('selectend', end);
     session?.addEventListener('select', select);
+    session?.addEventListener('inputsourceschange', sourcesChanged);
   }
-  const listeners = controllers.map(source => {
-    const connected = (event: { data: XRInputSource }) => { bindings.set(event.data, source); };
-    const disconnected = (event: { data: XRInputSource }) => {
-      grabs.delete(event.data); held.delete(event.data); handledSelect.delete(event.data); bindings.delete(event.data);
-    };
-    source.addEventListener('connected', connected); source.addEventListener('disconnected', disconnected);
-    return { connected, disconnected };
-  });
   function updateOutline(id: string) {
     const outline = outlines.get(id); if (!outline) return;
     const { line, surface } = outline;
@@ -196,13 +212,14 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
     isOpen: () => open,
     show() { panel.visible = true; placed = false; },
     hide(retain = false) {
-      releaseAll(); panel.visible = false; rays.forEach(ray => { ray.visible = false; });
+      releaseAll(); panel.visible = false; rays.forEach(ray => { ray.visible = false; }); dots.forEach(dot => { dot.visible = false; });
       for (const { line } of outlines.values()) line.visible = false;
       if (!retain) { setEditing(false); setOpen(false); }
     },
     update(session: XRSession | null, viewer: XRViewerPose | null, frame?: XRFrame) {
       setSession(session);
       rays.forEach(ray => { ray.visible = false; });
+      dots.forEach(dot => { dot.visible = false; });
       for (const { line } of outlines.values()) line.visible = false;
       if (!panel.visible || session?.visibilityState !== 'visible' || !viewer) { releaseAll(); return; }
       if (!placed) {
@@ -214,38 +231,57 @@ export function createVRDrumPositionEditor(scene: THREE.Scene, xr: THREE.WebXRMa
         panelUp.set(0, 1, 0).applyQuaternion(panel.quaternion);
         placed = true; placePanel();
       }
-      const reference = xr.getReferenceSpace();
-      for (const [input, source] of bindings) {
-        if (input.hand || !input.gripSpace || !source.visible) { grabs.delete(input); held.delete(input); continue; }
-        const pose = frame && reference ? frame.getPose(input.gripSpace, reference) : null;
-        if (!pose || pose.emulatedPosition) {
-          grabs.delete(input); held.delete(input); continue;
+      let nextHover = -2, cursor = 0;
+      for (const input of session.inputSources) {
+        if (!frame || !castInput(input, frame)) {
+          grabs.delete(input); held.delete(input); triggerDown.delete(input); continue;
+        }
+        // Read Quest's live XR gamepad, not navigator.getGamepads(). Native
+        // events and this edge detector share begin/finish and the held guard.
+        const knownMapping = (input.gamepad?.mapping as string | undefined) === 'xr-standard'
+          || input.profiles.some(profile => /^(meta-quest-touch|oculus-touch|generic-trigger)/.test(profile));
+        const button = knownMapping ? input.gamepad?.buttons[0] : undefined;
+        if (button) {
+          const wasDown = triggerDown.get(input) ?? false;
+          const down = button.pressed || button.value >= (wasDown ? .4 : .75);
+          if (down && !wasDown) begin(input, frame);
+          else if (!down && wasDown) finish(input, frame);
+          triggerDown.set(input, down);
+          // A menu activation can resize its panel; restore this input's ray.
+          castInput(input, frame);
         }
         const grab = grabs.get(input);
         if (editing && grab) {
-          source.updateWorldMatrix(true, false);
-          moveGrab(grab, source.matrixWorld);
+          moveGrab(grab, world);
           updateOutline(grab.root.userData.positionEditRoot);
         }
-        cast(source);
         const menu = menuHit();
+        if (menu?.uv && rowAt(menu.uv) !== -2) nextHover = rowAt(menu.uv);
         const hit = editing && !menu ? rootAtRay() : undefined;
         if (hit?.root) updateOutline(hit.root.userData.positionEditRoot);
         if (editing || menu) {
-          const ray = rays[controllers.indexOf(source)];
-          ray.visible = true; ray.scale.z = menu?.distance ?? hit?.hit?.distance ?? 2;
+          const ray = rays[cursor], dot = dots[cursor];
+          if (ray) {
+            ray.position.copy(raycaster.ray.origin);
+            ray.quaternion.setFromUnitVectors(rayForward, raycaster.ray.direction);
+            ray.visible = true; ray.scale.z = menu?.distance ?? hit?.hit?.distance ?? 2;
+            if (menu) { dot.position.copy(menu.point); dot.visible = true; }
+            cursor++;
+          }
         }
       }
+      const expired = pressedRow !== -2 && performance.now() >= pressedUntil;
+      if (expired) pressedRow = -2;
+      if (nextHover !== hoveredRow || expired) { hoveredRow = nextHover; draw(); }
+      panel.userData.hoveredRow = hoveredRow;
+      panel.userData.pressedRow = pressedRow;
     },
     dispose() {
       setSession(null);
-      controllers.forEach((source, index) => {
-        const listener = listeners[index];
-        source.removeEventListener('connected', listener.connected); source.removeEventListener('disconnected', listener.disconnected);
-        rays[index].removeFromParent();
-      });
+      rays.forEach(ray => ray.removeFromParent());
       for (const { line } of outlines.values()) { line.removeFromParent(); line.geometry.dispose(); }
       outlineMaterial.dispose(); lineMaterial.dispose(); lineGeometry.dispose();
+      dots.forEach(dot => dot.removeFromParent()); dotGeometry.dispose(); dotMaterial.dispose();
       panel.removeFromParent(); panel.geometry.dispose(); panel.material.dispose(); texture.dispose();
       releaseAll();
     },
