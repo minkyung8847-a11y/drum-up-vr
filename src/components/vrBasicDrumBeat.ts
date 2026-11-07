@@ -1,4 +1,4 @@
-const BPM = 60;
+const BPM = 80;
 const BEATS_PER_BAR = 4;
 const BARS = 4;
 const BEAT_MS = 60_000 / BPM;

@@ -126,7 +126,7 @@ try {
     offset.applyAxisAngle(pitchAxis, wristPitch);
     source.gripSpace.tracked = false;
     source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch).toArray();
-    session.time += 4890;
+    session.time += 4390;
     session.step();
     source.gripSpace.position = rig.worldToLocal(target).sub(offset).toArray();
     source.gripSpace.tracked = true;
@@ -135,7 +135,7 @@ try {
     session.step(2);
     return { active, eightLanes, froze, resumed, restarted, fixedRhythmMenu, eyeDraws,
       snareRipple: get('rhythm-ripple-snare').visible, snareRim: get('rhythm-rim-snare').visible,
-      snareRemoved: !get('note-snare-5000').visible, hits: window.hits, successTones: window.successTones,
+      snareRemoved: !get('note-snare-4500').visible, hits: window.hits, successTones: window.successTones,
       pulses: session.pulses };
   });
   assert(immersive.eyeDraws >= 2, 'A note is submitted in the stereo render loop');
@@ -277,12 +277,12 @@ try {
           guide.paths.get(note.id)(0, new T.Vector3())) < 1e-8) correctTargets++;
       }
     }
-    road.update(19999, eye);
+    road.update(15999, eye);
     const stillPlaying = !['finished', 'idle'].includes(statuses.at(-1));
-    road.update(20000, eye);
-    const exactEnd = stillPlaying && statuses.at(-1) === 'finished' && progress.time === 16 && progress.miss === 24;
-    road.toggle(21000);
-    road.update(21000, eye);
+    road.update(16000, eye);
+    const exactEnd = stillPlaying && statuses.at(-1) === 'finished' && progress.time === 12 && progress.miss === 24;
+    road.toggle(17000);
+    road.update(17000, eye);
     const replay = statuses.at(-1) === 'playing' && progress.time === -3 && progress.miss === 0 && kick.visible;
     const noDuplicates = scene.children.filter(object => object.name === 'note-highway-anchor').length === 1
       && defaultNotes.length === 24 && new Set(defaultNotes.map(object => object.name)).size === 24
@@ -323,14 +323,14 @@ try {
       moved, independent, aligned, constantSizeWithoutFade, effects, expands, effectsFade, softerGreat, missHasOnlyBase, atBoundary, expired,
       finished, disposed: !get('note-highway-anchor') };
   });
-  assert.equal(checks.bpm, 60);
+  assert.equal(checks.bpm, 80);
   assert.deepEqual(checks.counts, { hihat: 16, snare: 4, kick: 4 });
   assert.deepEqual(checks.schedule, {
-    hihat: Array.from({ length: 16 }, (_, beat) => 3 + beat),
-    kick: [3, 7, 11, 15], snare: [5, 9, 13, 17],
+    hihat: Array.from({ length: 16 }, (_, beat) => 3 + beat * .75),
+    kick: [3, 6, 9, 12], snare: [4.5, 7.5, 10.5, 13.5],
   }, 'Actual scene note attack times, including the independent 3s preroll');
   console.log('Verified scheduled arrivals after PLAY (seconds):', checks.schedule);
-  console.log('Quarter-note interval: previous 80 BPM = 0.75s; current 60 BPM = 1s. Travel remains 3s.');
+  console.log('Quarter-note interval: previous 60 BPM = 1s; current 80 BPM = 0.75s. Travel remains 3s.');
   assert.equal(checks.correctTargets, 24);
   assert.deepEqual(checks.windows, ['Miss', 'Great', 'Great', 'Perfect', 'Perfect', 'Great', 'Great', 'Miss']);
   assert.deepEqual(checks.chord, ['Perfect', 'Miss', 'Perfect']);
@@ -351,7 +351,7 @@ try {
   }));
   assert.deepEqual(exit, { highway: false, preview: false, concert: true, controls: false }, 'XR exit restores free play');
   assert.deepEqual(errors, []);
-  console.log('PASS: VR/AR default PLAY uses 24 fixed BASIC DRUM BEAT notes at 60 BPM, 3s preroll, all real targets, exact 16s finish, replay, timing windows and hit effects.');
+  console.log('PASS: VR/AR default PLAY uses 24 fixed BASIC DRUM BEAT notes at 80 BPM, 3s preroll, all real targets, exact 12s finish, replay, timing windows and hit effects.');
 } finally {
   await browser?.close();
   await vite.close();
