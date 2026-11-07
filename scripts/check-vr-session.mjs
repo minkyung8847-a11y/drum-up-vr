@@ -55,7 +55,7 @@ try {
     };
     window.snapshotKit = () => {
       const values = [];
-      window.scene.getObjectByName('kick-pedal').parent.traverse(object => {
+      window.scene.getObjectByName('vr-drum-kit').traverse(object => {
         values.push([object.id, ...object.position.toArray(), ...object.quaternion.toArray(), ...object.scale.toArray()]);
       });
       return values;
@@ -98,7 +98,7 @@ try {
 
   const strikes = await vr.evaluate(() => {
     const T = window.THREE, session = window.testXR, rig = window.scene.getObjectByName('player-rig');
-    const root = window.scene.getObjectByName('kick-pedal').parent;
+    const root = window.scene.getObjectByName('vr-drum-kit');
     const rest = window.snapshotKit();
     const ids = ['snare', 'smallTom', 'middleTom', 'floorTom', 'hihat', 'crash', 'ride'];
     const samples = [];

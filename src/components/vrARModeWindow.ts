@@ -19,6 +19,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   let pointerActive = false;
   let aWasPressed = false;
   let pointerInput: XRInputSource | undefined;
+  let inputBlocked = false;
   const draw = () => {
     context.fillStyle = '#111820';
     context.fillRect(0, 0, 512, 256);
@@ -197,6 +198,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   const isStickButton = (hit?: THREE.Intersection) => hit?.object === stickPanel && hit.uv
     && hit.uv.x >= 24 / 512 && hit.uv.x <= 488 / 512 && hit.uv.y >= 81 / 160 && hit.uv.y <= 146 / 160;
   const selectHandlers = sources.map(source => (event: { data: XRInputSource }) => {
+    if (inputBlocked) return;
     if (!source.visible) return;
     const hit = pointAtPanels(source);
     if (isStickButton(hit) && event.data.targetRayMode === 'tracked-pointer' && (event.data.hand || event.data.gripSpace)) {
@@ -241,6 +243,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   };
 
   return {
+    setInputBlocked(blocked: boolean) { inputBlocked = blocked; if (blocked) resetPointer(); },
     setTarget(mode: 'vr' | 'ar') { target = mode; draw(); texture.needsUpdate = true; },
     show(canSwitch: boolean) { panel.visible = canSwitch; rhythmPanel.visible = stickPanel.visible = true; resetPointer(); },
     hide() { panel.visible = rhythmPanel.visible = stickPanel.visible = false; resetPointer(); },
@@ -270,6 +273,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
       drawRhythm();
     },
     update(session: XRSession | null, viewer: XRViewerPose | null) {
+      if (inputBlocked) { resetPointer(); return false; }
       if (!stickPanel.visible || session?.visibilityState !== 'visible') { resetPointer(); return false; }
       if (viewer) {
         rig.updateWorldMatrix(true, false);

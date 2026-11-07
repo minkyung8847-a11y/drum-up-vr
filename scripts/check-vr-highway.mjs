@@ -163,7 +163,7 @@ try {
       && get('rhythm-success-kick').visible;
 
     // Swing a tracked stick into the existing assisted snare target on beat 3.
-    const kit = get('kick-pedal').parent;
+    const kit = get('vr-drum-kit');
     const snare = kit.children.find(object => object.userData.drumType === 'snare');
     const mesh = snare.children.find(object => object.isMesh && object.userData.drumType === 'snare' && object.position.y > 0);
     const normal = new T.Vector3(0, 1, 0).transformDirection(mesh.matrixWorld);

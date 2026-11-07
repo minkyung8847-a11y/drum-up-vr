@@ -61,7 +61,7 @@ try {
     window.snapshot = () => {
       const values = [];
       const record = object => values.push([object.id, ...object.position.toArray(), ...object.quaternion.toArray(), ...object.scale.toArray()]);
-      window.scene.getObjectByName('kick-pedal').parent.traverse(record);
+      window.scene.getObjectByName('vr-drum-kit').traverse(record);
       record(window.scene.getObjectByName('player-rig')); record(window.scene.getObjectByName('player-camera'));
       return values;
     };

@@ -60,7 +60,7 @@ async function setup(options) {
     };
     window.playSnare = source => {
       const session = window.testXR, rig = window.get('player-rig');
-      const kit = window.get('kick-pedal').parent;
+      const kit = window.get('vr-drum-kit');
       const snare = kit.children.find(object => object.userData.drumType === 'snare');
       const mesh = snare.children.find(object => object.isMesh && object.userData.drumType === 'snare' && object.position.y > 0);
       const normal = new T.Vector3(0, 1, 0).transformDirection(mesh.matrixWorld);
@@ -94,7 +94,7 @@ try {
   const modes = await page.evaluate(() => {
     const { testXR: session, get, aim, select, startChart } = window;
     const background = window.vrScene.background;
-    const kit = get('kick-pedal').parent;
+    const kit = get('vr-drum-kit');
     const lanes = get('vr-note-lanes');
     const panel = get('ar-mode-window');
     const stickPanel = get('vr-stick-mode-window');
@@ -194,7 +194,7 @@ try {
     select(source);
     session.step(30);
     const restored = window.vrScene.background === background && venue.visible && !get('xr-view-fade').visible
-      && kit === get('kick-pedal').parent && kit.matrixWorld.equals(kitPose) && panel.matrixWorld.equals(panelPose)
+      && kit === get('vr-drum-kit') && kit.matrixWorld.equals(kitPose) && panel.matrixWorld.equals(panelPose)
       && chart === get('note-highway-anchor') && lanes === get('vr-note-lanes') && window.testXR === session && !session.ended;
     return { first, followsViewInBothEyes, automaticStickRay, ignoredOtherButtons, toggledOnce, ar, judgedInAR, restored,
       realStickModeHidesBoth, realStickModePersistsInAR, controllerModeRestoresBoth, gripsInVR, gripsInAR };
@@ -225,7 +225,7 @@ try {
     place(left, -.35, 1.25, -.3);
     const leftStick = get('tracked-hand-stick-left'), rightStick = get('tracked-hand-stick-right');
     const rig = get('player-rig');
-    const kit = get('kick-pedal').parent;
+    const kit = get('vr-drum-kit');
     const snare = kit.children.find(object => object.userData.drumType === 'snare');
     const surface = snare.children.find(object => object.isMesh && object.userData.drumType === 'snare' && object.position.y > 0);
     const above = rig.worldToLocal(surface.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, .12, 0)));
@@ -280,7 +280,7 @@ try {
     window.previousSession = session;
     window.previousChart = get('note-highway-anchor');
     window.previousLanes = get('vr-note-lanes');
-    window.previousKit = get('kick-pedal').parent;
+    window.previousKit = get('vr-drum-kit');
     aim(source, 'ar-mode-window');
     select(source);
   });
@@ -304,7 +304,7 @@ try {
     session.step(10);
     return stickModePreserved && stick.visible && session.mode === 'immersive-ar' && window.vrScene.background === null
       && get('note-highway-anchor') === window.previousChart && get('vr-note-lanes') === window.previousLanes
-      && get('kick-pedal').parent === window.previousKit && note.visible && !note.position.equals(before);
+      && get('vr-drum-kit') === window.previousKit && note.visible && !note.position.equals(before);
   });
   assert.equal(preserved, true);
   assert.deepEqual(errors, []);
