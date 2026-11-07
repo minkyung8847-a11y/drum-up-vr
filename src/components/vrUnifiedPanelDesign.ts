@@ -1,11 +1,13 @@
 import { DRUM_ENVIRONMENTS } from './drumEnvironments';
 import type { DrumEnvironmentId } from './drumEnvironments';
+import { LOVE_ROOT, LOVE_SONG } from './vrMusicSong';
 
 export const PANEL_SIZE = { width: 1024, height: 920 };
 export const PANEL_TABS = ['MUSIC', 'PRACTICE', 'BACKGROUND', 'SETTINGS'] as const;
 export const PANEL_GENRES = ['All', 'Pop', 'Rock', 'Band', 'K-Pop', 'My Song'] as const;
 export const SONG_LIST = { x: 50, y: 388, width: 922, height: 480, row: 80 };
 export const DEMO_SONGS = [
+  LOVE_SONG,
   { title: 'Shape of You', artist: 'Ed Sheeran', difficulty: 'Normal', stars: 4, genres: ['Pop'], art: 0 },
   { title: 'Believer', artist: 'Imagine Dragons', difficulty: 'Hard', stars: 3, genres: ['Rock', 'Band'], art: 1 },
   { title: 'Back In Black', artist: 'AC/DC', difficulty: 'Hard', stars: 2, genres: ['Rock', 'Band'], art: 2 },
@@ -30,7 +32,7 @@ export function filteredSongs(state: UnifiedPanelState) {
     .filter(song => state.genre === 'All' || (song.genres as readonly string[]).includes(state.genre));
 }
 export const maxSongScroll = (state: UnifiedPanelState) => Math.max(0, filteredSongs(state).length * SONG_LIST.row - SONG_LIST.height);
-export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move'; index: number };
+export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move' | 'detail'; index: number };
 export function panelActionAt(state: UnifiedPanelState, x: number, y: number): PanelAction | null {
   for (let index = 0; index < 4; index++) {
     if (Math.hypot(x - [200, 432, 656, 880][index], y - 106) <= 86)
@@ -153,6 +155,8 @@ function album(index: number) {
   return canvas;
 }
 const albumCache: HTMLCanvasElement[] = [];
+export const loveCover = new Image();
+loveCover.src = `${LOVE_ROOT}cover.jpg`;
 function card(ctx: CanvasRenderingContext2D, state: UnifiedPanelState, key: string, x: number, y: number, w: number, h: number, selected: boolean, radius = 15) {
   rounded(ctx, x, y, w, h, radius); ctx.fillStyle = metal(ctx, y, h, selected); ctx.fill();
   ctx.strokeStyle = selected ? '#edf0f8' : state.hover === key ? '#aeb6c5' : '#666c7855'; ctx.lineWidth = selected ? 1.5 : 1; ctx.stroke();
@@ -210,8 +214,9 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
         [[0, '#a6adbc'], [.12, '#444953'], [.5, '#292c33'], [.86, '#3b404b'], [1, '#969eae']].forEach(([stop, color]) => selectedBody.addColorStop(stop as number, color as string));
         ctx.fillStyle = selectedBody; ctx.fill(); ctx.strokeStyle = '#d7dce8'; ctx.lineWidth = 1.2; ctx.stroke();
       } else if (state.hover === `song-${song.id}`) { ctx.fillStyle = '#ffffff08'; ctx.fillRect(51, y, 920, 80); }
-      if (!albumCache[song.art]) albumCache[song.art] = album(song.art);
-      ctx.save(); rounded(ctx, 88, y + 4, 72, 72, 9); ctx.clip(); ctx.drawImage(albumCache[song.art], 88, y + 4, 72, 72); ctx.restore();
+      if (!albumCache[song.art]) albumCache[song.art] = album(song.art % 8);
+      ctx.save(); rounded(ctx, 88, y + 4, 72, 72, 9); ctx.clip();
+      ctx.drawImage(song.art === 8 && loveCover.complete && loveCover.naturalWidth ? loveCover : albumCache[song.art], 88, y + 4, 72, 72); ctx.restore();
       ctx.textAlign = 'left'; ctx.fillStyle = '#f2f3f6'; ctx.font = '600 24px Arial'; ctx.fillText(song.title, 204, y + 32, 430);
       ctx.fillStyle = '#c1c4ce'; ctx.font = '400 21px Arial'; ctx.fillText(song.artist, 204, y + 62, 430);
       ctx.textAlign = 'center'; ctx.fillStyle = '#e0e2e8'; ctx.font = '400 21px Arial'; ctx.fillText(song.difficulty, 692, y + 47);

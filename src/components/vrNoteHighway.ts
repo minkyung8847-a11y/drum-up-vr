@@ -25,7 +25,8 @@ export type RhythmAction = 'toggle' | 'restart';
 
 type RhythmSurface = DrumHitSurface & { world: THREE.Matrix4 };
 type ProgressCallback = (perfect: number, great: number, miss: number, scoreTime: number) => void;
-type ScoreMedia = { notes: readonly NoteEvent[]; audio: HTMLAudioElement; offset: number; windows: SongWindows;
+export type RhythmAudio = Pick<HTMLAudioElement, 'currentTime' | 'paused' | 'seeking' | 'play' | 'pause' | 'addEventListener' | 'removeEventListener'>;
+type ScoreMedia = { notes: readonly NoteEvent[]; audio: RhythmAudio; offset: number; windows: SongWindows;
   onResults?: ProgressCallback };
 
 export function captureRhythmSurfaces(surfaces: DrumHitSurface[]): RhythmSurface[] {

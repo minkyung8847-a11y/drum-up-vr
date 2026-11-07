@@ -1,0 +1,328 @@
+{
+  "title": "사랑으로 (love.)",
+  "artist": "wave to earth",
+  "source": "user-supplied drum score image",
+  "bpm": 62,
+  "timeSignature": [
+    4,
+    4
+  ],
+  "bars": 4,
+  "audioStartOffsetSeconds": null,
+  "scorePickup": "initial rest before first full bar; confirm alignment to audio",
+  "noteTimeReference": "relative to first full bar, not MP3 start",
+  "notes": [
+    {
+      "time": 0.0,
+      "instrument": "kick",
+      "bar": 1,
+      "beat": 1
+    },
+    {
+      "time": 0.0,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 1.0
+    },
+    {
+      "time": 0.483871,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 1.5
+    },
+    {
+      "time": 0.967742,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 2.0
+    },
+    {
+      "time": 0.967742,
+      "instrument": "snare",
+      "bar": 1,
+      "beat": 2
+    },
+    {
+      "time": 1.451613,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 2.5
+    },
+    {
+      "time": 1.935484,
+      "instrument": "kick",
+      "bar": 1,
+      "beat": 3
+    },
+    {
+      "time": 1.935484,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 3.0
+    },
+    {
+      "time": 2.419355,
+      "instrument": "kick",
+      "bar": 1,
+      "beat": 3.5
+    },
+    {
+      "time": 2.419355,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 3.5
+    },
+    {
+      "time": 2.903226,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 4.0
+    },
+    {
+      "time": 2.903226,
+      "instrument": "snare",
+      "bar": 1,
+      "beat": 4
+    },
+    {
+      "time": 3.387097,
+      "instrument": "ride",
+      "bar": 1,
+      "beat": 4.5
+    },
+    {
+      "time": 3.870968,
+      "instrument": "kick",
+      "bar": 2,
+      "beat": 1
+    },
+    {
+      "time": 3.870968,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 1.0
+    },
+    {
+      "time": 4.354839,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 1.5
+    },
+    {
+      "time": 4.83871,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 2.0
+    },
+    {
+      "time": 4.83871,
+      "instrument": "snare",
+      "bar": 2,
+      "beat": 2
+    },
+    {
+      "time": 5.322581,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 2.5
+    },
+    {
+      "time": 5.806452,
+      "instrument": "kick",
+      "bar": 2,
+      "beat": 3
+    },
+    {
+      "time": 5.806452,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 3.0
+    },
+    {
+      "time": 6.290323,
+      "instrument": "kick",
+      "bar": 2,
+      "beat": 3.5
+    },
+    {
+      "time": 6.290323,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 3.5
+    },
+    {
+      "time": 6.774194,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 4.0
+    },
+    {
+      "time": 6.774194,
+      "instrument": "snare",
+      "bar": 2,
+      "beat": 4
+    },
+    {
+      "time": 7.258065,
+      "instrument": "ride",
+      "bar": 2,
+      "beat": 4.5
+    },
+    {
+      "time": 7.741935,
+      "instrument": "kick",
+      "bar": 3,
+      "beat": 1
+    },
+    {
+      "time": 7.741935,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 1.0
+    },
+    {
+      "time": 8.225806,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 1.5
+    },
+    {
+      "time": 8.709677,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 2.0
+    },
+    {
+      "time": 8.709677,
+      "instrument": "snare",
+      "bar": 3,
+      "beat": 2
+    },
+    {
+      "time": 9.193548,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 2.5
+    },
+    {
+      "time": 9.677419,
+      "instrument": "kick",
+      "bar": 3,
+      "beat": 3
+    },
+    {
+      "time": 9.677419,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 3.0
+    },
+    {
+      "time": 10.16129,
+      "instrument": "kick",
+      "bar": 3,
+      "beat": 3.5
+    },
+    {
+      "time": 10.16129,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 3.5
+    },
+    {
+      "time": 10.645161,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 4.0
+    },
+    {
+      "time": 10.645161,
+      "instrument": "snare",
+      "bar": 3,
+      "beat": 4
+    },
+    {
+      "time": 11.129032,
+      "instrument": "ride",
+      "bar": 3,
+      "beat": 4.5
+    },
+    {
+      "time": 11.612903,
+      "instrument": "kick",
+      "bar": 4,
+      "beat": 1
+    },
+    {
+      "time": 11.612903,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 1.0
+    },
+    {
+      "time": 12.096774,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 1.5
+    },
+    {
+      "time": 12.580645,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 2.0
+    },
+    {
+      "time": 12.580645,
+      "instrument": "snare",
+      "bar": 4,
+      "beat": 2
+    },
+    {
+      "time": 13.064516,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 2.5
+    },
+    {
+      "time": 13.548387,
+      "instrument": "kick",
+      "bar": 4,
+      "beat": 3
+    },
+    {
+      "time": 13.548387,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 3.0
+    },
+    {
+      "time": 14.032258,
+      "instrument": "kick",
+      "bar": 4,
+      "beat": 3.5
+    },
+    {
+      "time": 14.032258,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 3.5
+    },
+    {
+      "time": 14.516129,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 4.0
+    },
+    {
+      "time": 14.516129,
+      "instrument": "snare",
+      "bar": 4,
+      "beat": 4
+    },
+    {
+      "time": 15.0,
+      "instrument": "ride",
+      "bar": 4,
+      "beat": 4.5
+    }
+  ]
+}

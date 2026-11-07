@@ -10,7 +10,7 @@ import { createVRHardwareInstances } from './vrHardwareInstances';
 import { createVRAssistedStrikes } from './vrAssistedStrikes';
 import { createVRSeating, VR_SEATING } from './vrSeating';
 import { createVirtualDrumsticks } from './virtualDrumsticks';
-import { captureRhythmSurfaces, createVRNoteHighway, createVRNoteLanes } from './vrNoteHighway';
+import { captureRhythmSurfaces, createVRNoteHighway, createVRNoteLanes, RHYTHM_BPM } from './vrNoteHighway';
 import { applyStickPose, createXRDrumstickControllers } from './xrDrumstickControllers';
 import type { StickPose } from './xrDrumstickControllers';
 import type { StickHand } from './virtualDrumsticks';
@@ -26,6 +26,9 @@ import { attachXRKickInput } from '../pedal/xrKickInput';
 import { createVRUnifiedPanel } from './vrUnifiedPanel';
 import { createSongMedia, songBpmAt } from './songPlayback';
 import type { SongPlayback } from './songPlayback';
+import { createVRMusicAudio, LOVE_ROOT, LOVE_COUNT_IN, parseLoveChart } from './vrMusicSong';
+import type { VRMusicTransport } from './vrMusicSong';
+import { createVRSongCountdown } from './vrSongDetail';
 import './vrPractice.css';
 
 type XRMode = 'vr' | 'ar';
@@ -130,6 +133,10 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     let disposed = false;
     let audioReady = false;
     let highway: ReturnType<typeof createVRNoteHighway> | null = null;
+    const musicAudio = createVRMusicAudio();
+    const songCountdown = createVRSongCountdown(scene);
+    let loveTransport: VRMusicTransport | null = null;
+    let musicRequest = 0;
     let scoreMedia: { audio: HTMLAudioElement; url: string; offset: number } | undefined;
     const releaseScoreMedia = () => {
       if (!scoreMedia) return;
@@ -209,10 +216,50 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       onBackground: id => { backgrounds.select(id); setBackground(id); },
       getVolume: () => drumSynth.getVolume(), setVolume: volume => drumSynth.setVolume(volume),
       maxTextureSize: renderer.capabilities.maxTextureSize, maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
+      getSongPreview: musicAudio.previewStatus,
+      onSongPreviewStop: () => { musicRequest++; musicAudio.stopPreview(); },
+      onSongPreview: async () => {
+        musicRequest++;
+        highway?.stop();
+        if (noteLanes) noteLanes.lines.visible = false;
+        await musicAudio.togglePreview();
+      },
+      onSongStart: async chartOffsetSeconds => {
+        const request = ++musicRequest;
+        musicAudio.stopPreview();
+        // Resume synchronously from the actual XR Trigger activation, before fetching.
+        await musicAudio.unlock();
+        const [transport, response] = await Promise.all([musicAudio.transport(), fetch(`${LOVE_ROOT}love_first_4_bars.json`)]);
+        try {
+          if (!response.ok) throw Error(`Chart HTTP ${response.status}`);
+          const notes = parseLoveChart(await response.json()).map(note => ({ ...note, time: note.time + chartOffsetSeconds }));
+          if (disposed || request !== musicRequest || !isVisibleXR() || !noteLanes) { transport.dispose(); return false; }
+          highway?.dispose(); loveTransport?.dispose(); loveTransport = transport;
+          highway = createVRNoteHighway(scene, rhythmSurfaces, noteLanes.paths,
+            (state, judgment) => unifiedPanel.setRhythmStatus(state, judgment), {
+              notes, audio: transport, offset: LOVE_COUNT_IN, windows: { perfect: 50, great: 120 },
+              onResults: (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time),
+            });
+          noteLanes.lines.visible = true;
+          unifiedPanel.setRhythmBpm(62);
+          console.info('[DRUM UP VR MUSIC] love. · 52 authored notes · chartOffsetSeconds', chartOffsetSeconds);
+          console.table(notes.map(note => ({ instrument: note.instrument, hitSeconds: note.time,
+            spawnSecondsFromStart: LOVE_COUNT_IN + note.time - 3, arrivalSecondsFromStart: LOVE_COUNT_IN + note.time })));
+          highway.restart(performance.now());
+          return true;
+        } catch (error) { transport.dispose(); throw error; }
+      },
       onViewMode: mode => { void xrActionRef.current(mode); },
       onRhythm: action => {
         if (!isVisibleXR()) return;
+        musicRequest++;
         const now = performance.now();
+        if (loveTransport) {
+          musicRequest++; highway?.dispose(); loveTransport.dispose(); loveTransport = null; songCountdown.hide();
+          highway = createDefaultHighway();
+          unifiedPanel.setRhythmBpm(song ? songBpmAt(song.chart, 0) : RHYTHM_BPM);
+        }
+        musicAudio.stopPreview();
         if (action === 'free') {
           highway?.stop();
           if (noteLanes) noteLanes.lines.visible = false;
@@ -225,6 +272,13 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         else if (unifiedPanel.state.rhythm !== 'playing') highway?.toggle(now);
       },
     });
+    function createDefaultHighway() {
+      return createVRNoteHighway(scene, rhythmSurfaces, noteLanes!.paths,
+        (state, judgment) => unifiedPanel.setRhythmStatus(state, judgment),
+        song && scoreMedia ? { ...scoreMedia, notes: song.chart.notes, windows: song.windows,
+          onResults: (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time),
+        } : undefined, (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time));
+    }
     backgroundRef.current = id => { backgrounds.select(id); unifiedPanel.setBackground(id); };
     const collisions = createVRAssistedStrikes(kit.hitSurfaces, (id, hand, velocity) => {
       if (audioReady) hitDrum(id, velocity, previousTime ?? performance.now(), hand);
@@ -297,11 +351,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
           scoreMedia = { ...media, audio: new Audio(media.url) };
           unifiedPanel.setRhythmBpm(songBpmAt(song.chart, -media.offset));
         }
-        highway = createVRNoteHighway(scene, rhythmSurfaces, noteLanes.paths,
-          (state, judgment) => unifiedPanel.setRhythmStatus(state, judgment),
-          song && scoreMedia ? { ...scoreMedia, notes: song.chart.notes, windows: song.windows,
-            onResults: (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time),
-          } : undefined, (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time));
+        highway = createDefaultHighway();
       }
       rhythmSession = renderer.xr.getSession();
       controllers.setActive(true);
@@ -316,12 +366,14 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     };
     const endXR = () => {
       cancelLook();
+      songCountdown.hide();
       kickDebug?.setImmersive(false);
       rhythmSession?.removeEventListener('visibilitychange', pauseHiddenRhythm);
       rhythmSession = null;
       viewTransition = null;
       viewFade.visible = false;
       if (!retainedRig) {
+        musicRequest++; loveTransport?.dispose(); loveTransport = null; songCountdown.hide();
         highway?.stop();
         highway?.dispose();
         highway = null;
@@ -372,6 +424,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       if (sessionBusy || disposed) return;
       // Resume in this button's user gesture, before awaiting XR permission.
       void drumSynth.unlock();
+      if (target !== 'exit') void musicAudio.unlock().catch(error => console.warn('[DRUM UP VR MUSIC] Audio unlock', error));
       const current = renderer.xr.getSession();
       if (current && target !== 'exit') {
         if (target === sessionMode || viewTransition || !isVisibleXR()) return;
@@ -566,6 +619,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       controllers.resetSamples();
       collisions.reset();
     };
+    const worldViewerMatrix = new THREE.Matrix4(), worldViewerQuaternion = new THREE.Quaternion();
     let referenceSpace: XRReferenceSpace | null = null;
     let audioSession: XRSession | null = null;
     const panelPointerWasActive = { left: false, right: false };
@@ -618,6 +672,10 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         headPosition.set(p.x, p.y, p.z).applyMatrix4(rig.matrixWorld);
         if (!isVisibleXR()) highway?.pause(time);
         highway?.update(time, headPosition);
+        if (loveTransport && isVisibleXR()) {
+          worldViewerQuaternion.setFromRotationMatrix(worldViewerMatrix.fromArray(viewer.transform.matrix).premultiply(rig.matrixWorld));
+          songCountdown.update(loveTransport.currentTime, headPosition, worldViewerQuaternion);
+        } else songCountdown.hide();
         if (song && scoreMedia) unifiedPanel.setRhythmBpm(songBpmAt(song.chart, scoreMedia.audio.currentTime - scoreMedia.offset));
       }
       if (renderer.xr.isPresenting && frame && viewer && audioReady) {
@@ -659,6 +717,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       interaction.dispose();
       hardware.dispose();
       highway?.dispose();
+      musicRequest++; loveTransport?.dispose(); musicAudio.dispose(); songCountdown.dispose();
       releaseScoreMedia();
       noteLanes?.dispose();
       renderer.setAnimationLoop(null);

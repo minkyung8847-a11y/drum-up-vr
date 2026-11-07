@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { DRUM_ENVIRONMENTS } from './drumEnvironments';
 import type { DrumEnvironmentId } from './drumEnvironments';
 import type { StickHand } from './virtualDrumsticks';
-import { PANEL_SIZE, PANEL_TABS, PANEL_GENRES, SONG_LIST, drawUnifiedPanel, maxSongScroll, panelActionAt } from './vrUnifiedPanelDesign';
+import { PANEL_SIZE, PANEL_TABS, PANEL_GENRES, SONG_LIST, DEMO_SONGS, loveCover, drawUnifiedPanel, maxSongScroll, panelActionAt } from './vrUnifiedPanelDesign';
+import { createVRSongDetail } from './vrSongDetail';
 import type { UnifiedPanelState, PanelAction } from './vrUnifiedPanelDesign';
 import { RHYTHM_BPM } from './vrNoteHighway';
 import type { RhythmState } from './vrNoteHighway';
@@ -20,6 +21,10 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   onRhythm: (action: 'start' | 'pause' | 'restart' | 'free') => void;
   onViewMode: (mode: 'vr' | 'ar') => void;
   maxTextureSize?: number; maxAnisotropy?: number;
+  onSongStart?: (offset: number) => Promise<boolean | void>;
+  onSongPreview?: () => Promise<void>;
+  onSongPreviewStop?: () => void;
+  getSongPreview?: () => { playing: boolean; progress: number };
 }) {
   const state: UnifiedPanelState = { tab: 'MUSIC', genre: 'All', song: 0, scroll: 0,
     practice: 'FREE PLAY', background: options.background, setting: 'AUDIO', volume: options.getVolume(), hover: '', pressed: '',
@@ -43,6 +48,11 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     depthWrite: false, toneMapped: false, side: THREE.DoubleSide, alphaTest: .01 }));
   mesh.name = 'vr-unified-panel'; mesh.renderOrder = 1000; mesh.visible = false; scene.add(mesh);
   mesh.userData.panelState = state;
+  const detail = createVRSongDetail(mesh, {
+    onStart: async offset => { const started = await options.onSongStart?.(offset); if (started === false) return false; state.minimized = true; dirty = true; return true; },
+    onPreview: async () => { await options.onSongPreview?.(); },
+    onClose: () => options.onSongPreviewStop?.(),
+  });
   // Opaque geometry, independent of the alpha-textured navigation and controls.
   const backingGeometry = new THREE.PlaneGeometry(1, 1, 128, 48);
   const backingVertices = backingGeometry.getAttribute('position') as THREE.BufferAttribute;
@@ -81,6 +91,8 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   let drag: { input: XRInputSource; relative: THREE.Matrix4 } | null = null;
   let session: XRSession | null = null, reference: XRReferenceSpace | null = null;
   let placed = false, dirty = true, lastDraw = -Infinity, lastFrame = 0, pressedUntil = 0;
+  const coverLoaded = () => { dirty = true; };
+  loveCover.addEventListener('load', coverLoaded);
   const held = new Set<XRInputSource>(), handledSelect = new Set<XRInputSource>();
   const down = new Map<XRInputSource, boolean>();
   type Gesture = { action: PanelAction; y: number; scroll: number; dragging: boolean };
@@ -137,6 +149,8 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     rig.updateWorldMatrix(true, false); world.fromArray(pose.transform.matrix).premultiply(rig.matrixWorld);
     rotation.extractRotation(world); raycaster.ray.origin.setFromMatrixPosition(world);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
+    const detailHit = detail.hit(raycaster);
+    if (detailHit) return { hit: detailHit.hit, action: { key: `detail-${detailHit.index}`, kind: 'detail', index: detailHit.index } as PanelAction, x: 0, y: 0 };
     mesh.updateWorldMatrix(true, false);
     handleHit.updateWorldMatrix(true, false);
     const grabHit = raycaster.intersectObject(handleHit, false)[0];
@@ -148,9 +162,10 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     return action ? { hit, action, x, y } : null;
   }
   function activate(action: PanelAction) {
-    if (action.kind === 'tab') { state.tab = PANEL_TABS[action.index]; state.hover = ''; state.minimized = false; }
+    if (action.kind === 'tab') { state.tab = PANEL_TABS[action.index]; state.hover = ''; state.minimized = false; if (state.tab !== 'MUSIC') detail.close(); }
     else if (action.kind === 'genre') { state.genre = PANEL_GENRES[action.index]; state.scroll = 0; }
-    else if (action.kind === 'song') state.song = action.index;
+    else if (action.kind === 'song') { state.song = action.index; detail.select(DEMO_SONGS[action.index]); }
+    else if (action.kind === 'detail') void detail.activate(action.index);
     else if (action.kind === 'practice') {
       state.practice = action.index ? 'RUDIMENT' : 'FREE PLAY';
       if (!action.index) options.onRhythm('free');
@@ -217,7 +232,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   return {
     mesh, state,
     show() { mesh.visible = true; dirty = true; },
-    hide() { mesh.visible = false; resetInput(); pointers.forEach(({ line, dot }) => { line.visible = dot.visible = false; }); },
+    hide() { mesh.visible = false; options.onSongPreviewStop?.(); resetInput(); pointers.forEach(({ line, dot }) => { line.visible = dot.visible = false; }); },
     setBackground(id: DrumEnvironmentId) { if (state.background !== id) { state.background = id; dirty = true; } },
     setViewMode(mode: 'vr' | 'ar', canAR: boolean) { state.viewMode = mode; state.canAR = canAR; dirty = true; },
     setRhythmStatus(status: RhythmState, judgment?: 'Perfect' | 'Great' | 'Miss') {
@@ -237,6 +252,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     isPointing(hand: StickHand) { return pointing.has(hand); },
     update(next: XRSession | null, frame: XRFrame | undefined, space: XRReferenceSpace | null, viewer: XRViewerPose | null, now: number) {
       bind(next); reference = space;
+      detail.update(now, mesh.visible && state.tab === 'MUSIC' && !state.minimized, options.getSongPreview?.() ?? { playing: false, progress: 0 });
       const delta = Math.min(.05, Math.max(0, (now - lastFrame) / 1000)); lastFrame = now;
       pointers.forEach(({ line, dot }) => { line.visible = dot.visible = false; }); pointing.clear();
       if (!mesh.visible || !frame || !space || !viewer || next?.visibilityState !== 'visible') { resetInput(); return; }
@@ -290,6 +306,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     },
     dispose() {
       bind(null); mesh.removeFromParent(); geometry.dispose(); mesh.material.dispose(); texture.dispose();
+      detail.dispose(); loveCover.removeEventListener('load', coverLoaded);
       backingGeometry.dispose(); backing.material.dispose(); handleGeometry.dispose(); handleHitGeometry.dispose(); handleMaterial.dispose();
       pointers.forEach(({ line, dot }) => { line.removeFromParent(); dot.removeFromParent(); });
       pointerGeometry.dispose(); pointerMaterial.dispose(); dotGeometry.dispose(); dotMaterial.dispose();
