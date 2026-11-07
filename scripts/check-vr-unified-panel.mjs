@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import { installMockWebXR } from './helpers/mock-webxr.mjs';
+import { installUnifiedPanelControls } from './helpers/unified-panel-controls.mjs';
 
 const vite = await createServer({ server: { host: '127.0.0.1', port: 0, watch: null } });
 await vite.listen();
@@ -66,6 +67,7 @@ try {
   delete initial.image;
   assert.deepEqual(initial, { draws: 2, fixed: true, curved: true, worldParent: true, leftAbove: true, opaque: true, clearGap: true, overlaps: 0 });
   console.log(`PREVIEW: ${preview}`);
+  await page.evaluate(installUnifiedPanelControls);
   const checks = await page.evaluate(async () => {
     const T = window.T, session = window.testXR, scene = window.scene;
     const get = name => scene.getObjectByName(name), panel = get('vr-unified-panel'), state = panel.userData.panelState;
@@ -120,22 +122,13 @@ try {
     // Grip retains its normal functions while using the new panel.
     session.squeeze(inputs[1]); const grip = window.hits.at(-1) === 'kick' && session.pulses.at(-1).hand === 'right';
     const beforeLeft = window.hits.length; session.squeeze(inputs[0]); const leftGripQuiet = window.hits.length === beforeLeft;
-    const rhythm = get('vr-rhythm-controls');
-    inputs[1].targetRaySpace.position = rig.worldToLocal(rhythm.localToWorld(new T.Vector3(-.124, .005, .5))).toArray();
-    inputs[1].targetRaySpace.quaternion = rhythm.quaternion.toArray(); session.step(3);
-    inputs[1].gamepad.buttons[4].value = 1; session.step(); inputs[1].gamepad.buttons[4].value = 0; session.step();
-    session.emit('select', { inputSource: inputs[1], frame: session.frame() });
-    session.time = performance.now(); session.step();
+    window.panelStart(inputs[1]);
     const chart = get('note-highway-anchor'), kick = get('note-kick-3000'), beforeSongTab = kick.position.clone();
-    click(200, 106); click(350, 430); session.step(6);
+    window.panelClick(inputs[1], 200, 106); window.panelClick(inputs[1], 350, 430); window.panelStep(6);
     const chartContinues = kick.visible && !kick.position.equals(beforeSongTab) && get('note-highway-anchor') === chart;
-    click(880, 106);
     const pose = panel.matrixWorld.clone();
-    const modePanel = get('ar-mode-window');
-    const point = modePanel.localToWorld(new T.Vector3(0, 0, .5));
-    inputs[1].targetRaySpace.position = rig.worldToLocal(point).toArray(); inputs[1].targetRaySpace.quaternion = modePanel.quaternion.toArray(); session.step(3);
-    session.emit('select', { inputSource: inputs[1], frame: session.frame() }); session.step(30);
-    const ar = scene.background === null && panel.visible && panel.matrixWorld.equals(pose) && state.tab === 'SETTINGS';
+    window.panelMode(inputs[1], 'ar');
+    const ar = scene.background === null && panel.visible && panel.matrixWorld.equals(pose) && state.tab === 'BACKGROUND';
     return { all, pop, selectedPop, stickScroll, lastSong, practiceTab, rudiment, dragScroll, background, settings, audio,
       controllerCard, noteCard, generalCard, noPlayback, quietUI, grip, leftGripQuiet, chartContinues, ar,
       kitUnchanged: kit.matrixWorld.equals(kitMatrix), removedModesStayRemoved: !get('vr-stick-mode-window') && !get('vr-drum-position-settings') };

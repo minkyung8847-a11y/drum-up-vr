@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import { installMockWebXR } from './helpers/mock-webxr.mjs';
+import { installUnifiedPanelControls } from './helpers/unified-panel-controls.mjs';
 
 const vite = await createServer({ server: { host: '127.0.0.1', port: 0 } });
 await vite.listen();
@@ -42,23 +43,13 @@ try {
     && !window.scene.getObjectByName('vr-stick-mode-window')), 'Removed UI and saved-layout loading are absent');
   assert(await page.evaluate(() => !window.scene.getObjectByName('note-highway-anchor')
     && !window.scene.getObjectByName('vr-note-lanes')
-    && !window.scene.getObjectByName('vr-rhythm-controls').visible), 'Desktop preview is unaffected');
+    && !window.scene.getObjectByName('vr-rhythm-controls') && !window.scene.getObjectByName('vr-unified-panel').visible), 'Desktop preview is unaffected');
   await page.getByRole('button', { name: 'Change background' }).click();
   await page.getByRole('menuitemradio', { name: /Concert Arena/ }).click();
   await page.getByRole('button', { name: 'Enter VR', exact: true }).click();
   await page.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
 
-  const preview = await page.evaluate(() => {
-    const lines = window.scene.getObjectByName('vr-note-lanes');
-    let eyeDraws = 0;
-    lines.onBeforeRender = () => eyeDraws++;
-    window.testXR.step();
-    lines.onBeforeRender = () => {};
-    return { eyeDraws, visible: lines.visible, hasMovingNotes: window.scene.getObjectByName('note-kick-3000').visible,
-      venueVisible: window.scene.getObjectByName('concert-stage-environment').visible };
-  });
-  assert.deepEqual(preview, { eyeDraws: 2, visible: true, hasMovingNotes: false, venueVisible: true });
-
+  await page.evaluate(installUnifiedPanelControls);
   const grips = await page.evaluate(async () => {
     const session = window.testXR;
     const left = session.connect('left'), right = session.connect('right');
@@ -99,115 +90,51 @@ try {
   assert.deepEqual(grips.pulses, Array.from({ length: 2 }, () => ({ hand: 'right', strength: 1, duration: 90 })),
     'Free-play kick pulses once at maximum API strength; left Grip is silent');
 
+
   const immersive = await page.evaluate(() => {
-    const T = window.THREE;
-    const scene = window.scene;
-    const session = window.testXR;
-    const source = session.connect('right');
-    const rig = scene.getObjectByName('player-rig');
-    const panel = scene.getObjectByName('vr-rhythm-controls');
-    const environment = scene.getObjectByName('concert-stage-environment');
-    const get = name => scene.getObjectByName(name);
-    const lines = get('vr-note-lanes');
-    const lanesStay = () => get('vr-note-lanes') === lines && lines.visible;
-    const point = x => {
-      const origin = panel.localToWorld(new T.Vector3(x, .005, .5));
-      source.gripSpace.position = rig.worldToLocal(origin).toArray();
-      source.gripSpace.quaternion = panel.quaternion.toArray();
-      session.step(3);
-    };
-    const select = () => session.emit('select', { inputSource: source, frame: session.frame() });
-    const showCursor = () => {
-      source.gamepad.buttons[4].pressed = true;
-      session.step();
-      source.gamepad.buttons[4].pressed = false;
-      session.step();
-    };
-    session.step(3);
-    const menuTransform = panel.matrixWorld.clone();
-    const head = { ...session.head };
-    session.head.position = [.24, 1.38, -.12];
-    session.head.quaternion = new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), 1.25).toArray();
-    session.step();
-    const fixedRhythmMenu = panel.parent === scene && panel.matrixWorld.equals(menuTransform);
-    Object.assign(session.head, head);
-    session.step();
-    point(-.124);
-    showCursor();
-    select();
-    const active = get('note-highway-anchor').visible && environment.visible && lanesStay();
+    const T = window.THREE, scene = window.scene, session = window.testXR;
+    const source = session.connect('right'); window.panelStep(3);
+    const get = name => scene.getObjectByName(name), panel = get('vr-unified-panel');
+    const rig = get('player-rig'), lines = get('vr-note-lanes');
+    window.panelStart(source);
     const kick = get('note-kick-3000');
-    let eyeDraws = 0;
-    kick.onBeforeRender = () => eyeDraws++;
-    session.time = performance.now() + 850;
-    session.step();
-    const moved = kick.position.clone();
-    const eightLanes = lines.geometry.attributes.position.count === 8 * 2;
-    showCursor();
-    select();
-    session.step();
-    const paused = kick.position.clone();
-    session.step(30);
-    const froze = kick.position.equals(paused) && lanesStay();
-    select();
-    session.step(25);
-    const resumed = !kick.position.equals(paused) && lanesStay();
-    point(.124);
-    showCursor();
-    select();
-    session.time = performance.now();
-    session.step();
-    const restarted = kick.visible && kick.position.distanceTo(moved) > .2 && lanesStay();
-
-    const realNow = performance.now.bind(performance);
-    const kickTime = realNow() + 3000;
-    try {
-      performance.now = () => kickTime;
-      session.emit('squeezestart', { inputSource: source, frame: session.frame() });
-      session.emit('squeezeend', { inputSource: source, frame: session.frame() });
-    } finally { performance.now = realNow; }
-    const kickGripJudged = !kick.visible && window.hits.at(-1) === 'kick'
-      && window.successTones.length === 1 && window.successTones[0] === true
-      && get('rhythm-success-kick').visible;
-
-    // Swing a tracked stick into the existing assisted snare target on beat 3.
-    const kit = get('vr-drum-kit');
-    const snare = kit.children.find(object => object.userData.drumType === 'snare');
+    const active = kick.visible && panel.userData.panelState.minimized && lines.visible;
+    let eyeDraws = 0; kick.onBeforeRender = () => eyeDraws++; window.panelStep(12); kick.onBeforeRender = () => {};
+    const eightLanes = lines.geometry.attributes.position.count === 16;
+    window.panelPractice(source); window.panelClick(source, 490, 695);
+    const paused = kick.position.clone(); window.panelStep(30);
+    const froze = paused.equals(kick.position);
+    window.panelClick(source, 180, 695); window.panelStep(12);
+    const resumed = !kick.position.equals(paused);
+    window.panelPractice(source); window.panelClick(source, 800, 695);
+    const epoch = window.lastPanelPress;
+    const restarted = kick.visible && panel.userData.panelState.minimized;
+    const panelPose = panel.matrixWorld.clone(); session.head.position[0] += .1; window.panelStep();
+    const fixedRhythmMenu = panel.matrixWorld.equals(panelPose); session.head.position[0] -= .1;
+    session.time = epoch + 3000;
+    window.panelEmit('squeezestart', source); window.panelEmit('squeezeend', source);
+    const kickGripJudged = !kick.visible && get('rhythm-success-kick').visible;
+    const snare = get('vr-drum-kit').children.find(object => object.userData.drumType === 'snare');
     const mesh = snare.children.find(object => object.isMesh && object.userData.drumType === 'snare' && object.position.y > 0);
     const normal = new T.Vector3(0, 1, 0).transformDirection(mesh.matrixWorld);
     const target = mesh.getWorldPosition(new T.Vector3()).addScaledVector(normal, .12);
-    const stick = rig.children.map(object => object.getObjectByName('right-stick-grip'))
-      .find(object => object?.parent.name.startsWith('controller-'));
-    const grip = stick.parent.parent;
-    const offset = grip.worldToLocal(stick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3()));
-    const pitchAxis = new T.Vector3(1, 0, 0);
-    const wristPitch = -23 * Math.PI / 180;
-    offset.applyAxisAngle(pitchAxis, wristPitch);
-    source.gripSpace.tracked = false;
-    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch).toArray();
-    session.time += 4390;
-    session.step();
+    const stick = rig.children.map(object => object.getObjectByName('right-stick-grip')).find(object => object?.parent.name.startsWith('controller-'));
+    const offset = stick.parent.parent.worldToLocal(stick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3()));
+    const axis = new T.Vector3(1, 0, 0), pitch = -23 * Math.PI / 180; offset.applyAxisAngle(axis, pitch);
+    source.gripSpace.tracked = false; session.time = epoch + 4390; window.panelStep();
     source.gripSpace.position = rig.worldToLocal(target).sub(offset).toArray();
-    source.gripSpace.tracked = true;
-    session.step(6);
-    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch - .05).toArray();
-    session.step(2);
-    return { active, eightLanes, froze, resumed, restarted, kickGripJudged, fixedRhythmMenu, eyeDraws,
+    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(axis, pitch).toArray();
+    source.gripSpace.tracked = true; window.panelStep(6);
+    source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(axis, pitch - .05).toArray(); window.panelStep(2);
+    return { active, eightLanes, froze, resumed, restarted, fixedRhythmMenu, kickGripJudged, eyeDraws,
       snareRipple: get('rhythm-ripple-snare').visible, snareRim: get('rhythm-rim-snare').visible,
-      snareRemoved: !get('note-snare-4500').visible, hits: window.hits, successTones: window.successTones,
-      pulses: session.pulses };
+      snareRemoved: !get('note-snare-4500').visible, hits: window.hits, successTones: window.successTones, pulses: session.pulses };
   });
-  assert(immersive.eyeDraws >= 2, 'A note is submitted in the stereo render loop');
-  for (const check of ['active', 'eightLanes', 'froze', 'resumed', 'restarted', 'kickGripJudged', 'fixedRhythmMenu', 'snareRipple', 'snareRim', 'snareRemoved']) {
-    assert(immersive[check], check);
-  }
-  assert.deepEqual(immersive.hits, ['kick', 'snare']);
-  assert.equal(immersive.successTones.length, 2, 'Kick Grip and stick hit each trigger exactly one chime');
-  assert.equal(immersive.pulses.length, 2, 'One pulse per physical strike');
-  assert.equal(immersive.pulses[0].hand, 'right');
-  assert.equal(immersive.pulses[0].duration, 90);
-  assert.equal(immersive.pulses[0].strength, 1);
-  console.log('PASS: immersive controls, 8 lanes, stereo submission, tracked stick judgment, effects and drum sound path');
+  assert(immersive.eyeDraws >= 2);
+  for (const key of ['active', 'eightLanes', 'froze', 'resumed', 'restarted', 'fixedRhythmMenu', 'kickGripJudged', 'snareRipple', 'snareRim', 'snareRemoved']) assert(immersive[key], key);
+  assert.deepEqual(immersive.hits, ['kick', 'snare']); assert.equal(immersive.successTones.length, 2);
+  assert.deepEqual(immersive.pulses, Array.from({ length: 2 }, () => ({ hand: 'right', strength: 1, duration: 90 })));
+  console.log('PASS: integrated RUDIMENT start/pause/restart, stereo notes, tracked snare and Grip kick judgments, original effects/audio/haptics.');
 
   const checks = await page.evaluate(async () => {
     const T = window.THREE;
@@ -413,7 +340,7 @@ try {
     highway: !!window.scene.getObjectByName('note-highway-anchor'),
     preview: !!window.scene.getObjectByName('vr-note-lanes'),
     concert: window.scene.getObjectByName('concert-stage-environment').visible,
-    controls: window.scene.getObjectByName('vr-rhythm-controls').visible,
+    controls: window.scene.getObjectByName('vr-unified-panel').visible,
   }));
   assert.deepEqual(exit, { highway: false, preview: false, concert: true, controls: false }, 'XR exit restores free play');
   assert.deepEqual(errors, []);

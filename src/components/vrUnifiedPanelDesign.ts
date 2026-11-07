@@ -20,20 +20,34 @@ export interface UnifiedPanelState {
   practice: 'FREE PLAY' | 'RUDIMENT'; background: DrumEnvironmentId;
   setting: 'AUDIO' | 'CONTROLLER' | 'NOTE' | 'GENERAL'; volume: number;
   hover: string; pressed: string;
+  minimized: boolean; viewMode: 'vr' | 'ar'; canAR: boolean;
+  rhythm: 'idle' | 'playing' | 'paused' | 'finished'; bpm: number;
+  perfect: number; great: number; miss: number; countIn?: number;
+  judgment?: 'Perfect' | 'Great' | 'Miss';
 }
 export function filteredSongs(state: UnifiedPanelState) {
   return DEMO_SONGS.map((song, id) => ({ ...song, id }))
     .filter(song => state.genre === 'All' || (song.genres as readonly string[]).includes(state.genre));
 }
 export const maxSongScroll = (state: UnifiedPanelState) => Math.max(0, filteredSongs(state).length * SONG_LIST.row - SONG_LIST.height);
-export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel'; index: number };
+export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move'; index: number };
 export function panelActionAt(state: UnifiedPanelState, x: number, y: number): PanelAction | null {
   for (let index = 0; index < 4; index++) {
     if (Math.hypot(x - [200, 432, 656, 880][index], y - 106) <= 86)
       return { key: `tab-${index}`, kind: 'tab', index };
   }
+  if (state.minimized) return null;
   if (x < 12 || x > 1012 || y < 226 || y > 898) return null;
   const action = (kind: PanelAction['kind'], index: number): PanelAction => ({ key: `${kind}-${index}`, kind, index });
+  if (state.tab === 'PRACTICE' && state.practice === 'RUDIMENT' && y >= 660 && y <= 728 && x >= 60 && x <= 964) {
+    const index = Math.floor((x - 60) / 310);
+    if (index < 3 && (x - 60) % 310 <= 284) return action('rhythm', index);
+  }
+  if (state.tab === 'BACKGROUND' && y >= 307 && y <= 359) {
+    if (x >= 60 && x <= 490) return action('view', 0);
+    if (x >= 534 && x <= 964 && state.canAR) return action('view', 1);
+  }
+  if (state.tab === 'SETTINGS' && x >= 84 && x <= 940 && y >= 770 && y <= 828) return action('reset', 0);
   if (state.tab === 'MUSIC') {
     if (y >= 311 && y <= 365 && x >= 60 && x <= 976) {
       const index = Math.floor((x - 60) / 156);
@@ -170,11 +184,11 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
     ctx.shadowBlur = 0; ctx.strokeStyle = selected ? '#eff5ff' : '#b4b8c4'; ctx.lineWidth = selected ? 2.2 : 1.6; ctx.stroke();
     ctx.beginPath(); ctx.arc(x, 106, selected ? 82 : 77, 0, Math.PI * 2); ctx.strokeStyle = '#dce0ed28'; ctx.lineWidth = 1; ctx.stroke();
     if (state.hover === `tab-${index}` || state.pressed === `tab-${index}`) { ctx.fillStyle = state.pressed === `tab-${index}` ? '#ffffff20' : '#ffffff0c'; ctx.fill(); }
-    icon(ctx, tab, x, 85, 72); ctx.fillStyle = '#f2f3f7'; ctx.font = '500 16.5px Arial'; ctx.textAlign = 'center'; ctx.fillText(tab, x, 158); ctx.restore();
+    icon(ctx, tab, x, 85, 72); ctx.fillStyle = '#f2f3f7'; ctx.font = '600 17px Arial'; ctx.textAlign = 'center'; ctx.fillText(tab, x, 154); ctx.restore();
   });
+  if (state.minimized) return;
   rounded(ctx, 12, 226, 1000, 672, 20);
-  const body = ctx.createLinearGradient(0, 226, 1024, 898); body.addColorStop(0, '#191a20'); body.addColorStop(.35, '#111216'); body.addColorStop(1, '#191a1e');
-  ctx.fillStyle = body; ctx.fill(); ctx.strokeStyle = '#c7c9d4'; ctx.lineWidth = 1.8; ctx.stroke();
+  ctx.fillStyle = '#17191e'; ctx.fill(); ctx.strokeStyle = '#c7c9d4'; ctx.lineWidth = 1.8; ctx.stroke();
   rounded(ctx, 15, 229, 994, 666, 17); ctx.strokeStyle = '#ffffff24'; ctx.lineWidth = .8; ctx.stroke();
   if (state.tab === 'MUSIC') {
     title(ctx, 'SONG SELECT', 'MUSIC');
@@ -219,8 +233,25 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
       icon(ctx, 'PRACTICE', x + 215, 432, 57); ctx.textAlign = 'center'; ctx.fillStyle = '#f3f4f7'; ctx.font = '600 30px Arial'; ctx.fillText(name, x + 215, 514);
       ctx.font = '22px Arial, "Malgun Gothic", sans-serif'; ctx.fillStyle = '#d0d4dd'; ctx.fillText(index ? '루디먼트 연습' : '자유 연습', x + 215, 553);
     });
+    ctx.textAlign = 'center'; ctx.fillStyle = '#d4dae5'; ctx.font = '600 22px Arial';
+    ctx.fillText(state.practice === 'RUDIMENT' ? `BASIC DRUM BEAT  /  ${state.bpm} BPM` : 'FREE PLAY  /  NO NOTES', 512, 330);
+    if (state.practice === 'RUDIMENT') {
+      ['START', 'PAUSE', 'RESTART'].forEach((label, index) => {
+        const x = 60 + index * 310;
+        card(ctx, state, `rhythm-${index}`, x, 660, 284, 68, false);
+        ctx.fillStyle = '#f1f3f8'; ctx.font = '600 24px Arial'; ctx.fillText(label, x + 142, 703);
+      });
+      ctx.fillStyle = '#d0d7e2'; ctx.font = '600 23px Arial';
+      ctx.fillText(state.countIn !== undefined ? `COUNT IN ${state.countIn}` : state.judgment?.toUpperCase() ?? state.rhythm.toUpperCase(), 512, 782);
+      ctx.font = '21px Arial'; ctx.fillText(`PERFECT ${state.perfect}    GREAT ${state.great}    MISS ${state.miss}`, 512, 829);
+    }
   } else if (state.tab === 'BACKGROUND') {
     title(ctx, 'BACKGROUND', 'BACKGROUND');
+    ['VR MODE', 'AR MODE'].forEach((label, index) => {
+      const x = index ? 534 : 60;
+      card(ctx, state, `view-${index}`, x, 307, 430, 52, state.viewMode === (index ? 'ar' : 'vr'));
+      ctx.fillStyle = index && !state.canAR ? '#727a88' : '#f1f3f8'; ctx.font = '600 23px Arial'; ctx.textAlign = 'center'; ctx.fillText(label, x + 215, 342);
+    });
     DRUM_ENVIRONMENTS.forEach((environment, index) => {
       const x = 60 + index * 310;
       card(ctx, state, `background-${index}`, x, 370, 284, 300, state.background === environment.id);
@@ -245,5 +276,7 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
       ctx.fillStyle = '#afb7c5'; ctx.textAlign = 'center'; ctx.font = '24px Arial'; ctx.fillText(`${state.setting} SETTINGS`, 512, 623);
       ctx.font = '20px Arial'; ctx.fillStyle = '#737d8d'; ctx.fillText('Preview', 512, 663);
     }
+    card(ctx, state, 'reset-0', 84, 770, 856, 58, false);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#e5eaf3'; ctx.font = '600 22px Arial'; ctx.fillText('RESET PANEL POSITION', 512, 807);
   }
 }

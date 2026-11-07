@@ -23,7 +23,6 @@ import type { PedalState } from '../pedal/PedalConnection';
 import { createLocalKickDebug } from '../pedal/localKickDebug';
 import { createKickTrigger } from '../pedal/kickTrigger';
 import { attachXRKickInput } from '../pedal/xrKickInput';
-import { createVRARModeWindow } from './vrARModeWindow';
 import { createVRUnifiedPanel } from './vrUnifiedPanel';
 import { createSongMedia, songBpmAt } from './songPlayback';
 import type { SongPlayback } from './songPlayback';
@@ -87,6 +86,9 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.95;
     renderer.xr.enabled = true;
+    // Keep native XR framebuffer density; improve peripheral UI without global supersampling.
+    renderer.xr.setFramebufferScaleFactor(1);
+    renderer.xr.setFoveation(.25);
     renderer.xr.setReferenceSpaceType('local-floor');
     host.appendChild(renderer.domElement);
 
@@ -206,13 +208,24 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       background: initialBackground.current,
       onBackground: id => { backgrounds.select(id); setBackground(id); },
       getVolume: () => drumSynth.getVolume(), setVolume: volume => drumSynth.setVolume(volume),
+      maxTextureSize: renderer.capabilities.maxTextureSize, maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
+      onViewMode: mode => { void xrActionRef.current(mode); },
+      onRhythm: action => {
+        if (!isVisibleXR()) return;
+        const now = performance.now();
+        if (action === 'free') {
+          highway?.stop();
+          if (noteLanes) noteLanes.lines.visible = false;
+          unifiedPanel.setSongResults(0, 0, 0, 0);
+          return;
+        }
+        if (noteLanes) noteLanes.lines.visible = true;
+        if (action === 'pause') highway?.pause(now);
+        else if (action === 'restart') highway?.restart(now);
+        else if (unifiedPanel.state.rhythm !== 'playing') highway?.toggle(now);
+      },
     });
     backgroundRef.current = id => { backgrounds.select(id); unifiedPanel.setBackground(id); };
-    const arModeWindow = createVRARModeWindow(scene, renderer.xr, rig, mode => {
-      void xrActionRef.current(mode);
-    }, action => {
-      if (isVisibleXR()) highway?.[action](performance.now());
-    });
     const collisions = createVRAssistedStrikes(kit.hitSurfaces, (id, hand, velocity) => {
       if (audioReady) hitDrum(id, velocity, previousTime ?? performance.now(), hand);
     });
@@ -247,7 +260,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         : renderer.xr.getSession()?.environmentBlendMode === 'alpha-blend' ? opaqueBackground : vrBackground;
       backgrounds.setVisible(mode === 'vr');
       noteLanes?.setPassthrough(mode === 'ar');
-      arModeWindow.setTarget(mode === 'ar' ? 'vr' : 'ar');
+      unifiedPanel.setViewMode(mode, renderer.xr.getSession()?.environmentBlendMode === 'alpha-blend' || arAvailable);
       kickDebug?.setImmersive(mode === 'vr');
       setXRMode(mode);
       setXRMessage(mode === 'ar'
@@ -278,22 +291,22 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       if (!noteLanes) {
         noteLanes = createVRNoteLanes(rhythmSurfaces, laneEye);
         scene.add(noteLanes.lines);
+        noteLanes.lines.visible = unifiedPanel.state.practice === 'RUDIMENT';
         if (song) {
           const media = createSongMedia(song);
           scoreMedia = { ...media, audio: new Audio(media.url) };
-          arModeWindow.setRhythmBpm(songBpmAt(song.chart, -media.offset));
+          unifiedPanel.setRhythmBpm(songBpmAt(song.chart, -media.offset));
         }
         highway = createVRNoteHighway(scene, rhythmSurfaces, noteLanes.paths,
-          (state, judgment) => arModeWindow.setRhythmStatus(state, judgment),
+          (state, judgment) => unifiedPanel.setRhythmStatus(state, judgment),
           song && scoreMedia ? { ...scoreMedia, notes: song.chart.notes, windows: song.windows,
-            onResults: (perfect, great, miss, time) => arModeWindow.setSongResults(perfect, great, miss, time),
-          } : undefined, (perfect, great, miss, time) => arModeWindow.setSongResults(perfect, great, miss, time));
+            onResults: (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time),
+          } : undefined, (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time));
       }
       rhythmSession = renderer.xr.getSession();
       controllers.setActive(true);
       rhythmSession?.addEventListener('visibilitychange', pauseHiddenRhythm);
       applyView(sessionMode);
-      arModeWindow.show(rhythmSession?.environmentBlendMode === 'alpha-blend' || arAvailable);
       unifiedPanel.show();
       if (resumeAfterSwitch) highway?.toggle(performance.now());
       resumeAfterSwitch = false;
@@ -318,7 +331,6 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         seating.exit();
       }
       controllers.setActive(false);
-      arModeWindow.hide();
       unifiedPanel.hide();
       scene.background = vrBackground;
       backgrounds.setVisible(true);
@@ -556,7 +568,6 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     };
     let referenceSpace: XRReferenceSpace | null = null;
     let audioSession: XRSession | null = null;
-    let rightPointerWasActive = false;
     const panelPointerWasActive = { left: false, right: false };
     renderer.setAnimationLoop((time, frame) => {
       const frameDelta = previousTime === null ? 0 : (time - previousTime) / 1000;
@@ -601,17 +612,13 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       if (renderer.xr.isPresenting && frame && reference) seating.update(frame, reference);
       const viewer = frame && reference ? frame.getViewerPose(reference) ?? null : null;
       unifiedPanel.update(session, frame, reference, viewer, time);
-      const rightPointerActive = arModeWindow.update(session, viewer);
-      controllers.setRightPointerActive(rightPointerActive);
       controllers.update(frame);
-      if (rightPointerActive && !rightPointerWasActive) collisions.reset('right');
-      rightPointerWasActive = rightPointerActive;
       if (renderer.xr.isPresenting && viewer) {
         const p = viewer.transform.position;
         headPosition.set(p.x, p.y, p.z).applyMatrix4(rig.matrixWorld);
         if (!isVisibleXR()) highway?.pause(time);
         highway?.update(time, headPosition);
-        if (song && scoreMedia) arModeWindow.setRhythmBpm(songBpmAt(song.chart, scoreMedia.audio.currentTime - scoreMedia.offset));
+        if (song && scoreMedia) unifiedPanel.setRhythmBpm(songBpmAt(song.chart, scoreMedia.audio.currentTime - scoreMedia.offset));
       }
       if (renderer.xr.isPresenting && frame && viewer && audioReady) {
         for (const hand of ['left', 'right'] as const) {
@@ -619,7 +626,6 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
           if (overPanel !== panelPointerWasActive[hand]) collisions.reset(hand);
           panelPointerWasActive[hand] = overPanel;
           if (overPanel) { collisions.suspend(hand); continue; }
-          if (hand === 'right' && rightPointerActive) continue;
           collisions.update(hand, controllers.tipSamples[hand], frameDelta, time / 1000, headPosition);
         }
       } else collisions.suspend();
@@ -646,7 +652,6 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       const session = renderer.xr.getSession();
       if (session) void session.end().catch(() => {});
       controllers.dispose();
-      arModeWindow.dispose();
       unifiedPanel.dispose();
       poseRef.current = () => {};
       xrActionRef.current = async () => {};
