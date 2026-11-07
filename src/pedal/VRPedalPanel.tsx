@@ -24,8 +24,8 @@ export function VRPedalPanel({ onKick, onHiHat, unlock, onButtonMode }: {
       {state.message && <p role="alert">{state.message}</p>}
       <button onClick={() => { void unlock().then(ready => setAudio(ready ? '소리 준비 완료' : '소리 로딩 중이거나 차단됨 — 다시 눌러주세요.')); }}>소리 활성화</button>
       <p>{audio}</p><p>원격 페달 적용: <b data-testid="remote-kicks">{state.played}</b> · 미적용: {state.dropped}</p>
-      <label className="pedal-checkbox"><input type="checkbox" onChange={e => onButtonMode(e.target.checked)} />VR 컨트롤러 그립 버튼으로도 킥 연주</label>
-      <p>양손의 그립 버튼을 누를 때 한 번씩 연주합니다. 소리가 안 나면 VR 컨트롤러 트리거로 소리를 활성화하세요.</p>
+      <label className="pedal-checkbox"><input type="checkbox" defaultChecked onChange={e => onButtonMode(e.target.checked)} />오른쪽 Grip 버튼으로 킥 연주</label>
+      <p>오른쪽 Grip은 한 번 누를 때 킥, 왼쪽 Grip은 누르는 동안 하이햇 닫힘입니다. 소리가 안 나면 VR 컨트롤러 트리거로 소리를 활성화하세요.</p>
       <button onClick={() => setOpen(false)}>닫기</button>
     </section>}
   </div>;

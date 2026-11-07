@@ -41,7 +41,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
   const updateKickDebug = useCallback((state: PedalState) => kickDebugRef.current(state), []);
   const hiHatRef = useRef<(pressed: boolean) => boolean>(() => false);
   const unlockKickRef = useRef<() => Promise<boolean>>(async () => false);
-  const controllerKick = useRef(false);
+  const controllerKick = useRef(true);
   const [audioStatus, setAudioStatus] = useState('Loading drum sounds…');
   const [xrSupported, setXRSupported] = useState(false);
   const [arSupported, setArSupported] = useState(false);
@@ -145,10 +145,10 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     const hitDrum = (id: string, velocity = 1, now = performance.now(), hand?: StickHand) => {
       const played = id === 'kick' ? triggerKick(velocity) : interaction.hit(id, velocity);
       if (played && isVisibleXR()) {
+        if (hand) controllers.pulse(hand);
         const judgment = highway?.strike(id, now);
         if (judgment === 'Perfect' || judgment === 'Great') {
           drumSynth.playRhythmSuccess(judgment === 'Perfect');
-          if (hand) controllers.pulse(hand, velocity, judgment);
         }
       }
       return played;
@@ -604,8 +604,9 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         audioSession = session;
         session?.addEventListener('selectstart', unlockControllerAudio);
         session?.addEventListener('squeezestart', unlockControllerAudio);
-        detachKickInput = session ? attachXRKickInput(session, () => controllerKick.current && !realStickMode,
-          (velocity, hand) => hitDrum('kick', velocity, performance.now(), hand), () => {}) : () => {};
+        detachKickInput = session ? attachXRKickInput(session, () => !realStickMode,
+          (velocity, hand) => controllerKick.current && hitDrum('kick', velocity, performance.now(), hand), () => {},
+          closed => interaction.setHiHatClosed(closed, false)) : () => {};
       }
       const reference = renderer.xr.getReferenceSpace();
       if (reference !== referenceSpace) {

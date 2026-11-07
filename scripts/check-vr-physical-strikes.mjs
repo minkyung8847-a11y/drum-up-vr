@@ -194,12 +194,12 @@ controller.setRightPointerActive(true); controller.update();
 assert(controller.tipSamples.left.valid && !controller.tipSamples.right.valid, 'Pointer mode disables only the right stick');
 controller.setRightPointerActive(false); controller.update();
 assert(controller.tipSamples.right.valid && controller.tipSamples.right.previous.equals(controller.tipSamples.right.current));
-controller.pulse('left', 0.7); controller.pulse('right', 0.8);
+controller.pulse('left'); controller.pulse('right');
 assert.deepEqual(pulses.map(p => p.hand), ['left', 'right']);
-assert(pulses.every(p => p.duration === 18 && p.strength <= 0.3));
-controller.pulse('left', 1, 'Perfect'); controller.pulse('right', 1, 'Great');
-assert.deepEqual(pulses.slice(-2).map(p => [p.hand, p.duration]), [['left', 80], ['right', 50]]);
-assert(pulses.at(-2).strength > pulses.at(-1).strength);
+assert(pulses.every(p => p.duration === 90 && p.strength === 1));
+controller.pulse('left'); controller.pulse('right');
+assert.deepEqual(pulses.slice(-2).map(p => [p.hand, p.duration]), [['left', 90], ['right', 90]]);
+assert(pulses.at(-2).strength === 1 && pulses.at(-1).strength === 1);
 controller.setOffset('left', { position: [0.01, 0, 0], rotation: [0, 15, 0] });
 assert.equal(controller.tipSamples.left.valid, false, 'Calibration invalidates strike history');
 grips[1].visible = false; controller.update();
@@ -216,16 +216,16 @@ controller.update({ session: { visibilityState: 'visible' }, getPose: () => ({ e
 assert(controller.tipSamples.left.valid && controller.tipSamples.left.previous.equals(controller.tipSamples.left.current));
 let dualRumble = 0;
 grips[1].dispatchEvent({ type: 'connected', data: { ...input('left'), gamepad: { vibrationActuator: {
-  playEffect(type, effect) { assert.equal(type, 'dual-rumble'); assert.equal(effect.duration, 18); dualRumble++; return Promise.resolve('complete'); },
+  playEffect(type, effect) { assert.equal(type, 'dual-rumble'); assert.equal(effect.duration, 90); assert.equal(effect.weakMagnitude, 1); assert.equal(effect.strongMagnitude, 1); dualRumble++; return Promise.resolve('complete'); },
 } } } });
-controller.pulse('left', 0.5);
+controller.pulse('left');
 assert.equal(dualRumble, 1, 'Dual-rumble fallback');
 grips[1].dispatchEvent({ type: 'connected', data: { ...input('left'), gamepad: {} } });
-assert.doesNotThrow(() => controller.pulse('left', 0.5));
+assert.doesNotThrow(() => controller.pulse('left'));
 grips[1].dispatchEvent({ type: 'connected', data: { ...input('left'), gamepad: { hapticActuators: [{ pulse() { throw Error('Unsupported'); } }] } } });
-assert.doesNotThrow(() => controller.pulse('left', 0.5));
+assert.doesNotThrow(() => controller.pulse('left'));
 grips[1].dispatchEvent({ type: 'connected', data: { ...input('left'), gamepad: { hapticActuators: [{ pulse() { return Promise.reject(Error('Disconnected')); } }] } } });
-controller.pulse('left', 0.5);
+controller.pulse('left');
 controller.setActive(false); controller.update();
 assert(!controller.tipSamples.left.valid && !controller.tipSamples.right.valid);
 controller.dispose(); assert.equal(rig.children.length, 0);
@@ -247,6 +247,59 @@ feedback.dispose();
 assert.equal(mesh.material, originalMaterial); assert.equal(cymbal.material, originalCymbalMaterial);
 assert.deepEqual(VR_SOUND_IDS, { kick: 'kick', snare: 'snare', hihat: 'hihat-closed', smallTom: 'tom-high', middleTom: 'tom-mid', floorTom: 'tom-floor', crash: 'crash', ride: 'ride' });
 assert.deepEqual(synth.calls.map(call => call.id), ['snare', 'crash']);
+
+// Grip controls only state: distinct stick-hit samples, no pedal note or haptic.
+let chokes = 0;
+synth.chokeOpenHiHat = () => chokes++;
+const hiHatGroup = new THREE.Group();
+const hiHatMesh = cymbal.clone(); hiHatGroup.add(hiHatMesh);
+const hiHatInteraction = createVRDrumInteraction({
+  hitSurfaces: [{ ...cymbalSurface, id: 'hihat', mesh: hiHatMesh }],
+});
+const hiHatSoundsStart = synth.calls.length;
+hiHatInteraction.setHiHatClosed(false, false);
+hiHatInteraction.hit('hihat');
+hiHatInteraction.setHiHatClosed(true, false);
+hiHatInteraction.setHiHatClosed(true, false);
+assert.equal(chokes, 1, 'Closing silently chokes once without a pedal sample');
+hiHatInteraction.hit('hihat');
+hiHatInteraction.setHiHatClosed(false, false);
+hiHatInteraction.hit('hihat');
+assert.deepEqual(synth.calls.slice(hiHatSoundsStart).map(call => call.id), ['hihat-open', 'hihat-closed', 'hihat-open']);
+hiHatInteraction.dispose();
+
+const { attachXRKickInput } = await load('../pedal/xrKickInput');
+const gripSession = Object.assign(new EventTarget(), { visibilityState: 'visible' });
+const gripHits = [], gripPulses = [], hiHatStates = [];
+let gripEnabled = true;
+const detachGrips = attachXRKickInput(gripSession, () => gripEnabled,
+  (_velocity, hand) => { gripHits.push(hand); return true; }, hand => gripPulses.push(hand),
+  closed => hiHatStates.push(closed));
+const gripSource = handedness => ({ handedness, gripSpace: {}, targetRayMode: 'tracked-pointer' });
+const leftGrip = gripSource('left'), rightGrip = gripSource('right');
+const gripEvent = (type, source) => gripSession.dispatchEvent(Object.assign(new Event(type), { inputSource: source }));
+gripEvent('squeezestart', leftGrip); gripEvent('squeezestart', leftGrip);
+assert.deepEqual(hiHatStates, [false, true]);
+assert.equal(gripHits.length, 0);
+gripEvent('squeezestart', rightGrip);
+for (let i = 0; i < 10; i++) gripEvent('squeezestart', rightGrip);
+assert.deepEqual(gripHits, ['right']);
+gripEvent('squeezeend', rightGrip); gripEvent('squeezestart', rightGrip);
+assert.deepEqual(gripHits, ['right', 'right']);
+assert.deepEqual(gripPulses, ['right', 'right']);
+gripEvent('squeezeend', leftGrip);
+assert.equal(hiHatStates.at(-1), false);
+gripEnabled = false; gripEvent('squeezestart', leftGrip);
+assert.equal(hiHatStates.at(-1), false);
+gripEnabled = true; gripEvent('squeezestart', leftGrip);
+gripSession.visibilityState = 'hidden';
+gripSession.dispatchEvent(new Event('visibilitychange'));
+assert.equal(hiHatStates.at(-1), false, 'Focus loss releases the hi-hat');
+gripSession.visibilityState = 'visible'; gripEvent('squeezestart', leftGrip);
+gripSession.dispatchEvent(Object.assign(new Event('inputsourceschange'), { removed: [leftGrip] }));
+assert.equal(hiHatStates.at(-1), false, 'Disconnect releases the hi-hat');
+detachGrips(); gripEvent('squeezestart', rightGrip);
+assert.equal(gripHits.length, 2, 'Cleanup leaves no active Grip listener');
 
 // Seating translates only roots, recalculates hit zones, and anchors once to the
 // initial tracked head position. It must never cancel subsequent head movement.

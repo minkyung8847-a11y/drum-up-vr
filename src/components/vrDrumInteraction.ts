@@ -118,11 +118,14 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
 
   return {
     hit, update,
-    setHiHatClosed(pressed: boolean) {
+    setHiHatClosed(pressed: boolean, pedalSound = true) {
       if (hiHatClosed === pressed) return true;
       hiHatClosed = pressed;
       placeHiHat();
-      if (pressed && drumSynth.isAudioRunning()) drumSynth.trigger('hihat-pedal');
+      if (pressed) {
+        if (pedalSound && drumSynth.isAudioRunning()) drumSynth.trigger('hihat-pedal');
+        else drumSynth.chokeOpenHiHat();
+      }
       return true;
     },
     isHiHatClosed: () => hiHatClosed,

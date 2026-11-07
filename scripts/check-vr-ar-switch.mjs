@@ -122,6 +122,20 @@ try {
     const left = session.connect('left');
     const source = session.connect('right', { profiles: ['generic-trigger-squeeze-thumbstick'] });
     session.step(3);
+    const gripCheck = () => {
+      const hitCount = window.hits.length, pulseCount = session.pulses.length;
+      session.emit('squeezestart', { inputSource: left, frame: session.frame() });
+      session.emit('squeezestart', { inputSource: left, frame: session.frame() });
+      const silentLeft = window.hits.length === hitCount && session.pulses.length === pulseCount;
+      session.emit('squeezestart', { inputSource: source, frame: session.frame() });
+      session.emit('squeezestart', { inputSource: source, frame: session.frame() });
+      session.emit('squeezeend', { inputSource: source, frame: session.frame() });
+      session.emit('squeezeend', { inputSource: left, frame: session.frame() });
+      return silentLeft && window.hits.length === hitCount + 1 && window.hits.at(-1) === 'kick'
+        && session.pulses.length === pulseCount + 1 && session.pulses.at(-1).hand === 'right'
+        && session.pulses.at(-1).strength === 1 && session.pulses.at(-1).duration === 90;
+    };
+    const gripsInVR = gripCheck();
     const rig = get('player-rig');
     const defaultHead = { ...session.head };
     const initialStickPose = stickPanel.matrixWorld.clone();
@@ -172,6 +186,7 @@ try {
     select(source);
     session.step();
     const controllerModeRestoresBoth = stickVisible('left') && stickVisible('right');
+    const gripsInAR = gripCheck();
     window.playSnare(source);
     const judgedInAR = window.hits.includes('snare') && get('rhythm-ripple-snare').visible
       && !get('note-snare-4500').visible;
@@ -182,12 +197,12 @@ try {
       && kit === get('kick-pedal').parent && kit.matrixWorld.equals(kitPose) && panel.matrixWorld.equals(panelPose)
       && chart === get('note-highway-anchor') && lanes === get('vr-note-lanes') && window.testXR === session && !session.ended;
     return { first, followsViewInBothEyes, automaticStickRay, ignoredOtherButtons, toggledOnce, ar, judgedInAR, restored,
-      realStickModeHidesBoth, realStickModePersistsInAR, controllerModeRestoresBoth };
+      realStickModeHidesBoth, realStickModePersistsInAR, controllerModeRestoresBoth, gripsInVR, gripsInAR };
   });
   assert.deepEqual(modes, { first: true, followsViewInBothEyes: true, automaticStickRay: true,
     ignoredOtherButtons: true, toggledOnce: true,
     ar: true, judgedInAR: true, restored: true, realStickModeHidesBoth: true,
-    realStickModePersistsInAR: true, controllerModeRestoresBoth: true });
+    realStickModePersistsInAR: true, controllerModeRestoresBoth: true, gripsInVR: true, gripsInAR: true });
   const handChecks = await page.evaluate(() => {
     const { testXR: session, get, aim, select, cursor, THREE: T } = window;
     const controller = session.inputSources.find(source => source.handedness === 'right' && source.gripSpace);

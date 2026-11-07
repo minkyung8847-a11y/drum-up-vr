@@ -86,21 +86,22 @@ export function createXRDrumstickControllers(xr: THREE.WebXRManager, rig: THREE.
       const slot = slots.find(item => item.hand === hand);
       if (slot) applyStickPose(slot.calibration, pose);
     },
-    pulse(hand: StickHand, velocity: number, judgment?: 'Perfect' | 'Great') {
+    pulse(hand: StickHand) {
       const source = slots.find(slot => slot.hand === hand)?.source;
       if (!active || !source?.gamepad) return;
       // XR gamepads normally expose pulse(); some expose dual-rumble instead.
       // Neither unsupported actuators nor rejected promises can stop playback.
       const pad = source.gamepad;
-      const strength = judgment === 'Perfect' ? 0.48 : judgment === 'Great' ? 0.28
-        : THREE.MathUtils.clamp(0.12 + velocity * 0.18, 0.12, 0.3);
-      const duration = judgment === 'Perfect' ? 80 : judgment === 'Great' ? 50 : 18;
+      const strength = 1;
+      const duration = 90;
+      // A new request replaces/extends an active pulse; never queue delayed
+      // feedback or reset an actuator when an older request completes.
       try {
         const actuator = pad.hapticActuators?.find(item => typeof item.pulse === 'function') ?? pad.vibrationActuator;
         if (actuator?.pulse) void Promise.resolve(actuator.pulse(strength, duration)).catch(() => {});
         else if (pad.vibrationActuator?.playEffect) {
           void Promise.resolve(pad.vibrationActuator.playEffect('dual-rumble', {
-            duration, startDelay: 0, weakMagnitude: strength, strongMagnitude: strength * 0.5,
+            duration, startDelay: 0, weakMagnitude: strength, strongMagnitude: strength,
           })).catch(() => {});
         }
       } catch { /* Haptics are optional. */ }

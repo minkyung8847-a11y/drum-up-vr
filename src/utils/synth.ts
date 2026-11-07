@@ -36,7 +36,7 @@ class DrumSynth {
   private loadingRegions = new Map<string, Promise<AudioBuffer | null>>();
   private rangeSupported: Promise<boolean> | null = null;
   private preloadingKits = new Set<string>();
-  private openHiHatSource: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
+  private openHiHatSources = new Set<{ source: AudioBufferSourceNode; gain: GainNode }>();
   private listeners: Set<(kitId: string) => void> = new Set();
 
   constructor() {
@@ -334,28 +334,26 @@ class DrumSynth {
     gain.connect(this.masterGain);
     source.start(time);
 
-    if (isOpenHiHat) {
-      this.openHiHatSource = { source, gain };
-    }
+    const openVoice = { source, gain };
+    if (isOpenHiHat) this.openHiHatSources.add(openVoice);
 
     source.onended = () => {
-      if (this.openHiHatSource?.source === source) {
-        this.openHiHatSource = null;
-      }
+      this.openHiHatSources.delete(openVoice);
       source.disconnect();
       gain.disconnect();
     };
   }
 
-  private chokeOpenHiHat() {
-    if (!this.ctx || !this.openHiHatSource) return;
+  public chokeOpenHiHat() {
+    if (!this.ctx || !this.openHiHatSources.size) return;
 
     const time = this.ctx.currentTime;
-    const { source, gain } = this.openHiHatSource;
-    gain.gain.cancelScheduledValues(time);
-    gain.gain.setTargetAtTime(0, time, 0.018);
-    source.stop(time + 0.08);
-    this.openHiHatSource = null;
+    for (const { source, gain } of this.openHiHatSources) {
+      gain.gain.cancelScheduledValues(time);
+      gain.gain.setTargetAtTime(0, time, 0.018);
+      source.stop(time + 0.08);
+    }
+    this.openHiHatSources.clear();
   }
 
   public playRhythmSuccess(perfect: boolean) {

@@ -136,7 +136,7 @@ try {
   });
   assert.equal(adapters.blocked, false); assert.equal(adapters.invalid, false);
   assert.deepEqual(adapters.midi, [64 / 127, null, null, null, null]); assert.equal(adapters.hidCount, 2);
-  assert.deepEqual(adapters.hands, ['left', 'right']); assert.equal(adapters.hits.length, 3); assert(adapters.rejected.every(Boolean));
+  assert.deepEqual(adapters.hands, ['right']); assert.equal(adapters.hits.length, 2); assert(adapters.rejected.every(Boolean));
 
   // Real React MIDI selection/listeners with a mock browser permission/device API.
   await laptop.evaluate(() => {

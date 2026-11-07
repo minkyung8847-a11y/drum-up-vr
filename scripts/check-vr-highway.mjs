@@ -51,6 +51,46 @@ try {
   });
   assert.deepEqual(preview, { eyeDraws: 2, visible: true, hasMovingNotes: false, venueVisible: true });
 
+  const grips = await page.evaluate(async () => {
+    const session = window.testXR;
+    const left = session.connect('left'), right = session.connect('right');
+    session.step(3);
+    const { drumSynth } = await import('/src/utils/synth.ts');
+    drumSynth.trigger('hihat-open');
+    drumSynth.trigger('hihat-open');
+    const voices = [...drumSynth.openHiHatSources];
+    const fades = [], stops = [];
+    for (const voice of voices) {
+      const target = voice.gain.gain.setTargetAtTime.bind(voice.gain.gain);
+      voice.gain.gain.setTargetAtTime = (value, time, tau) => { fades.push({ value, tau }); return target(value, time, tau); };
+      const stop = voice.source.stop.bind(voice.source);
+      voice.source.stop = time => { stops.push(time - drumSynth.ctx.currentTime); return stop(time); };
+    }
+    session.emit('squeezestart', { inputSource: left, frame: session.frame() });
+    session.emit('squeezestart', { inputSource: left, frame: session.frame() });
+    const silentClose = window.hits.join(',') === 'hihat-open,hihat-open' && session.pulses.length === 0;
+    const chokedAll = voices.length === 2 && drumSynth.openHiHatSources.size === 0;
+    session.emit('squeezestart', { inputSource: right, frame: session.frame() });
+    for (let i = 0; i < 10; i++) session.emit('squeezestart', { inputSource: right, frame: session.frame() });
+    const oneKick = window.hits.filter(id => id === 'kick').length === 1;
+    const kickEffect = window.scene.getObjectByName('rhythm-ripple-kick').visible;
+    session.emit('squeezeend', { inputSource: right, frame: session.frame() });
+    session.emit('squeezestart', { inputSource: right, frame: session.frame() });
+    const kicks = window.hits.filter(id => id === 'kick').length;
+    session.emit('squeezeend', { inputSource: right, frame: session.frame() });
+    session.emit('squeezeend', { inputSource: left, frame: session.frame() });
+    const pulses = [...session.pulses];
+    const faded = fades.length === 2 && fades.every(fade => fade.value === 0 && fade.tau === .018)
+      && stops.length === 2 && stops.every(delay => Math.abs(delay - .08) < .005);
+    session.disconnect(left); session.disconnect(right); session.step(2);
+    window.hits.length = 0; session.pulses.length = 0;
+    return { silentClose, chokedAll, oneKick, kickEffect, kicks, pulses, faded };
+  });
+  for (const key of ['silentClose', 'chokedAll', 'oneKick', 'kickEffect', 'faded']) assert(grips[key], key);
+  assert.equal(grips.kicks, 2, 'Release and re-press fires a second kick');
+  assert.deepEqual(grips.pulses, Array.from({ length: 2 }, () => ({ hand: 'right', strength: 1, duration: 90 })),
+    'Free-play kick pulses once at maximum API strength; left Grip is silent');
+
   const immersive = await page.evaluate(() => {
     const T = window.THREE;
     const scene = window.scene;
@@ -111,6 +151,17 @@ try {
     session.step();
     const restarted = kick.visible && kick.position.distanceTo(moved) > .2 && lanesStay();
 
+    const realNow = performance.now.bind(performance);
+    const kickTime = realNow() + 3000;
+    try {
+      performance.now = () => kickTime;
+      session.emit('squeezestart', { inputSource: source, frame: session.frame() });
+      session.emit('squeezeend', { inputSource: source, frame: session.frame() });
+    } finally { performance.now = realNow; }
+    const kickGripJudged = !kick.visible && window.hits.at(-1) === 'kick'
+      && window.successTones.length === 1 && window.successTones[0] === true
+      && get('rhythm-success-kick').visible;
+
     // Swing a tracked stick into the existing assisted snare target on beat 3.
     const kit = get('kick-pedal').parent;
     const snare = kit.children.find(object => object.userData.drumType === 'snare');
@@ -133,20 +184,21 @@ try {
     session.step(6);
     source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch - .05).toArray();
     session.step(2);
-    return { active, eightLanes, froze, resumed, restarted, fixedRhythmMenu, eyeDraws,
+    return { active, eightLanes, froze, resumed, restarted, kickGripJudged, fixedRhythmMenu, eyeDraws,
       snareRipple: get('rhythm-ripple-snare').visible, snareRim: get('rhythm-rim-snare').visible,
       snareRemoved: !get('note-snare-4500').visible, hits: window.hits, successTones: window.successTones,
       pulses: session.pulses };
   });
   assert(immersive.eyeDraws >= 2, 'A note is submitted in the stereo render loop');
-  for (const check of ['active', 'eightLanes', 'froze', 'resumed', 'restarted', 'fixedRhythmMenu', 'snareRipple', 'snareRim', 'snareRemoved']) {
+  for (const check of ['active', 'eightLanes', 'froze', 'resumed', 'restarted', 'kickGripJudged', 'fixedRhythmMenu', 'snareRipple', 'snareRim', 'snareRemoved']) {
     assert(immersive[check], check);
   }
-  assert.deepEqual(immersive.hits, ['snare']);
-  assert.equal(immersive.successTones.length, 1, 'Successful XR hit triggers exactly one chime');
-  assert.equal(immersive.pulses.length, 1, 'Only the successful strike vibrates');
+  assert.deepEqual(immersive.hits, ['kick', 'snare']);
+  assert.equal(immersive.successTones.length, 2, 'Kick Grip and stick hit each trigger exactly one chime');
+  assert.equal(immersive.pulses.length, 2, 'One pulse per physical strike');
   assert.equal(immersive.pulses[0].hand, 'right');
-  assert.equal(immersive.pulses[0].duration, immersive.successTones[0] ? 80 : 50);
+  assert.equal(immersive.pulses[0].duration, 90);
+  assert.equal(immersive.pulses[0].strength, 1);
   console.log('PASS: immersive controls, 8 lanes, stereo submission, tracked stick judgment, effects and drum sound path');
 
   const checks = await page.evaluate(async () => {
