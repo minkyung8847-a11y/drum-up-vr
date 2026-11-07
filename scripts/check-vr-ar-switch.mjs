@@ -97,7 +97,6 @@ try {
     const kit = get('vr-drum-kit');
     const lanes = get('vr-note-lanes');
     const panel = get('ar-mode-window');
-    const stickPanel = get('vr-stick-mode-window');
     const venue = get('concert-stage-environment');
     const backgroundAlpha = () => {
       const scene = window.vrScene;
@@ -138,14 +137,14 @@ try {
     const gripsInVR = gripCheck();
     const rig = get('player-rig');
     const defaultHead = { ...session.head };
-    const initialStickPose = stickPanel.matrixWorld.clone();
+    const initialStickPose = panel.matrixWorld.clone();
     session.head.position = [.22, 1.36, -.12];
     session.head.quaternion = [0, Math.sin(.65), 0, Math.cos(.65)];
     let stickEyeDraws = 0;
-    stickPanel.onBeforeRender = () => stickEyeDraws++;
+    panel.onBeforeRender = () => stickEyeDraws++;
     session.step();
-    stickPanel.onBeforeRender = () => {};
-    const followsViewInBothEyes = stickEyeDraws === 2 && !stickPanel.matrixWorld.equals(initialStickPose);
+    panel.onBeforeRender = () => {};
+    const followsViewInBothEyes = stickEyeDraws === 2 && !panel.matrixWorld.equals(initialStickPose);
     Object.assign(session.head, defaultHead);
     session.step();
     const stickVisible = hand => rig.children.map(object => object.getObjectByName(`${hand}-stick-grip`))
@@ -166,13 +165,6 @@ try {
     const before = kick.position.clone();
     const panelPose = panel.matrixWorld.clone();
     const kitPose = kit.matrixWorld.clone();
-    aim(left, 'vr-stick-mode-window', 0, .03);
-    const automaticStickRay = get('ar-hand-ray').visible && stickVisible('right');
-    select(left);
-    session.step();
-    const realStickModeHidesBoth = stickPanel.visible && stickPanel.parent === window.vrScene
-      && !stickVisible('left') && !stickVisible('right');
-    const stickPanelPose = stickPanel.matrixWorld.clone();
     aim(source, 'ar-mode-window');
     select(source);
     session.step(30);
@@ -180,12 +172,7 @@ try {
       && chart === get('note-highway-anchor') && lanes === get('vr-note-lanes')
       && kick.visible && kick.position.distanceTo(before) > .01 && get('vr-rhythm-controls').visible
       && backgroundAlpha().every(alpha => alpha === 0);
-    const realStickModePersistsInAR = stickPanel.visible && stickPanel.matrixWorld.equals(stickPanelPose)
-      && !stickVisible('left') && !stickVisible('right');
-    aim(source, 'vr-stick-mode-window', 0, .03);
-    select(source);
-    session.step();
-    const controllerModeRestoresBoth = stickVisible('left') && stickVisible('right');
+    const controllersRemainPresent = stickVisible('left') && stickVisible('right');
     const gripsInAR = gripCheck();
     window.playSnare(source);
     const judgedInAR = window.hits.includes('snare') && get('rhythm-ripple-snare').visible
@@ -196,69 +183,16 @@ try {
     const restored = window.vrScene.background === background && venue.visible && !get('xr-view-fade').visible
       && kit === get('vr-drum-kit') && kit.matrixWorld.equals(kitPose) && panel.matrixWorld.equals(panelPose)
       && chart === get('note-highway-anchor') && lanes === get('vr-note-lanes') && window.testXR === session && !session.ended;
-    return { first, followsViewInBothEyes, automaticStickRay, ignoredOtherButtons, toggledOnce, ar, judgedInAR, restored,
-      realStickModeHidesBoth, realStickModePersistsInAR, controllerModeRestoresBoth, gripsInVR, gripsInAR };
+    return { first, followsViewInBothEyes, ignoredOtherButtons, toggledOnce, ar, judgedInAR, restored,
+      controllersRemainPresent, gripsInVR, gripsInAR,
+      removedUIAbsent: !get('vr-stick-mode-window') && !get('vr-drum-position-settings')
+        && !get('tracked-hand-stick-left') && !get('tracked-hand-stick-right'),
+      noHandTrackingRequested: !session.enabledFeatures.includes('hand-tracking') };
   });
-  assert.deepEqual(modes, { first: true, followsViewInBothEyes: true, automaticStickRay: true,
-    ignoredOtherButtons: true, toggledOnce: true,
-    ar: true, judgedInAR: true, restored: true, realStickModeHidesBoth: true,
-    realStickModePersistsInAR: true, controllerModeRestoresBoth: true, gripsInVR: true, gripsInAR: true });
-  const handChecks = await page.evaluate(() => {
-    const { testXR: session, get, aim, select, cursor, THREE: T } = window;
-    const controller = session.inputSources.find(source => source.handedness === 'right' && source.gripSpace);
-    aim(controller, 'vr-rhythm-controls', .124, .005);
-    cursor(controller);
-    select(controller);
-    const chartStart = performance.now();
-    aim(controller, 'vr-stick-mode-window', 0, .03);
-    select(controller);
-    for (const source of [...session.inputSources]) session.disconnect(source);
-
-    const names = ['wrist', 'index-finger-phalanx-proximal', 'pinky-finger-phalanx-proximal'];
-    const connectHand = side => session.connect(side, { gripSpace: null, gamepad: null,
-      hand: new Map(names.map(joint => [joint, { position: [0, 0, 0], tracked: true }])) });
-    const place = (source, x, y, z) => {
-      const joints = [[x - .065, y, z], [x, y, z - .035], [x, y, z + .035]];
-      names.forEach((name, index) => { source.hand.get(name).position = joints[index]; });
-    };
-    const left = connectHand('left'), right = connectHand('right');
-    place(left, -.35, 1.25, -.3);
-    const leftStick = get('tracked-hand-stick-left'), rightStick = get('tracked-hand-stick-right');
-    const rig = get('player-rig');
-    const kit = get('vr-drum-kit');
-    const snare = kit.children.find(object => object.userData.drumType === 'snare');
-    const surface = snare.children.find(object => object.isMesh && object.userData.drumType === 'snare' && object.position.y > 0);
-    const above = rig.worldToLocal(surface.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, .12, 0)));
-    above.z += .31;
-    place(right, above.x, above.y, above.z);
-    session.time = chartStart + 4500 - 22;
-    session.step();
-    const bothTracked = leftStick.visible && rightStick.visible && session.enabledFeatures.includes('hand-tracking');
-    const before = rightStick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3());
-    const hitsBefore = window.hits.length, chimesBefore = window.successTones.length;
-    place(right, above.x, above.y - .16, above.z);
-    session.step(3);
-    const moved = before.distanceTo(rightStick.getObjectByName('right-stick-tip').getWorldPosition(new T.Vector3())) > .15;
-    const oneSnareWithChime = window.hits.slice(hitsBefore).join() === 'snare'
-      && window.successTones.length === chimesBefore + 1 && get('rhythm-success-snare').visible;
-    right.hand.get('wrist').tracked = false;
-    session.step();
-    const lossIsIndependent = !rightStick.visible && leftStick.visible;
-    right.hand.get('wrist').tracked = true;
-    place(right, above.x, above.y - .20, above.z);
-    session.step(2);
-    const noPhantomHit = rightStick.visible && window.hits.length === hitsBefore + 1;
-    aim(left, 'ar-mode-window');
-    select(left);
-    session.step(30);
-    const handModeInAR = window.vrScene.background === null && leftStick.visible && rightStick.visible;
-    aim(left, 'vr-stick-mode-window', 0, .03);
-    select(left);
-    session.step();
-    return { bothTracked, moved, oneSnareWithChime, lossIsIndependent, noPhantomHit, handModeInAR,
-      pinchReturnsToControllerMode: !leftStick.visible && !rightStick.visible };
-  });
-  for (const [check, passed] of Object.entries(handChecks)) assert(passed, check);
+  assert.deepEqual(modes, { first: true, followsViewInBothEyes: true,
+    ignoredOtherButtons: true, toggledOnce: true, ar: true, judgedInAR: true, restored: true,
+    controllersRemainPresent: true, gripsInVR: true, gripsInAR: true,
+    removedUIAbsent: true, noHandTrackingRequested: true });
   await page.getByRole('button', { name: 'Exit VR', exact: true }).click();
   await page.getByRole('button', { name: 'Enter VR', exact: true }).waitFor();
   await page.close();
@@ -275,8 +209,6 @@ try {
     session.step(3);
     startChart(source);
     session.step(9);
-    aim(source, 'vr-stick-mode-window', 0, .03);
-    select(source);
     window.previousSession = session;
     window.previousChart = get('note-highway-anchor');
     window.previousLanes = get('vr-note-lanes');
@@ -289,26 +221,23 @@ try {
   await fallback.getByRole('button', { name: 'Enter AR', exact: true }).click();
   await fallback.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
   const preserved = await fallback.evaluate(() => {
-    const { get, testXR: session, aim, select } = window;
+    const { get, testXR: session } = window;
     const source = session.connect('right');
     session.step(5);
     const rig = get('player-rig');
     const stick = rig.children.map(object => object.getObjectByName('right-stick-grip'))
       .find(object => object?.parent.name.startsWith('controller-'));
-    const stickModePreserved = get('vr-stick-mode-window').visible && stick?.visible === false;
-    aim(source, 'vr-stick-mode-window', 0, .03);
-    select(source);
-    session.step();
+    const removedUIAbsent = !get('vr-stick-mode-window') && !get('vr-drum-position-settings');
     const note = get('note-kick-3000');
     const before = note.position.clone();
     session.step(10);
-    return stickModePreserved && stick.visible && session.mode === 'immersive-ar' && window.vrScene.background === null
+    return removedUIAbsent && stick.visible && session.mode === 'immersive-ar' && window.vrScene.background === null
       && get('note-highway-anchor') === window.previousChart && get('vr-note-lanes') === window.previousLanes
       && get('vr-drum-kit') === window.previousKit && note.visible && !note.position.equals(before);
   });
   assert.equal(preserved, true);
   assert.deepEqual(errors, []);
-  console.log('PASS: stereo stick button, both tracked hands, timed hand strike and chime, tracking loss recovery, pinch selection, and VR/AR session continuity.');
+  console.log('PASS: controller-only VR/AR, removed UI absent, unchanged Grip/haptics and note judgments, A cursor, backgrounds and session continuity.');
 } finally {
   await browser?.close();
   await vite.close();

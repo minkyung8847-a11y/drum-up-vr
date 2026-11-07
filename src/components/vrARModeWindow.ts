@@ -6,10 +6,9 @@ import type { RhythmAction, RhythmJudgment, RhythmState } from './vrNoteHighway'
 // Browsers can report a generic profile while preserving this layout.
 const A_BUTTON_INDEX = 4;
 
-// View and stick controls share a peripheral headset position. Rhythm stays by the kit.
+// View controls stay peripheral. Rhythm stays by the kit.
 export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager, rig: THREE.Group,
-  onSelectMode: (mode: 'vr' | 'ar') => void, onRhythmAction: (action: RhythmAction) => void,
-  onToggleRealSticks: () => void) {
+  onSelectMode: (mode: 'vr' | 'ar') => void, onRhythmAction: (action: RhythmAction) => void) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 256;
@@ -19,7 +18,6 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   let pointerActive = false;
   let aWasPressed = false;
   let pointerInput: XRInputSource | undefined;
-  let inputBlocked = false;
   const draw = () => {
     context.fillStyle = '#111820';
     context.fillRect(0, 0, 512, 256);
@@ -49,44 +47,6 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   panel.renderOrder = 1001;
   panel.visible = false;
   scene.add(panel);
-
-  const stickCanvas = document.createElement('canvas');
-  stickCanvas.width = 512;
-  stickCanvas.height = 160;
-  const stickContext = stickCanvas.getContext('2d')!;
-  const stickTexture = new THREE.CanvasTexture(stickCanvas);
-  stickTexture.colorSpace = THREE.SRGBColorSpace;
-  const stickPanel = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.144),
-    new THREE.MeshBasicMaterial({ map: stickTexture, transparent: true, depthTest: false, depthWrite: false, toneMapped: false }));
-  stickPanel.name = 'vr-stick-mode-window';
-  stickPanel.renderOrder = panel.renderOrder;
-  stickPanel.visible = false;
-  scene.add(stickPanel);
-  let realStickMode = false;
-  let handStatus = '';
-  let stickHovered = false;
-  const drawStickMode = () => {
-    stickContext.fillStyle = '#101114';
-    stickContext.fillRect(0, 0, 512, 160);
-    stickContext.strokeStyle = '#87909b';
-    stickContext.lineWidth = 3;
-    stickContext.strokeRect(2, 2, 508, 156);
-    stickContext.fillStyle = stickHovered ? '#ffffff' : '#c5cbd2';
-    stickContext.fillRect(24, 14, 464, 65);
-    stickContext.fillStyle = '#151515';
-    stickContext.font = 'bold 34px Arial';
-    stickContext.textAlign = 'center';
-    stickContext.fillText(realStickMode ? 'CONTROLLER MODE' : 'REAL STICK MODE', 256, 58);
-    stickContext.fillStyle = '#f1f5fa';
-    stickContext.font = '600 23px Arial';
-    stickContext.fillText(realStickMode ? handStatus : 'Aim and press trigger', 256, 111, 470);
-    if (realStickMode) {
-      stickContext.font = '20px Arial';
-      stickContext.fillText('COLOR MARKER TRACKING UNAVAILABLE', 256, 140);
-    }
-    stickTexture.needsUpdate = true;
-  };
-  drawStickMode();
 
   const rhythmCanvas = document.createElement('canvas');
   rhythmCanvas.width = 512;
@@ -186,30 +146,19 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   const pointAtPanels = (source: THREE.Group) => {
     source.updateWorldMatrix(true, false);
     panel.updateWorldMatrix(true, false);
-    stickPanel.updateWorldMatrix(true, false);
     rhythmPanel.updateWorldMatrix(true, false);
     rotation.identity().extractRotation(source.matrixWorld);
     raycaster.ray.origin.setFromMatrixPosition(source.matrixWorld);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
     return (panel.visible ? raycaster.intersectObject(panel, false)[0] : undefined)
-      ?? (stickPanel.visible ? raycaster.intersectObject(stickPanel, false)[0] : undefined)
       ?? (rhythmPanel.visible ? raycaster.intersectObject(rhythmPanel, false)[0] : undefined);
   };
-  const isStickButton = (hit?: THREE.Intersection) => hit?.object === stickPanel && hit.uv
-    && hit.uv.x >= 24 / 512 && hit.uv.x <= 488 / 512 && hit.uv.y >= 81 / 160 && hit.uv.y <= 146 / 160;
   const selectHandlers = sources.map(source => (event: { data: XRInputSource }) => {
-    if (inputBlocked) return;
-    if (!source.visible) return;
+    if (!source.visible || event.data.hand || !event.data.gripSpace) return;
     const hit = pointAtPanels(source);
-    if (isStickButton(hit) && event.data.targetRayMode === 'tracked-pointer' && (event.data.hand || event.data.gripSpace)) {
-      onToggleRealSticks();
-      pointerActive = false;
-      handCursor.visible = ray.visible = false;
-      return;
-    }
     if (hit?.object === panel && hit.uv && hit.uv.x >= 24 / 512 && hit.uv.x <= 488 / 512
       && hit.uv.y >= 34 / 256 && hit.uv.y <= 163 / 256) onSelectMode(target);
-    if (hit?.object !== rhythmPanel || (!pointerActive && !(realStickMode && event.data.hand)) || ray.parent !== source || !hit.uv) return;
+    if (hit?.object !== rhythmPanel || !pointerActive || ray.parent !== source || !hit.uv) return;
     const x = hit.uv.x * 512;
     const y = (1 - hit.uv.y) * 224;
     if (y < 70 || y > 142) return;
@@ -231,8 +180,6 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   const updateHover = (object?: THREE.Object3D) => {
     const overMode = object === panel;
     if (hovered !== overMode) { hovered = overMode; draw(); texture.needsUpdate = true; }
-    const overSticks = object === stickPanel;
-    if (stickHovered !== overSticks) { stickHovered = overSticks; drawStickMode(); }
   };
   const resetPointer = () => {
     pointerActive = false;
@@ -243,16 +190,9 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   };
 
   return {
-    setInputBlocked(blocked: boolean) { inputBlocked = blocked; if (blocked) resetPointer(); },
     setTarget(mode: 'vr' | 'ar') { target = mode; draw(); texture.needsUpdate = true; },
-    show(canSwitch: boolean) { panel.visible = canSwitch; rhythmPanel.visible = stickPanel.visible = true; resetPointer(); },
-    hide() { panel.visible = rhythmPanel.visible = stickPanel.visible = false; resetPointer(); },
-    setStickMode(enabled: boolean, status: string) {
-      if (enabled === realStickMode && status === handStatus) return;
-      realStickMode = enabled;
-      handStatus = status;
-      drawStickMode();
-    },
+    show(canSwitch: boolean) { panel.visible = canSwitch; rhythmPanel.visible = true; resetPointer(); },
+    hide() { panel.visible = rhythmPanel.visible = false; resetPointer(); },
     setRhythmStatus(state: RhythmState, judgment?: RhythmJudgment) {
       if (state === rhythmState && judgment === rhythmJudgment) return;
       rhythmState = state;
@@ -273,15 +213,12 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
       drawRhythm();
     },
     update(session: XRSession | null, viewer: XRViewerPose | null) {
-      if (inputBlocked) { resetPointer(); return false; }
-      if (!stickPanel.visible || session?.visibilityState !== 'visible') { resetPointer(); return false; }
+      if (!rhythmPanel.visible || session?.visibilityState !== 'visible') { resetPointer(); return false; }
       if (viewer) {
         rig.updateWorldMatrix(true, false);
         viewerWorld.fromArray(viewer.transform.matrix).premultiply(rig.matrixWorld);
         panel.position.set(0.47, 0.37, -1.35).applyMatrix4(viewerWorld);
-        stickPanel.position.set(0.47, 0.16, -1.35).applyMatrix4(viewerWorld);
         panel.quaternion.setFromRotationMatrix(viewerWorld);
-        stickPanel.quaternion.copy(panel.quaternion);
       }
       const input = [...(session?.inputSources ?? [])].find(source => source.handedness === 'right'
         && !source.hand && source.gripSpace && source.targetRayMode === 'tracked-pointer'
@@ -298,16 +235,6 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
       aWasPressed = aPressed;
       let source = pointerActive && input ? bindings.get(input) : undefined;
       let hit = source?.visible ? pointAtPanels(source) : undefined;
-      if (!source?.visible) {
-        // Point-and-pinch works in hand mode. Controller aiming at the stick button does not require A.
-        for (const [candidate, targetRay] of bindings) {
-          if (!targetRay.visible || candidate.targetRayMode !== 'tracked-pointer' || !(candidate.gripSpace || candidate.hand)) continue;
-          const candidateHit = pointAtPanels(targetRay);
-          if (isStickButton(candidateHit) || (candidate.hand && realStickMode && candidateHit)) {
-            source = targetRay; hit = candidateHit; break;
-          }
-        }
-      }
       if (!source?.visible) {
         handCursor.visible = ray.visible = false;
         updateHover();
@@ -339,10 +266,6 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
       panel.geometry.dispose();
       (panel.material as THREE.Material).dispose();
       texture.dispose();
-      stickPanel.removeFromParent();
-      stickPanel.geometry.dispose();
-      stickPanel.material.dispose();
-      stickTexture.dispose();
       rhythmPanel.removeFromParent();
       rhythmPanel.geometry.dispose();
       rhythmPanel.material.dispose();

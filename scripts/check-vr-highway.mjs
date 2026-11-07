@@ -12,6 +12,10 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(installMockWebXR, { mode: 'switchable' });
+  await page.addInitScript(() => localStorage.setItem('drumup.vr.drum-layout.v1', JSON.stringify({
+    version: 1, instruments: Object.fromEntries(['kick', 'snare', 'hihat', 'smallTom', 'middleTom', 'floorTom', 'crash', 'ride']
+      .map(id => [id, { position: [9, 9, 9], quaternion: [0, 0, 0, 1] }])),
+  })));
   await page.goto(`${vite.resolvedUrls.local[0]}#/vr`);
   await page.getByRole('status').filter({ hasText: 'Click to play' }).waitFor();
   await page.evaluate(async () => {
@@ -32,6 +36,10 @@ try {
     drumSynth.playRhythmSuccess = perfect => { window.successTones.push(perfect); playRhythmSuccess(perfect); };
   });
   await page.waitForFunction(() => window.scene);
+  assert.equal(await page.getByRole('option', { name: 'Real stick calibration', exact: true }).count(), 0);
+  assert(await page.evaluate(() => localStorage.getItem('drumup.vr.drum-layout.v1') === null
+    && !window.scene.getObjectByName('vr-drum-position-settings')
+    && !window.scene.getObjectByName('vr-stick-mode-window')), 'Removed UI and saved-layout loading are absent');
   assert(await page.evaluate(() => !window.scene.getObjectByName('note-highway-anchor')
     && !window.scene.getObjectByName('vr-note-lanes')
     && !window.scene.getObjectByName('vr-rhythm-controls').visible), 'Desktop preview is unaffected');
@@ -208,6 +216,12 @@ try {
     const { VR_BASIC_DRUM_BEAT } = await import('/src/components/vrBasicDrumBeat.ts');
     const scene = new T.Scene();
     const kit = createRestoredVRDrumSet(scene);
+    const liveKit = window.scene.getObjectByName('vr-drum-kit');
+    const defaultsPreserved = kit.group.children.filter(object => object.userData.drumType).every(expected => {
+      const actual = liveKit.children.find(object => object.userData.drumType === expected.userData.drumType);
+      return actual && actual.position.equals(expected.position) && actual.quaternion.equals(expected.quaternion)
+        && actual.scale.equals(expected.scale);
+    });
     const eye = new T.Vector3(0, 1.35, 1);
     const statuses = [];
     const surfaces = captureRhythmSurfaces(kit.hitSurfaces);
@@ -369,7 +383,7 @@ try {
     const differentSizes = new Set(surfaces.map(surface => get(`note-${surface.id}-1000`).scale.x)).size > 1;
     sizes.dispose();
     guide.dispose();
-    return { counts, schedule, noDuplicates, fixedPattern, countIn, correctTargets, exactEnd, replay, linearSpeed, beforeZone, zoneOpens,
+    return { counts, schedule, defaultsPreserved, noDuplicates, fixedPattern, countIn, correctTargets, exactEnd, replay, linearSpeed, beforeZone, zoneOpens,
       earlyTimingMiss, earlyGreat, surfaceSizes, differentSizes,
       guideAlignment, converges, separate, arContrast, ordinaryHits, ordinaryHitsFade, spawn, alongLine, bpm: RHYTHM_BPM, windows, chord,
       moved, independent, aligned, constantSizeWithoutFade, effects, expands, effectsFade, softerGreat, missHasOnlyBase, atBoundary, expired,
@@ -386,7 +400,7 @@ try {
   assert.equal(checks.correctTargets, 24);
   assert.deepEqual(checks.windows, ['Miss', 'Great', 'Great', 'Perfect', 'Perfect', 'Great', 'Great', 'Miss']);
   assert.deepEqual(checks.chord, ['Perfect', 'Miss', 'Perfect']);
-  for (const check of ['fixedPattern', 'noDuplicates', 'countIn', 'exactEnd', 'replay', 'linearSpeed', 'beforeZone', 'zoneOpens',
+  for (const check of ['defaultsPreserved', 'fixedPattern', 'noDuplicates', 'countIn', 'exactEnd', 'replay', 'linearSpeed', 'beforeZone', 'zoneOpens',
     'earlyTimingMiss', 'earlyGreat', 'surfaceSizes', 'differentSizes',
     'guideAlignment', 'converges', 'separate', 'arContrast', 'ordinaryHits', 'ordinaryHitsFade',
     'spawn', 'alongLine', 'moved', 'independent', 'aligned', 'constantSizeWithoutFade', 'effects', 'expands', 'effectsFade',

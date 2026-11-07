@@ -318,27 +318,6 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
 
   return {
     restart,
-    setVisible(visible: boolean) { anchor.visible = visible; },
-    refreshSurfaces(next: RhythmSurface[], nextPaths: ReturnType<typeof createVRNoteLanes>['paths']) {
-      for (const surface of next) {
-        const lane = lanes.get(surface.id);
-        if (!lane) continue;
-        lane.world.copy(surface.world);
-        lane.normal.copy(surfaceNormal(surface.world));
-        lane.positionAt = nextPaths.get(surface.id)!;
-        const rimHeight = surface.cymbal || surface.id === 'kick' ? surface.height : 0.024;
-        lane.rim.position.set(0, rimHeight, 0).applyMatrix4(lane.world).addScaledVector(lane.normal, .006);
-        lane.rim.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), lane.normal);
-        lane.ripple.quaternion.copy(lane.rim.quaternion);
-        lane.rim.scale.set(2 * surface.radius * new THREE.Vector3().setFromMatrixColumn(lane.world, 0).length() / RING_DIAMETER_RATIO,
-          2 * surface.radius * new THREE.Vector3().setFromMatrixColumn(lane.world, 2).length() / RING_DIAMETER_RATIO, 1);
-        lane.noteSize = Math.min(lane.rim.scale.x, lane.rim.scale.y) * .75;
-        lane.zone.position.copy(lane.rim.position); lane.zone.quaternion.copy(lane.rim.quaternion);
-        lane.zone.scale.copy(lane.rim.scale).multiplyScalar(.75);
-        lane.flashAt = -Infinity;
-        lane.rim.visible = lane.ripple.visible = lane.success.visible = lane.zone.visible = false;
-      }
-    },
     toggle(now: number) {
       if (state === 'playing') pause(now);
       else if (state === 'paused') {
