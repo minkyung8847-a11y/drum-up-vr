@@ -102,7 +102,10 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
   rhythmPanel.visible = false;
   scene.add(rhythmPanel);
   let rhythmState: RhythmState = 'idle';
+  let rhythmBpm = RHYTHM_BPM;
   let rhythmJudgment: RhythmJudgment | undefined;
+  let countIn: number | undefined;
+  let songResults = '';
   const drawRhythm = () => {
     rhythmContext.fillStyle = '#111820';
     rhythmContext.fillRect(0, 0, 512, 224);
@@ -111,7 +114,7 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
     rhythmContext.strokeRect(3, 3, 506, 218);
     rhythmContext.fillStyle = '#d9e1e9';
     rhythmContext.font = '600 27px Arial';
-    rhythmContext.fillText(`RHYTHM  /  ${RHYTHM_BPM} BPM`, 24, 45);
+    rhythmContext.fillText(`RHYTHM  /  ${rhythmBpm} BPM`, 24, 45);
     rhythmContext.fillStyle = '#87e9dd';
     rhythmContext.fillRect(24, 70, 220, 72);
     rhythmContext.fillStyle = '#243441';
@@ -124,7 +127,13 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
     rhythmContext.fillText('Restart', 378, 117);
     rhythmContext.font = '600 27px Arial';
     rhythmContext.fillStyle = rhythmJudgment === 'Miss' ? '#ffad89' : '#9cf7e7';
-    rhythmContext.fillText(rhythmJudgment?.toUpperCase() ?? (rhythmState === 'finished' ? 'Pattern complete' : 'A: cursor   ·   Trigger: select'), 256, 190);
+    rhythmContext.fillText(countIn !== undefined ? `COUNT IN ${countIn}` : rhythmJudgment?.toUpperCase()
+      ?? (rhythmState === 'finished' ? 'Pattern complete' : 'A: cursor   ·   Trigger: select'), 256, 190);
+    if (songResults) {
+      rhythmContext.font = '18px Arial';
+      rhythmContext.fillStyle = '#d9e1e9';
+      rhythmContext.fillText(songResults, 256, 217);
+    }
     rhythmContext.textAlign = 'start';
     rhythmTexture.needsUpdate = true;
   };
@@ -245,6 +254,19 @@ export function createVRARModeWindow(scene: THREE.Scene, xr: THREE.WebXRManager,
       if (state === rhythmState && judgment === rhythmJudgment) return;
       rhythmState = state;
       rhythmJudgment = judgment;
+      drawRhythm();
+    },
+    setRhythmBpm(bpm: number) {
+      if (bpm === rhythmBpm) return;
+      rhythmBpm = bpm;
+      drawRhythm();
+    },
+    setSongResults(perfect: number, great: number, miss: number, scoreTime: number) {
+      const countdown = scoreTime < 0 ? Math.ceil(-scoreTime * rhythmBpm / 60) : undefined;
+      const results = `PERFECT ${perfect}   GREAT ${great}   MISS ${miss}`;
+      if (results === songResults && countdown === countIn) return;
+      songResults = results;
+      countIn = countdown;
       drawRhythm();
     },
     update(session: XRSession | null, viewer: XRViewerPose | null) {

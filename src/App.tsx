@@ -7,6 +7,7 @@ import { drumSynth } from "./utils/synth";
 import { RudimentPractice } from "./components/RudimentPractice";
 import { SongPractice } from "./components/SongPractice";
 import type { GameScore, SongChart } from "./types";
+import type { SongHitPad } from './components/songDrumMapping';
 import { MidiSettingsModal } from "./components/MidiSettingsModal";
 import { DrumKitSelector } from "./components/DrumKitSelector";
 import { BeatIndicator, type TimeSignature } from "./components/BeatIndicator";
@@ -59,6 +60,7 @@ function App() {
   const [songIsPlaying, setSongIsPlaying] = useState<boolean>(false);
   const [currentSong, setCurrentSong] = useState<SongChart | null>(null);
   const [lastHitEvent, setLastHitEvent] = useState<{ padId: DrumPadId; time: number } | null>(null);
+  const songHitListener = useRef<((event: { padId: SongHitPad; time: number }) => void) | null>(null);
   const [rudimentScore, setRudimentScore] = useState<GameScore>({
     score: 0,
     combo: 0,
@@ -118,7 +120,9 @@ function App() {
 
     // Trigger low-latency audio synthesizer sound & 3D visual response
     triggerHit(mappedId);
-    setLastHitEvent({ padId: mappedId, time: performance.now() });
+    const event = { padId: mappedId, time: performance.now() };
+    songHitListener.current?.(event);
+    setLastHitEvent(event);
   }, [triggerHit]);
 
   // Hook into MIDI Devices and Custom mapping configuration
@@ -150,7 +154,9 @@ function App() {
   const handlePartClick = useCallback((partId: DrumPadId) => {
     drumSynth.init();
     triggerHit(partId);
-    setLastHitEvent({ padId: partId, time: performance.now() });
+    const event = { padId: partId, time: performance.now() };
+    songHitListener.current?.(event);
+    setLastHitEvent(event);
   }, [triggerHit]);
 
   const resetRudimentSession = useCallback(() => {
@@ -499,7 +505,7 @@ function App() {
               <SongPractice
                 isPlaying={songIsPlaying}
                 setIsPlaying={setSongIsPlaying}
-                lastHitEvent={lastHitEvent}
+                hitListener={songHitListener}
                 currentSong={currentSong}
                 setCurrentSong={setCurrentSong}
               />

@@ -25,6 +25,12 @@ export interface NoteEvent {
   time: number; // Time in seconds when the note should be hit
   padId: DrumPadId;
   duration?: number;
+  instrument?: import('../components/songDrumMapping').SongDrumInstrument;
+  beat?: number; // Zero-based quarter-note offset from score start.
+  hitTime?: number; // Seconds on the score timeline, before media offset.
+  measure?: number;
+  measureBeat?: number;
+  velocity?: number; // Normalized 0–1 when supplied by the score.
 }
 
 export interface SongChart {
@@ -35,6 +41,8 @@ export interface SongChart {
   difficulty: "Easy" | "Medium" | "Hard";
   duration: number; // in seconds
   notes: NoteEvent[];
+  tempoMap?: { beat: number; bpm: number }[];
+  meterMap?: { beat: number; numerator: number; denominator: number }[];
 }
 
 export interface GameScore {

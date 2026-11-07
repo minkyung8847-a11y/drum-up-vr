@@ -59,7 +59,7 @@ export function formatAudioTime(seconds: number): string {
 // There is no backing-song file in the current page. Render a quiet, audible
 // timing fixture once to PCM WAV. Each tone starts at its chart timestamp.
 // Playback uses a normal HTMLAudioElement; this generator is never a clock.
-export function createTimingTrack(notes: readonly NoteEvent[], duration: number): Blob {
+export function createTimingTrack(notes: readonly NoteEvent[], duration: number, offset = 0): Blob {
   const sampleRate = 22050;
   const samples = new Float32Array(Math.ceil(duration * sampleRate));
   const frequencies: Record<DrumPadId, number> = {
@@ -68,12 +68,13 @@ export function createTimingTrack(notes: readonly NoteEvent[], duration: number)
     "tom-floor": 165, crash: 1760, ride: 880,
   };
   for (const note of notes) {
-    if (!Number.isFinite(note.time) || note.time < 0 || note.time >= duration) continue;
-    const start = Math.round(note.time * sampleRate);
+    const time = note.time + offset;
+    if (!Number.isFinite(time) || time < 0 || time >= duration) continue;
+    const start = Math.round(time * sampleRate);
     const length = Math.min(Math.round(0.12 * sampleRate), samples.length - start);
     for (let i = 0; i < length; i++) {
       const t = i / sampleRate;
-      samples[start + i] += 0.12 * Math.sin(2 * Math.PI * frequencies[note.padId] * t)
+      samples[start + i] += 0.12 * (note.velocity ?? 1) * Math.sin(2 * Math.PI * frequencies[note.padId] * t)
         * Math.exp(-t * 45) * Math.min(1, i / 16);
     }
   }

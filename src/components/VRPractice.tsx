@@ -27,11 +27,13 @@ import { createLocalKickDebug } from '../pedal/localKickDebug';
 import { createKickTrigger } from '../pedal/kickTrigger';
 import { attachXRKickInput } from '../pedal/xrKickInput';
 import { createVRARModeWindow } from './vrARModeWindow';
+import { createSongMedia, songBpmAt } from './songPlayback';
+import type { SongPlayback } from './songPlayback';
 import './vrPractice.css';
 
 type XRMode = 'vr' | 'ar';
 
-export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: XRMode }) {
+export default function VRPractice({ preferredMode = 'vr', song }: { preferredMode?: XRMode; song?: SongPlayback }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const resetRef = useRef<() => void>(() => {});
   const kickRef = useRef<(velocity: number) => boolean>(() => false);
@@ -126,6 +128,15 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
     let disposed = false;
     let audioReady = false;
     let highway: ReturnType<typeof createVRNoteHighway> | null = null;
+    let scoreMedia: { audio: HTMLAudioElement; url: string; offset: number } | undefined;
+    const releaseScoreMedia = () => {
+      if (!scoreMedia) return;
+      scoreMedia.audio.pause();
+      scoreMedia.audio.removeAttribute('src');
+      scoreMedia.audio.load();
+      URL.revokeObjectURL(scoreMedia.url);
+      scoreMedia = undefined;
+    };
     let sessionMode: XRMode = preferredMode;
     let previousTime: number | null = null;
     const isVisibleXR = () => renderer.xr.getSession()?.visibilityState === 'visible';
@@ -279,8 +290,16 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       if (!noteLanes) {
         noteLanes = createVRNoteLanes(rhythmSurfaces, laneEye);
         scene.add(noteLanes.lines);
+        if (song) {
+          const media = createSongMedia(song);
+          scoreMedia = { ...media, audio: new Audio(media.url) };
+          arModeWindow.setRhythmBpm(songBpmAt(song.chart, -media.offset));
+        }
         highway = createVRNoteHighway(scene, rhythmSurfaces, noteLanes.paths,
-          (state, judgment) => arModeWindow.setRhythmStatus(state, judgment));
+          (state, judgment) => arModeWindow.setRhythmStatus(state, judgment),
+          song && scoreMedia ? { ...scoreMedia, notes: song.chart.notes, windows: song.windows,
+            onResults: (perfect, great, miss, time) => arModeWindow.setSongResults(perfect, great, miss, time),
+          } : undefined);
       }
       rhythmSession = renderer.xr.getSession();
       applyStickMode();
@@ -304,6 +323,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
         highway?.stop();
         highway?.dispose();
         highway = null;
+        releaseScoreMedia();
         noteLanes?.dispose();
         noteLanes = null;
         seating.exit();
@@ -603,6 +623,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
         headPosition.set(p.x, p.y, p.z).applyMatrix4(rig.matrixWorld);
         if (!isVisibleXR()) highway?.pause(time);
         highway?.update(time, headPosition);
+        if (song && scoreMedia) arModeWindow.setRhythmBpm(songBpmAt(song.chart, scoreMedia.audio.currentTime - scoreMedia.offset));
       }
       if (realStickMode && session) {
         if (frame && reference && viewer) handSticks.update(frame, reference);
@@ -656,6 +677,7 @@ export default function VRPractice({ preferredMode = 'vr' }: { preferredMode?: X
       interaction.dispose();
       hardware.dispose();
       highway?.dispose();
+      releaseScoreMedia();
       noteLanes?.dispose();
       renderer.setAnimationLoop(null);
       observer.disconnect();

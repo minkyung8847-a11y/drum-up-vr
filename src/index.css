@@ -679,6 +679,23 @@ input:checked + .switch-slider:before {
   font-size: 12px;
 }
 
+.song-practice-settings {
+  width: min(920px, calc(100% - 40px));
+  margin: 0 auto 4px;
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  pointer-events: auto;
+}
+
+.song-practice-settings label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 12px 0 0;
+}
+
 .rudiment-pattern-strip {
   width: min(920px, calc(100% - 40px));
   margin: 0 auto 4px;

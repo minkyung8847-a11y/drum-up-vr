@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import type { DrumPadId, NoteEvent } from "../types";
 import { formatAudioTime, getNoteProgress } from "./songPracticeTiming";
+import { createSongArrivalDebug } from './songArrivalDebug';
 
 interface GameCanvasProps {
   audioRef: React.RefObject<HTMLAudioElement | null>;
   notes: readonly NoteEvent[];
+  offset: number;
   onTimeUpdate: (audioTime: number) => void;
 }
 
@@ -18,15 +20,15 @@ const LANE_CONFIGS: Record<
   "hihat-open": { name: "Hi-Hat", color: "#FF6D2D", bottomX: 0.27, topX: 0.40 },
   snare: { name: "Snare", color: "#FF6D2D", bottomX: 0.37, topX: 0.45 },
   kick: { name: "Kick", color: "#FF6D2D", bottomX: 0.50, topX: 0.50 },
-  "tom-high": { name: "Tom 1", color: "#FF6D2D", bottomX: 0.60, topX: 0.55 },
-  "tom-mid": { name: "Tom 2", color: "#FF6D2D", bottomX: 0.60, topX: 0.55 }, // group mid/high tom in same path visual
+  "tom-high": { name: "Tom 1", color: "#FF6D2D", bottomX: 0.57, topX: 0.54 },
+  "tom-mid": { name: "Tom 2", color: "#FF6D2D", bottomX: 0.65, topX: 0.58 },
   "tom-floor": { name: "Floor Tom", color: "#FF6D2D", bottomX: 0.73, topX: 0.60 },
   ride: { name: "Ride", color: "#FF6D2D", bottomX: 0.815, topX: 0.65 },
   "hihat-pedal": { name: "HH Pedal", color: "#FF6D2D", bottomX: 0.27, topX: 0.40 },
 };
 
 
-export const GameCanvas: React.FC<GameCanvasProps> = ({ audioRef, notes, onTimeUpdate }) => {
+export const GameCanvas: React.FC<GameCanvasProps> = ({ audioRef, notes, offset, onTimeUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const debugRef = useRef<HTMLOutputElement | null>(null);
   const sortedNotes = useMemo(() => [...notes].sort((a, b) => a.time - b.time), [notes]);
@@ -36,11 +38,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ audioRef, notes, onTimeU
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
     let frameId = 0;
+    const arrivals = createSongArrivalDebug(sortedNotes, offset);
+    const audio = audioRef.current;
+    const resetArrivals = () => arrivals.reset(audio?.currentTime ?? 0);
+    audio?.addEventListener('seeked', resetArrivals);
 
     const render = () => {
       // Read the media clock directly in the same frame that draws the notes.
       // No frame-delta integration, hit state, or React-state timing offsets.
       const audioTime = audioRef.current?.currentTime ?? 0;
+      const scoreTime = audioTime - offset;
       const rect = canvas.getBoundingClientRect();
       const width = Math.round(rect.width);
       const height = Math.round(rect.height);
@@ -100,7 +107,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ audioRef, notes, onTimeU
 
 
       for (const note of sortedNotes) {
-        const progress = getNoteProgress(note.time, audioTime);
+        const progress = getNoteProgress(note.time, scoreTime);
         if (progress < 0) break;
         const noteY = progress * hitLineY;
         const radius = 12 + progress * 6;
@@ -125,13 +132,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ audioRef, notes, onTimeU
         ctx.fill();
       }
 
-      const nextNote = sortedNotes.find(note => note.time >= audioTime);
+      const nextNote = sortedNotes.find(note => note.time >= scoreTime);
       if (debugRef.current) {
         debugRef.current.textContent = [
-          "SYNC TEST · authored chart / test tones",
+          "SCORE SYNC",
           `Audio Time: ${formatAudioTime(audioTime)}`,
-          `Next Note: ${nextNote ? formatAudioTime(nextNote.time) : "--.---"}`,
-          `Difference: ${nextNote ? formatAudioTime(nextNote.time - audioTime) : "--.---"}`,
+          `Next Note: ${nextNote ? formatAudioTime(nextNote.time + offset) : "--.---"}`,
+          `Difference: ${nextNote ? formatAudioTime(nextNote.time - scoreTime) : "--.---"}`,
+          `First frame ≥ target: ${arrivals.sample(audioTime, !!audio && !audio.paused && !audio.seeking) || 'waiting'}`,
         ].join("\n");
       }
       onTimeUpdate(audioTime);
@@ -139,8 +147,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ audioRef, notes, onTimeU
       frameId = requestAnimationFrame(render);
     };
     frameId = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(frameId);
-  }, [audioRef, sortedNotes, onTimeUpdate]);
+    return () => {
+      cancelAnimationFrame(frameId);
+      audio?.removeEventListener('seeked', resetArrivals);
+    };
+  }, [audioRef, sortedNotes, offset, onTimeUpdate]);
 
   return (
     <div className="rhythm-game-container">
