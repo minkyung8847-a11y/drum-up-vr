@@ -126,7 +126,7 @@ try {
     offset.applyAxisAngle(pitchAxis, wristPitch);
     source.gripSpace.tracked = false;
     source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch).toArray();
-    session.time += 3640;
+    session.time += 4890;
     session.step();
     source.gripSpace.position = rig.worldToLocal(target).sub(offset).toArray();
     source.gripSpace.tracked = true;
@@ -135,7 +135,7 @@ try {
     session.step(2);
     return { active, eightLanes, froze, resumed, restarted, fixedRhythmMenu, eyeDraws,
       snareRipple: get('rhythm-ripple-snare').visible, snareRim: get('rhythm-rim-snare').visible,
-      snareRemoved: !get('note-snare-3750').visible, hits: window.hits, successTones: window.successTones,
+      snareRemoved: !get('note-snare-5000').visible, hits: window.hits, successTones: window.successTones,
       pulses: session.pulses };
   });
   assert(immersive.eyeDraws >= 2, 'A note is submitted in the stereo render loop');
@@ -153,7 +153,7 @@ try {
     const T = window.THREE;
     const { captureRhythmSurfaces, createVRNoteLanes, createVRNoteHighway, RHYTHM_BPM } = await import('/src/components/vrNoteHighway.ts');
     const { createRestoredVRDrumSet } = await import('/src/components/restoredVRDrumSet.ts');
-    const { BASIC_DRUM_BEAT } = await import('/src/components/basicDrumBeat.ts');
+    const { VR_BASIC_DRUM_BEAT } = await import('/src/components/vrBasicDrumBeat.ts');
     const scene = new T.Scene();
     const kit = createRestoredVRDrumSet(scene);
     const eye = new T.Vector3(0, 1.35, 1);
@@ -205,8 +205,11 @@ try {
     const defaultNotes = scene.getObjectByName('note-highway-anchor').children.filter(object => object.name.startsWith('note-'));
     const counts = Object.fromEntries(['hihat', 'snare', 'kick'].map(id =>
       [id, defaultNotes.filter(object => object.name.startsWith(`note-${id}-`)).length]));
-    const fixedPattern = defaultNotes.length === 48 && BASIC_DRUM_BEAT.notes.every(note =>
-      !!get(`note-${note.instrument}-${3000 + note.time * 1500}`));
+    const fixedPattern = defaultNotes.length === 24 && VR_BASIC_DRUM_BEAT.events.every(note =>
+      !!get(`note-${note.id}-${3000 + note.hitTimeMs}`));
+    const schedule = Object.fromEntries(['hihat', 'kick', 'snare'].map(id => [id,
+      defaultNotes.filter(object => object.name.startsWith(`note-${id}-`))
+        .map(object => Number(object.name.split('-').at(-1)) / 1000).sort((a, b) => a - b)]));
     const kick = get('note-kick-3000');
     const hihat = get('note-hihat-3000');
     const judge = (id, time) => road.strike(id, time);
@@ -267,20 +270,23 @@ try {
     road.update(1000, eye);
     const countIn = progress.time === -3 && kick.position.distanceTo(endpoints[0]) < 1e-8;
     let correctTargets = 0;
-    for (const time of [...new Set(BASIC_DRUM_BEAT.notes.map(note => note.time))]) {
-      road.update(4000 + time * 1500, eye);
-      for (const note of BASIC_DRUM_BEAT.notes.filter(note => note.time === time)) {
-        if (get(`note-${note.instrument}-${3000 + time * 1500}`).position.distanceTo(
-          guide.paths.get(note.instrument)(0, new T.Vector3())) < 1e-8) correctTargets++;
+    for (const time of [...new Set(VR_BASIC_DRUM_BEAT.events.map(note => note.hitTimeMs))]) {
+      road.update(4000 + time, eye);
+      for (const note of VR_BASIC_DRUM_BEAT.events.filter(note => note.hitTimeMs === time)) {
+        if (get(`note-${note.id}-${3000 + time}`).position.distanceTo(
+          guide.paths.get(note.id)(0, new T.Vector3())) < 1e-8) correctTargets++;
       }
     }
-    road.update(15999, eye);
+    road.update(19999, eye);
     const stillPlaying = !['finished', 'idle'].includes(statuses.at(-1));
-    road.update(16000, eye);
-    const exactEnd = stillPlaying && statuses.at(-1) === 'finished' && progress.time === 12 && progress.miss === 48;
-    road.toggle(17000);
-    road.update(17000, eye);
+    road.update(20000, eye);
+    const exactEnd = stillPlaying && statuses.at(-1) === 'finished' && progress.time === 16 && progress.miss === 24;
+    road.toggle(21000);
+    road.update(21000, eye);
     const replay = statuses.at(-1) === 'playing' && progress.time === -3 && progress.miss === 0 && kick.visible;
+    const noDuplicates = scene.children.filter(object => object.name === 'note-highway-anchor').length === 1
+      && defaultNotes.length === 24 && new Set(defaultNotes.map(object => object.name)).size === 24
+      && defaultNotes.every(object => get(object.name) === object);
     road.restart(1000);
     road.update(3549, eye);
     const beforeZone = !get('rhythm-judgment-zone-kick').visible && judge('kick', 3549) === 'Miss' && kick.visible;
@@ -311,18 +317,24 @@ try {
     const differentSizes = new Set(surfaces.map(surface => get(`note-${surface.id}-1000`).scale.x)).size > 1;
     sizes.dispose();
     guide.dispose();
-    return { counts, fixedPattern, countIn, correctTargets, exactEnd, replay, linearSpeed, beforeZone, zoneOpens,
+    return { counts, schedule, noDuplicates, fixedPattern, countIn, correctTargets, exactEnd, replay, linearSpeed, beforeZone, zoneOpens,
       earlyTimingMiss, earlyGreat, surfaceSizes, differentSizes,
       guideAlignment, converges, separate, arContrast, ordinaryHits, ordinaryHitsFade, spawn, alongLine, bpm: RHYTHM_BPM, windows, chord,
       moved, independent, aligned, constantSizeWithoutFade, effects, expands, effectsFade, softerGreat, missHasOnlyBase, atBoundary, expired,
       finished, disposed: !get('note-highway-anchor') };
   });
-  assert.equal(checks.bpm, 80);
-  assert.deepEqual(checks.counts, { hihat: 32, snare: 8, kick: 8 });
-  assert.equal(checks.correctTargets, 48);
+  assert.equal(checks.bpm, 60);
+  assert.deepEqual(checks.counts, { hihat: 16, snare: 4, kick: 4 });
+  assert.deepEqual(checks.schedule, {
+    hihat: Array.from({ length: 16 }, (_, beat) => 3 + beat),
+    kick: [3, 7, 11, 15], snare: [5, 9, 13, 17],
+  }, 'Actual scene note attack times, including the independent 3s preroll');
+  console.log('Verified scheduled arrivals after PLAY (seconds):', checks.schedule);
+  console.log('Quarter-note interval: previous 80 BPM = 0.75s; current 60 BPM = 1s. Travel remains 3s.');
+  assert.equal(checks.correctTargets, 24);
   assert.deepEqual(checks.windows, ['Miss', 'Great', 'Great', 'Perfect', 'Perfect', 'Great', 'Great', 'Miss']);
   assert.deepEqual(checks.chord, ['Perfect', 'Miss', 'Perfect']);
-  for (const check of ['fixedPattern', 'countIn', 'exactEnd', 'replay', 'linearSpeed', 'beforeZone', 'zoneOpens',
+  for (const check of ['fixedPattern', 'noDuplicates', 'countIn', 'exactEnd', 'replay', 'linearSpeed', 'beforeZone', 'zoneOpens',
     'earlyTimingMiss', 'earlyGreat', 'surfaceSizes', 'differentSizes',
     'guideAlignment', 'converges', 'separate', 'arContrast', 'ordinaryHits', 'ordinaryHitsFade',
     'spawn', 'alongLine', 'moved', 'independent', 'aligned', 'constantSizeWithoutFade', 'effects', 'expands', 'effectsFade',
@@ -339,7 +351,7 @@ try {
   }));
   assert.deepEqual(exit, { highway: false, preview: false, concert: true, controls: false }, 'XR exit restores free play');
   assert.deepEqual(errors, []);
-  console.log('PASS: VR/AR default PLAY uses 48 fixed BASIC DRUM BEAT notes at 80 BPM, 3s preroll, all real targets, exact 12s finish, replay, timing windows and hit effects.');
+  console.log('PASS: VR/AR default PLAY uses 24 fixed BASIC DRUM BEAT notes at 60 BPM, 3s preroll, all real targets, exact 16s finish, replay, timing windows and hit effects.');
 } finally {
   await browser?.close();
   await vite.close();

@@ -4,10 +4,9 @@ import type { NoteEvent } from '../types';
 import { PAD_TO_INSTRUMENT } from './songDrumMapping';
 import type { SongWindows } from './songPlayback';
 import { NOTE_TRAVEL_TIME } from './songPracticeTiming';
-import { BASIC_DRUM_BEAT } from './basicDrumBeat';
+import { VR_BASIC_DRUM_BEAT } from './vrBasicDrumBeat';
 
-export const RHYTHM_BPM = 80;
-const DEFAULT_TEMPO_SCALE = BASIC_DRUM_BEAT.bpm / RHYTHM_BPM;
+export const RHYTHM_BPM = VR_BASIC_DRUM_BEAT.bpm;
 const TRAVEL_MS = 3000;
 const PERFECT_MS = 50;
 const GREAT_MS = 120;
@@ -146,10 +145,9 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   const perfectWindow = media?.windows.perfect ?? PERFECT_MS;
   const greatWindow = media?.windows.great ?? GREAT_MS;
   const earlyWindow = media ? greatWindow : travel * 0.15;
-  const events = (media?.notes ?? BASIC_DRUM_BEAT.notes).map(note => ({
-    id: note.instrument ?? PAD_TO_INSTRUMENT[note.padId],
-    arrival: note.time * 1000 * (media ? 1 : DEFAULT_TEMPO_SCALE) + (media ? 0 : travel),
-  }));
+  const events = media ? media.notes.map(note => ({
+    id: note.instrument ?? PAD_TO_INSTRUMENT[note.padId], arrival: note.time * 1000,
+  })) : VR_BASIC_DRUM_BEAT.events.map(note => ({ id: note.id, arrival: travel + note.hitTimeMs }));
   type NoteMesh = THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   const notePool: NoteMesh[] = [];
   const notes = events.filter(event => lanes.has(event.id)).sort((a, b) => a.arrival - b.arrival)
@@ -240,6 +238,16 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   function restart(now: number) {
     clear();
     epoch = now;
+    if (!media) {
+      console.info(`[DRUM UP VR] BASIC DRUM BEAT ${RHYTHM_BPM} BPM · beat ${VR_BASIC_DRUM_BEAT.beatMs}ms · travel ${travel}ms · ${notes.length} notes`);
+      console.table(VR_BASIC_DRUM_BEAT.events.map(note => ({
+        instrument: note.id, bar: Math.floor(note.beat / VR_BASIC_DRUM_BEAT.beatsPerBar) + 1,
+        beat: note.beat % VR_BASIC_DRUM_BEAT.beatsPerBar + 1,
+        scoreSeconds: note.hitTimeMs / 1000,
+        spawnSecondsAfterPlay: note.hitTimeMs / 1000,
+        hitSecondsAfterPlay: (travel + note.hitTimeMs) / 1000,
+      })));
+    }
     if (media) {
       media.audio.currentTime = 0;
       onSeeked();
@@ -337,7 +345,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
       for (const lane of lanes.values()) updateFlash(lane, now);
       if (state !== 'playing' && state !== 'paused') return;
       const elapsed = elapsedAt(now);
-      if (!media && state === 'playing' && elapsed >= travel + BASIC_DRUM_BEAT.duration * 1000 * DEFAULT_TEMPO_SCALE) {
+      if (!media && state === 'playing' && elapsed >= travel + VR_BASIC_DRUM_BEAT.durationMs) {
         finish(now);
         return;
       }
