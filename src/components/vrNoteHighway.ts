@@ -6,7 +6,8 @@ import type { SongWindows } from './songPlayback';
 import { NOTE_TRAVEL_TIME } from './songPracticeTiming';
 import { BASIC_DRUM_BEAT } from './basicDrumBeat';
 
-export const RHYTHM_BPM = BASIC_DRUM_BEAT.bpm;
+export const RHYTHM_BPM = 80;
+const DEFAULT_TEMPO_SCALE = BASIC_DRUM_BEAT.bpm / RHYTHM_BPM;
 const TRAVEL_MS = 3000;
 const PERFECT_MS = 50;
 const GREAT_MS = 120;
@@ -47,12 +48,8 @@ export function createVRNoteLanes(surfaces: RhythmSurface[], eye: THREE.Vector3)
   const vanishingPoint = new THREE.Vector3(eye.x, eye.y + 0.18 * farDepth, eye.z - farDepth);
   const paths = new Map(surfaces.map(surface => {
     const target = laneTarget(surface, surfaceNormal(surface.world));
-    const nearDepth = eye.z - target.z;
     function positionAt(progress: number, out: THREE.Vector3) {
-      // Convert projected progress to distance along the straight world-space
-      // segment so the note keeps its existing apparent speed in the seated view.
-      const distance = progress * nearDepth / THREE.MathUtils.lerp(farDepth, nearDepth, progress);
-      return out.lerpVectors(target, vanishingPoint, distance);
+      return out.lerpVectors(target, vanishingPoint, progress);
     }
     positions.push(target, vanishingPoint);
     return [surface.id, positionAt] as const;
@@ -120,6 +117,9 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     rim.name = `rhythm-rim-${id}`;
     const success = new THREE.Mesh(ringGeometry, material(COLORS[id]));
     success.name = `rhythm-success-${id}`;
+    const zone = new THREE.Mesh(ringGeometry, material(COLORS[id]));
+    zone.name = `rhythm-judgment-zone-${id}`;
+    zone.material.opacity = 0.18;
     const noteMaterial = material(COLORS[id]);
     noteMaterial.map = noteTexture;
     // An opaque colored ring core and dark edges stay legible over passthrough.
@@ -131,19 +131,24 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     ripple.quaternion.copy(rim.quaternion);
     rim.scale.set(2 * radius * new THREE.Vector3().setFromMatrixColumn(world, 0).length() / RING_DIAMETER_RATIO,
       2 * radius * new THREE.Vector3().setFromMatrixColumn(world, 2).length() / RING_DIAMETER_RATIO, 1);
-    rim.visible = ripple.visible = success.visible = false;
-    anchor.add(rim, ripple, success);
-    const lane = { positionAt: paths.get(id)!, noteMaterial, mesh, world, normal, height, cymbal,
-      ripple, rim, success, flashAt: -Infinity, boost: 0 };
+    const noteSize = Math.min(rim.scale.x, rim.scale.y) * 0.75;
+    zone.position.copy(rim.position);
+    zone.quaternion.copy(rim.quaternion);
+    zone.scale.copy(rim.scale).multiplyScalar(0.75);
+    rim.visible = ripple.visible = success.visible = zone.visible = false;
+    anchor.add(rim, ripple, success, zone);
+    const lane = { positionAt: paths.get(id)!, noteMaterial, noteSize, mesh, world, normal, height, cymbal,
+      ripple, rim, success, zone, flashAt: -Infinity, boost: 0 };
     return [id, lane] as const;
   }));
 
   const travel = media ? NOTE_TRAVEL_TIME * 1000 : TRAVEL_MS;
   const perfectWindow = media?.windows.perfect ?? PERFECT_MS;
   const greatWindow = media?.windows.great ?? GREAT_MS;
+  const earlyWindow = media ? greatWindow : travel * 0.15;
   const events = (media?.notes ?? BASIC_DRUM_BEAT.notes).map(note => ({
     id: note.instrument ?? PAD_TO_INSTRUMENT[note.padId],
-    arrival: note.time * 1000 + (media ? 0 : travel),
+    arrival: note.time * 1000 * (media ? 1 : DEFAULT_TEMPO_SCALE) + (media ? 0 : travel),
   }));
   type NoteMesh = THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   const notePool: NoteMesh[] = [];
@@ -229,6 +234,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
       note.resolved = false;
       hideNote(note);
     }
+    for (const lane of lanes.values()) lane.zone.visible = false;
   }
 
   function restart(now: number) {
@@ -262,14 +268,21 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     let closest: typeof notes[number] | undefined;
     let distance = Infinity;
     for (const note of notes) {
-      if (note.arrival > elapsed + greatWindow) break;
+      if (note.arrival > elapsed + earlyWindow) break;
       if (note.resolved || note.id !== id) continue;
+      if (note.arrival < elapsed - greatWindow) continue;
       const offset = Math.abs(elapsed - note.arrival);
       if (offset < distance) { closest = note; distance = offset; }
     }
-    if (!closest || distance > greatWindow + 1e-6) return 'Miss';
+    if (!closest) return 'Miss';
     closest.resolved = true;
     hideNote(closest);
+    closest.lane.zone.visible = false;
+    if (distance > greatWindow + 1e-6) {
+      miss++;
+      report(now);
+      return 'Miss';
+    }
     const judgment = distance <= perfectWindow + 1e-6 ? 'Perfect' : 'Great';
     if (judgment === 'Perfect') perfect++;
     else great++;
@@ -287,6 +300,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
       if (!note.resolved) { note.resolved = true; miss++; }
       hideNote(note);
     }
+    for (const lane of lanes.values()) lane.zone.visible = false;
     setState('finished');
     report(now);
   };
@@ -323,10 +337,11 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
       for (const lane of lanes.values()) updateFlash(lane, now);
       if (state !== 'playing' && state !== 'paused') return;
       const elapsed = elapsedAt(now);
-      if (!media && state === 'playing' && elapsed >= travel + BASIC_DRUM_BEAT.duration * 1000) {
+      if (!media && state === 'playing' && elapsed >= travel + BASIC_DRUM_BEAT.duration * 1000 * DEFAULT_TEMPO_SCALE) {
         finish(now);
         return;
       }
+      for (const lane of lanes.values()) lane.zone.visible = false;
       for (const note of notes) {
         const remaining = note.arrival - elapsed;
         if (!note.resolved && remaining < -greatWindow && state === 'playing' && !media?.audio.seeking) {
@@ -338,8 +353,8 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
         const mesh = showNote(note);
         const progress = remaining / travel;
         note.lane.positionAt(progress, mesh.position);
-        const approach = 1 - THREE.MathUtils.smoothstep(progress, 0, 1);
-        mesh.scale.setScalar(THREE.MathUtils.lerp(0.13, 0.16, approach));
+        mesh.scale.setScalar(note.lane.noteSize);
+        if (remaining >= 0 && remaining <= travel * 0.15) note.lane.zone.visible = true;
         mesh.lookAt(viewer);
       }
       report(now);
@@ -357,6 +372,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
         lane.ripple.material.dispose();
         lane.rim.material.dispose();
         lane.success.material.dispose();
+        lane.zone.material.dispose();
       }
     },
   };

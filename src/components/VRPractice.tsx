@@ -142,11 +142,14 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     const isVisibleXR = () => renderer.xr.getSession()?.visibilityState === 'visible';
     const triggerKick = createKickTrigger(() => audioReady && drumSynth.isAudioRunning() && !disposed,
       (id, velocity) => interaction.hit(id, velocity));
-    const hitDrum = (id: string, velocity = 1, now = performance.now()) => {
+    const hitDrum = (id: string, velocity = 1, now = performance.now(), hand?: StickHand) => {
       const played = id === 'kick' ? triggerKick(velocity) : interaction.hit(id, velocity);
       if (played && isVisibleXR()) {
         const judgment = highway?.strike(id, now);
-        if (judgment === 'Perfect' || judgment === 'Great') drumSynth.playRhythmSuccess(judgment === 'Perfect');
+        if (judgment === 'Perfect' || judgment === 'Great') {
+          drumSynth.playRhythmSuccess(judgment === 'Perfect');
+          if (hand) controllers.pulse(hand, velocity, judgment);
+        }
       }
       return played;
     };
@@ -225,7 +228,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       arModeWindow.setStickMode(realStickMode, 'Put controllers down · show your hands');
     };
     const collisions = createVRAssistedStrikes(kit.hitSurfaces, (id, hand, velocity) => {
-      if (audioReady && hitDrum(id, velocity, previousTime ?? performance.now())) controllers.pulse(hand, velocity);
+      if (audioReady) hitDrum(id, velocity, previousTime ?? performance.now(), hand);
     });
     const seating = createVRSeating(rig, kit.group, () => {
       interaction.update(1);
@@ -602,7 +605,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         session?.addEventListener('selectstart', unlockControllerAudio);
         session?.addEventListener('squeezestart', unlockControllerAudio);
         detachKickInput = session ? attachXRKickInput(session, () => controllerKick.current && !realStickMode,
-          playPedalKick, controllers.pulse) : () => {};
+          (velocity, hand) => hitDrum('kick', velocity, performance.now(), hand), () => {}) : () => {};
       }
       const reference = renderer.xr.getReferenceSpace();
       if (reference !== referenceSpace) {

@@ -197,6 +197,9 @@ assert(controller.tipSamples.right.valid && controller.tipSamples.right.previous
 controller.pulse('left', 0.7); controller.pulse('right', 0.8);
 assert.deepEqual(pulses.map(p => p.hand), ['left', 'right']);
 assert(pulses.every(p => p.duration === 18 && p.strength <= 0.3));
+controller.pulse('left', 1, 'Perfect'); controller.pulse('right', 1, 'Great');
+assert.deepEqual(pulses.slice(-2).map(p => [p.hand, p.duration]), [['left', 80], ['right', 50]]);
+assert(pulses.at(-2).strength > pulses.at(-1).strength);
 controller.setOffset('left', { position: [0.01, 0, 0], rotation: [0, 15, 0] });
 assert.equal(controller.tipSamples.left.valid, false, 'Calibration invalidates strike history');
 grips[1].visible = false; controller.update();

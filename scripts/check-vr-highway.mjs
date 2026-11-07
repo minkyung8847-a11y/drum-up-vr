@@ -126,7 +126,7 @@ try {
     offset.applyAxisAngle(pitchAxis, wristPitch);
     source.gripSpace.tracked = false;
     source.gripSpace.quaternion = new T.Quaternion().setFromAxisAngle(pitchAxis, wristPitch).toArray();
-    session.time += 3390;
+    session.time += 3640;
     session.step();
     source.gripSpace.position = rig.worldToLocal(target).sub(offset).toArray();
     source.gripSpace.tracked = true;
@@ -135,7 +135,8 @@ try {
     session.step(2);
     return { active, eightLanes, froze, resumed, restarted, fixedRhythmMenu, eyeDraws,
       snareRipple: get('rhythm-ripple-snare').visible, snareRim: get('rhythm-rim-snare').visible,
-      snareRemoved: !get('note-snare-3500').visible, hits: window.hits, successTones: window.successTones };
+      snareRemoved: !get('note-snare-3750').visible, hits: window.hits, successTones: window.successTones,
+      pulses: session.pulses };
   });
   assert(immersive.eyeDraws >= 2, 'A note is submitted in the stereo render loop');
   for (const check of ['active', 'eightLanes', 'froze', 'resumed', 'restarted', 'fixedRhythmMenu', 'snareRipple', 'snareRim', 'snareRemoved']) {
@@ -143,6 +144,9 @@ try {
   }
   assert.deepEqual(immersive.hits, ['snare']);
   assert.equal(immersive.successTones.length, 1, 'Successful XR hit triggers exactly one chime');
+  assert.equal(immersive.pulses.length, 1, 'Only the successful strike vibrates');
+  assert.equal(immersive.pulses[0].hand, 'right');
+  assert.equal(immersive.pulses[0].duration, immersive.successTones[0] ? 80 : 50);
   console.log('PASS: immersive controls, 8 lanes, stereo submission, tracked stick judgment, effects and drum sound path');
 
   const checks = await page.evaluate(async () => {
@@ -176,8 +180,13 @@ try {
         const point = new T.Vector3().fromBufferAttribute(positions, vertex);
         if (line.closestPointToPoint(point, true, new T.Vector3()).distanceTo(point) > 1e-6) return false;
       }
-      const projectedMid = direction(near).lerp(direction(far), .5);
-      return Math.abs(near.distanceTo(target) - .012) < 1e-8 && direction(mid).distanceTo(projectedMid) < 1e-8;
+      const worldMid = near.clone().lerp(far, .5);
+      return Math.abs(near.distanceTo(target) - .012) < 1e-8 && mid.distanceTo(worldMid) < 1e-8;
+    });
+    const linearSpeed = [...guide.paths.values()].every(path => {
+      const points = [0, .25, .5, .75, 1].map(t => path(t, new T.Vector3()));
+      const step = points[0].distanceTo(points[1]);
+      return points.slice(1).every((point, index) => Math.abs(point.distanceTo(points[index]) - step) < 1e-8);
     });
     const converges = endpoints.length === 8 && endpoints[0].x === eye.x && endpoints[0].y > eye.y
       && endpoints.every(point => point.distanceTo(endpoints[0]) < 1e-8);
@@ -197,7 +206,7 @@ try {
     const counts = Object.fromEntries(['hihat', 'snare', 'kick'].map(id =>
       [id, defaultNotes.filter(object => object.name.startsWith(`note-${id}-`)).length]));
     const fixedPattern = defaultNotes.length === 48 && BASIC_DRUM_BEAT.notes.every(note =>
-      !!get(`note-${note.instrument}-${3000 + note.time * 1000}`));
+      !!get(`note-${note.instrument}-${3000 + note.time * 1500}`));
     const kick = get('note-kick-3000');
     const hihat = get('note-hihat-3000');
     const judge = (id, time) => road.strike(id, time);
@@ -226,7 +235,7 @@ try {
     const surface = kit.hitSurfaces.find(surface => surface.id === 'kick');
     const local = surface.mesh.worldToLocal(kick.position.clone());
     const aligned = Math.abs(local.x) < 1e-8 && Math.abs(local.z) < 1e-8 && Math.abs(local.y - surface.height) < .02;
-    const growsWithoutFade = kick.scale.x > beforeSize && midOpacity === 1 && kick.material.opacity === 1
+    const constantSizeWithoutFade = kick.scale.x === beforeSize && midOpacity === 1 && kick.material.opacity === 1
       && kick.material.color.equals(farColor);
     const chord = [judge('kick', 4000), judge('kick', 4001), judge('hihat', 4001)];
     road.update(4010, eye);
@@ -259,34 +268,64 @@ try {
     const countIn = progress.time === -3 && kick.position.distanceTo(endpoints[0]) < 1e-8;
     let correctTargets = 0;
     for (const time of [...new Set(BASIC_DRUM_BEAT.notes.map(note => note.time))]) {
-      road.update(4000 + time * 1000, eye);
+      road.update(4000 + time * 1500, eye);
       for (const note of BASIC_DRUM_BEAT.notes.filter(note => note.time === time)) {
-        if (get(`note-${note.instrument}-${3000 + time * 1000}`).position.distanceTo(
+        if (get(`note-${note.instrument}-${3000 + time * 1500}`).position.distanceTo(
           guide.paths.get(note.instrument)(0, new T.Vector3())) < 1e-8) correctTargets++;
       }
     }
-    road.update(11999, eye);
+    road.update(15999, eye);
     const stillPlaying = !['finished', 'idle'].includes(statuses.at(-1));
-    road.update(12000, eye);
-    const exactEnd = stillPlaying && statuses.at(-1) === 'finished' && progress.time === 8 && progress.miss === 48;
-    road.toggle(13000);
-    road.update(13000, eye);
+    road.update(16000, eye);
+    const exactEnd = stillPlaying && statuses.at(-1) === 'finished' && progress.time === 12 && progress.miss === 48;
+    road.toggle(17000);
+    road.update(17000, eye);
     const replay = statuses.at(-1) === 'playing' && progress.time === -3 && progress.miss === 0 && kick.visible;
+    road.restart(1000);
+    road.update(3549, eye);
+    const beforeZone = !get('rhythm-judgment-zone-kick').visible && judge('kick', 3549) === 'Miss' && kick.visible;
+    road.update(3550, eye);
+    const zoneOpens = get('rhythm-judgment-zone-kick').visible;
+    const earlyTimingMiss = judge('kick', 3550) === 'Miss' && !kick.visible && progress.miss === 1
+      && !get('rhythm-success-kick').visible && judge('kick', 4000) === 'Miss' && progress.miss === 1;
+    road.restart(1000);
+    road.update(3920, eye);
+    const earlyGreat = judge('kick', 3920) === 'Great' && !kick.visible && get('rhythm-success-kick').visible;
     road.dispose();
+    const { PAD_TO_INSTRUMENT } = await import('/src/components/songDrumMapping.ts');
+    const audio = Object.assign(new EventTarget(), { currentTime: 0, paused: false, seeking: false,
+      play() { this.paused = false; return Promise.resolve(); }, pause() { this.paused = true; } });
+    const sizes = createVRNoteHighway(scene, surfaces, guide.paths, () => {}, {
+      notes: surfaces.map(surface => ({ time: 1, padId: Object.keys(PAD_TO_INSTRUMENT).find(pad => PAD_TO_INSTRUMENT[pad] === surface.id) })),
+      audio, offset: 0, windows: { perfect: 50, great: 120 },
+    });
+    sizes.restart(0);
+    audio.currentTime = 1;
+    sizes.update(1, eye);
+    const surfaceSizes = surfaces.every(surface => {
+      const mesh = get(`note-${surface.id}-1000`);
+      const x = new T.Vector3().setFromMatrixColumn(surface.world, 0).length();
+      const z = new T.Vector3().setFromMatrixColumn(surface.world, 2).length();
+      return Math.abs(mesh.scale.x * .675 / (2 * surface.radius * Math.min(x, z)) - .75) < 1e-8;
+    });
+    const differentSizes = new Set(surfaces.map(surface => get(`note-${surface.id}-1000`).scale.x)).size > 1;
+    sizes.dispose();
     guide.dispose();
-    return { counts, fixedPattern, countIn, correctTargets, exactEnd, replay,
+    return { counts, fixedPattern, countIn, correctTargets, exactEnd, replay, linearSpeed, beforeZone, zoneOpens,
+      earlyTimingMiss, earlyGreat, surfaceSizes, differentSizes,
       guideAlignment, converges, separate, arContrast, ordinaryHits, ordinaryHitsFade, spawn, alongLine, bpm: RHYTHM_BPM, windows, chord,
-      moved, independent, aligned, growsWithoutFade, effects, expands, effectsFade, softerGreat, missHasOnlyBase, atBoundary, expired,
+      moved, independent, aligned, constantSizeWithoutFade, effects, expands, effectsFade, softerGreat, missHasOnlyBase, atBoundary, expired,
       finished, disposed: !get('note-highway-anchor') };
   });
-  assert.equal(checks.bpm, 120);
+  assert.equal(checks.bpm, 80);
   assert.deepEqual(checks.counts, { hihat: 32, snare: 8, kick: 8 });
   assert.equal(checks.correctTargets, 48);
   assert.deepEqual(checks.windows, ['Miss', 'Great', 'Great', 'Perfect', 'Perfect', 'Great', 'Great', 'Miss']);
   assert.deepEqual(checks.chord, ['Perfect', 'Miss', 'Perfect']);
-  for (const check of ['fixedPattern', 'countIn', 'exactEnd', 'replay',
+  for (const check of ['fixedPattern', 'countIn', 'exactEnd', 'replay', 'linearSpeed', 'beforeZone', 'zoneOpens',
+    'earlyTimingMiss', 'earlyGreat', 'surfaceSizes', 'differentSizes',
     'guideAlignment', 'converges', 'separate', 'arContrast', 'ordinaryHits', 'ordinaryHitsFade',
-    'spawn', 'alongLine', 'moved', 'independent', 'aligned', 'growsWithoutFade', 'effects', 'expands', 'effectsFade',
+    'spawn', 'alongLine', 'moved', 'independent', 'aligned', 'constantSizeWithoutFade', 'effects', 'expands', 'effectsFade',
     'softerGreat', 'missHasOnlyBase', 'atBoundary', 'expired', 'finished', 'disposed']) {
     assert(checks[check], check);
   }
@@ -300,7 +339,7 @@ try {
   }));
   assert.deepEqual(exit, { highway: false, preview: false, concert: true, controls: false }, 'XR exit restores free play');
   assert.deepEqual(errors, []);
-  console.log('PASS: VR/AR default PLAY uses 48 fixed BASIC DRUM BEAT notes at 120 BPM, 3s preroll, all real targets, exact 8s finish, replay, timing windows and hit effects.');
+  console.log('PASS: VR/AR default PLAY uses 48 fixed BASIC DRUM BEAT notes at 80 BPM, 3s preroll, all real targets, exact 12s finish, replay, timing windows and hit effects.');
 } finally {
   await browser?.close();
   await vite.close();
