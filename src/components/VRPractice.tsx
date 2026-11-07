@@ -29,6 +29,7 @@ import type { SongPlayback } from './songPlayback';
 import { createVRMusicAudio, LOVE_ROOT, LOVE_COUNT_IN, parseLoveChart } from './vrMusicSong';
 import type { VRMusicTransport } from './vrMusicSong';
 import { createVRSongCountdown } from './vrSongDetail';
+import { getNoteSyncMs } from './vrNoteSync';
 import './vrPractice.css';
 
 type XRMode = 'vr' | 'ar';
@@ -217,6 +218,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       getVolume: () => drumSynth.getVolume(), setVolume: volume => drumSynth.setVolume(volume),
       maxTextureSize: renderer.capabilities.maxTextureSize, maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
       getSongPreview: musicAudio.previewStatus,
+      onNoteSync: milliseconds => { if (loveTransport) highway?.setNoteSyncMs(milliseconds); },
       onSongPreviewStop: () => { musicRequest++; musicAudio.stopPreview(); },
       onSongPreview: async () => {
         musicRequest++;
@@ -238,13 +240,18 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
           highway = createVRNoteHighway(scene, rhythmSurfaces, noteLanes.paths,
             (state, judgment) => unifiedPanel.setRhythmStatus(state, judgment), {
               notes, audio: transport, offset: LOVE_COUNT_IN, windows: { perfect: 50, great: 120 },
+              noteSyncMs: getNoteSyncMs(), timingDebug: {
+                contextAt: time => transport.contextTimeAt(time), outputTime: () => transport.outputTime(),
+              },
               onResults: (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time),
             });
           noteLanes.lines.visible = true;
           unifiedPanel.setRhythmBpm(62);
           console.info('[DRUM UP VR MUSIC] love. · 52 authored notes · chartOffsetSeconds', chartOffsetSeconds);
-          console.table(notes.map(note => ({ instrument: note.instrument, hitSeconds: note.time,
-            spawnSecondsFromStart: LOVE_COUNT_IN + note.time - 3, arrivalSecondsFromStart: LOVE_COUNT_IN + note.time })));
+          console.table(notes.map(note => ({ instrument: note.instrument, chartOffsetSeconds, noteSyncMs: getNoteSyncMs(),
+            targetMP3Seconds: note.time + getNoteSyncMs() / 1000,
+            spawnSecondsFromStart: LOVE_COUNT_IN + note.time + getNoteSyncMs() / 1000 - 3,
+            arrivalSecondsFromStart: LOVE_COUNT_IN + note.time + getNoteSyncMs() / 1000 })));
           highway.restart(performance.now());
           return true;
         } catch (error) { transport.dispose(); throw error; }

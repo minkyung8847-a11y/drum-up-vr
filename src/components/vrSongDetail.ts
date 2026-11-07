@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LOVE_ROOT, savedLoveOffset, saveLoveOffset } from './vrMusicSong';
+import { LOVE_ROOT, savedLoveOffset, saveLoveOffset, loveChartOffset } from './vrMusicSong';
 
 export function createVRSongDetail(parent: THREE.Object3D, options: {
   onStart: (offset: number) => Promise<boolean | void>; onPreview: () => Promise<void>; onClose: () => void;
@@ -17,7 +17,7 @@ export function createVRSongDetail(parent: THREE.Object3D, options: {
   let selected: {title:string;artist:string;difficulty:string;playable?:boolean} | null = null;
   let open = false, phase = 0, lastTime = 0, dirty = true, lastDraw = -Infinity;
   let loading = false, message = '', previewPlaying = false, progress = 0, request = 0;
-  let offset = savedLoveOffset() ?? 0, calibrated = savedLoveOffset() !== null;
+  let offset = loveChartOffset(), calibrated = savedLoveOffset() !== null;
   const cover = new Image(); cover.src = `${LOVE_ROOT}cover.jpg`; cover.onload = () => { dirty = true; };
   function box(x:number,y:number,w:number,h:number,fill:string|CanvasGradient) {
     ctx.beginPath();ctx.roundRect(x,y,w,h,16);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle='#aab0bc';ctx.lineWidth=2;ctx.stroke();
@@ -35,7 +35,7 @@ export function createVRSongDetail(parent: THREE.Object3D, options: {
     ctx.fillStyle='#4e5664';ctx.fillRect(180,875,540,5);ctx.fillStyle='#e1e7f2';ctx.fillRect(180,875,540*progress,5);
     ctx.font='22px Arial';ctx.fillStyle='#b8c2d0';
     ctx.fillText(selected?.playable ? `CHART OFFSET  −   ${offset.toFixed(2)}s   +` : 'PREVIEW / PLAYBACK UNAVAILABLE',450,938);
-    ctx.font='20px Arial';ctx.fillStyle='#939fac';ctx.fillText(selected?.playable ? (calibrated?'4 BARS ONLY · OFFSET SAVED':'SYNC UNCALIBRATED · FIRST BAR OFFSET UNKNOWN') : 'Demo selection only',450,977);
+    ctx.font='20px Arial';ctx.fillStyle='#939fac';ctx.fillText(selected?.playable ? (calibrated?'4 BARS ONLY · OFFSET SAVED':'4 BARS ONLY · FIRST BAR ESTIMATE 2.90s') : 'Demo selection only',450,977);
     const silver=ctx.createLinearGradient(0,1012,0,1110);silver.addColorStop(0,'#c6ccd7');silver.addColorStop(.5,'#707989');silver.addColorStop(1,'#aab3c2');
     box(55,1012,790,98,selected?.playable?silver:'#343a45');ctx.font='600 38px Arial';ctx.fillStyle='#f7f9ff';ctx.fillText(loading?'LOADING…':'▶  START',450,1076);
     ctx.font='21px Arial';ctx.fillStyle='#e6b6a6';ctx.fillText(message,450,1160,820);

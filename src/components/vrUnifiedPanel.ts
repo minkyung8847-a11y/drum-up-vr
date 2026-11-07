@@ -4,6 +4,7 @@ import type { DrumEnvironmentId } from './drumEnvironments';
 import type { StickHand } from './virtualDrumsticks';
 import { PANEL_SIZE, PANEL_TABS, PANEL_GENRES, SONG_LIST, DEMO_SONGS, loveCover, drawUnifiedPanel, maxSongScroll, panelActionAt } from './vrUnifiedPanelDesign';
 import { createVRSongDetail } from './vrSongDetail';
+import { getNoteSyncMs, setNoteSyncMs } from './vrNoteSync';
 import type { UnifiedPanelState, PanelAction } from './vrUnifiedPanelDesign';
 import { RHYTHM_BPM } from './vrNoteHighway';
 import type { RhythmState } from './vrNoteHighway';
@@ -25,10 +26,11 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   onSongPreview?: () => Promise<void>;
   onSongPreviewStop?: () => void;
   getSongPreview?: () => { playing: boolean; progress: number };
+  onNoteSync?: (milliseconds: number) => void;
 }) {
   const state: UnifiedPanelState = { tab: 'MUSIC', genre: 'All', song: 0, scroll: 0,
     practice: 'FREE PLAY', background: options.background, setting: 'AUDIO', volume: options.getVolume(), hover: '', pressed: '',
-    minimized: false, viewMode: 'vr', canAR: false, rhythm: 'idle', bpm: RHYTHM_BPM, perfect: 0, great: 0, miss: 0 };
+    minimized: false, viewMode: 'vr', canAR: false, rhythm: 'idle', bpm: RHYTHM_BPM, perfect: 0, great: 0, miss: 0, noteSyncMs: getNoteSyncMs() };
   const canvas = document.createElement('canvas');
   const resolution = Math.min(2.5, (options.maxTextureSize ?? 4096) / PANEL_SIZE.width);
   canvas.width = Math.floor(PANEL_SIZE.width * resolution); canvas.height = Math.floor(PANEL_SIZE.height * resolution);
@@ -162,6 +164,10 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     return action ? { hit, action, x, y } : null;
   }
   function activate(action: PanelAction) {
+    if (action.kind === 'noteSync') {
+      state.noteSyncMs = setNoteSyncMs(action.index ? state.noteSyncMs + action.index * 10 : 0);
+      options.onNoteSync?.(state.noteSyncMs); dirty = true; return;
+    }
     if (action.kind === 'tab') { state.tab = PANEL_TABS[action.index]; state.hover = ''; state.minimized = false; if (state.tab !== 'MUSIC') detail.close(); }
     else if (action.kind === 'genre') { state.genre = PANEL_GENRES[action.index]; state.scroll = 0; }
     else if (action.kind === 'song') { state.song = action.index; detail.select(DEMO_SONGS[action.index]); }

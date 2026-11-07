@@ -24,7 +24,7 @@ export interface UnifiedPanelState {
   hover: string; pressed: string;
   minimized: boolean; viewMode: 'vr' | 'ar'; canAR: boolean;
   rhythm: 'idle' | 'playing' | 'paused' | 'finished'; bpm: number;
-  perfect: number; great: number; miss: number; countIn?: number;
+  perfect: number; great: number; miss: number; countIn?: number; noteSyncMs: number;
   judgment?: 'Perfect' | 'Great' | 'Miss';
 }
 export function filteredSongs(state: UnifiedPanelState) {
@@ -32,7 +32,7 @@ export function filteredSongs(state: UnifiedPanelState) {
     .filter(song => state.genre === 'All' || (song.genres as readonly string[]).includes(state.genre));
 }
 export const maxSongScroll = (state: UnifiedPanelState) => Math.max(0, filteredSongs(state).length * SONG_LIST.row - SONG_LIST.height);
-export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move' | 'detail'; index: number };
+export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move' | 'detail' | 'noteSync'; index: number };
 export function panelActionAt(state: UnifiedPanelState, x: number, y: number): PanelAction | null {
   for (let index = 0; index < 4; index++) {
     if (Math.hypot(x - [200, 432, 656, 880][index], y - 106) <= 86)
@@ -67,6 +67,11 @@ export function panelActionAt(state: UnifiedPanelState, x: number, y: number): P
     const index = Math.floor((x - 60) / 310);
     if (index < DRUM_ENVIRONMENTS.length && (x - 60) % 310 <= 284) return action('background', index);
   } else if (state.tab === 'SETTINGS') {
+    if (state.setting === 'NOTE') {
+      if (y >= 611 && y <= 683 && x >= 84 && x <= 194) return action('noteSync', -1);
+      if (y >= 611 && y <= 683 && x >= 830 && x <= 940) return action('noteSync', 1);
+      if (y >= 700 && y <= 748 && x >= 390 && x <= 634) return action('noteSync', 0);
+    }
     if (y >= 370 && y <= 500 && x >= 60 && x <= 964) {
       const index = Math.floor((x - 60) / 234);
       if (index < 4 && (x - 60) % 234 <= 202) return action('setting', index);
@@ -277,6 +282,12 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
       ctx.fillStyle = '#eff2f8'; ctx.textAlign = 'center'; ctx.font = '32px Arial'; ctx.fillText('−', 124, 658); ctx.fillText('+', 900, 658);
       rounded(ctx, 205, 640, 610, 8, 4); ctx.fillStyle = '#4d535f'; ctx.fill(); rounded(ctx, 205, 640, Math.max(5, 610 * state.volume), 8, 4); ctx.fillStyle = '#d1d7e2'; ctx.fill();
       ctx.font = '20px Arial'; ctx.fillText(`${Math.round(state.volume * 100)}%`, 510, 710);
+    } else if (state.setting === 'NOTE') {
+      ctx.textAlign = 'center'; ctx.fillStyle = '#c9ced8'; ctx.font = '23px Arial'; ctx.fillText('NOTE SYNC OFFSET (ms)', 512, 574);
+      card(ctx, state, 'noteSync--1', 84, 611, 110, 72, false); card(ctx, state, 'noteSync-1', 830, 611, 110, 72, false);
+      ctx.fillStyle = '#eff2f8'; ctx.font = '24px Arial'; ctx.fillText('−10', 139, 658); ctx.fillText('+10', 885, 658);
+      ctx.font = '32px Arial'; ctx.fillText(`${state.noteSyncMs >= 0 ? '+' : ''}${state.noteSyncMs} ms`, 512, 658);
+      card(ctx, state, 'noteSync-0', 390, 700, 244, 48, false); ctx.font = '600 21px Arial'; ctx.fillText('RESET', 512, 731);
     } else {
       ctx.fillStyle = '#afb7c5'; ctx.textAlign = 'center'; ctx.font = '24px Arial'; ctx.fillText(`${state.setting} SETTINGS`, 512, 623);
       ctx.font = '20px Arial'; ctx.fillStyle = '#737d8d'; ctx.fillText('Preview', 512, 663);

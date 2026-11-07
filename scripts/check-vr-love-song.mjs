@@ -77,6 +77,15 @@ try {
       hidden:!window.scene.getObjectByName('vr-song-countdown').visible};
   });
   assert.deepEqual(countdown.labels,['3','2','1','GO']);assert(countdown.began&&countdown.hidden,'Real AudioContext advances through GO into MP3 playback');
+  assert(await page.evaluate(()=>{
+    const panel=window.scene.getObjectByName('vr-unified-panel'),state=panel.userData.panelState;
+    const starts=window.musicStarts.length;
+    window.panelClick(window.input,880,106);window.panelClick(window.input,630,430);
+    window.panelClick(window.input,885,646);const plus=state.noteSyncMs===10;
+    window.panelClick(window.input,139,646);window.panelClick(window.input,139,646);const minus=state.noteSyncMs===-10;
+    window.panelClick(window.input,512,724);
+    return plus&&minus&&state.noteSyncMs===0&&localStorage.getItem('drumup.vr.note-sync-ms.v1')==='0'&&window.musicStarts.length===starts;
+  }),'Quest-style Trigger controls adjust signed offsets and reset without restarting MP3');
   const timed=await page.evaluate(async()=>{
     const T=window.T,{VRMusicTransport,LOVE_COUNT_IN,parseLoveChart}=await import('/src/components/vrMusicSong.ts');
     const {captureRhythmSurfaces,createVRNoteLanes,createVRNoteHighway}=await import('/src/components/vrNoteHighway.ts');

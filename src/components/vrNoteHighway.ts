@@ -27,6 +27,7 @@ type RhythmSurface = DrumHitSurface & { world: THREE.Matrix4 };
 type ProgressCallback = (perfect: number, great: number, miss: number, scoreTime: number) => void;
 export type RhythmAudio = Pick<HTMLAudioElement, 'currentTime' | 'paused' | 'seeking' | 'play' | 'pause' | 'addEventListener' | 'removeEventListener'>;
 type ScoreMedia = { notes: readonly NoteEvent[]; audio: RhythmAudio; offset: number; windows: SongWindows;
+  noteSyncMs?: number; timingDebug?: { contextAt: (timelineSeconds: number) => number; outputTime: () => number };
   onResults?: ProgressCallback };
 
 export function captureRhythmSurfaces(surfaces: DrumHitSurface[]): RhythmSurface[] {
@@ -151,8 +152,10 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   })) : VR_BASIC_DRUM_BEAT.events.map(note => ({ id: note.id, arrival: travel + note.hitTimeMs }));
   type NoteMesh = THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   const notePool: NoteMesh[] = [];
+  let noteSyncMs = media?.noteSyncMs ?? 0;
   const notes = events.filter(event => lanes.has(event.id)).sort((a, b) => a.arrival - b.arrival)
-    .map(({ id, arrival }) => ({ id, lane: lanes.get(id)!, arrival, mesh: undefined as NoteMesh | undefined, resolved: false }));
+    .map(({ id, arrival }) => ({ id, lane: lanes.get(id)!, arrival: arrival + noteSyncMs, arrivalObserved: false,
+      mesh: undefined as NoteMesh | undefined, resolved: false }));
   const showNote = (note: typeof notes[number]) => {
     if (!note.mesh) {
       const mesh = notePool.pop() ?? new THREE.Mesh(ringGeometry, note.lane.noteMaterial);
@@ -231,6 +234,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     perfect = great = miss = 0;
     for (const note of notes) {
       note.resolved = false;
+      note.arrivalObserved = false;
       hideNote(note);
     }
     for (const lane of lanes.values()) lane.zone.visible = false;
@@ -318,6 +322,12 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   media?.audio.addEventListener('ended', onEnded);
 
   return {
+    setNoteSyncMs(value: number) {
+      if (!media) return;
+      const delta = value - noteSyncMs; noteSyncMs = value;
+      for (const note of notes) note.arrival += delta;
+      console.info('[DRUM UP SYNC] note offset changed', { noteSyncMs });
+    },
     restart,
     toggle(now: number) {
       if (state === 'playing') pause(now);
@@ -353,6 +363,14 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
       for (const lane of lanes.values()) lane.zone.visible = false;
       for (const note of notes) {
         const remaining = note.arrival - elapsed;
+        if (media?.timingDebug && !note.arrivalObserved && remaining <= 0) {
+          note.arrivalObserved = true;
+          const scheduledContextSeconds = media.timingDebug.contextAt(media.offset + note.arrival / 1000);
+          const observedOutputContextSeconds = media.timingDebug.outputTime();
+          console.debug('[DRUM UP SYNC] note arrival', { instrument: note.id, targetMP3Seconds: note.arrival / 1000,
+            spawnMP3Seconds: (note.arrival - travel) / 1000, scheduledContextSeconds, observedOutputContextSeconds,
+            arrivalErrorMs: -remaining, resolvedBeforeArrival: note.resolved });
+        }
         if (!note.resolved && remaining < -greatWindow && state === 'playing' && !media?.audio.seeking) {
           note.resolved = true;
           miss++;

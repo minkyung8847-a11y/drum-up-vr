@@ -1,17 +1,21 @@
 import type { NoteEvent } from '../types';
 import type { RhythmAudio } from './vrNoteHighway';
+import { LOVE_CHART_OFFSET_SECONDS, outputAudioTime } from './vrNoteSync';
 
 export const LOVE_SONG = { title: '사랑으로 (love.)', artist: 'wave to earth', difficulty: 'Easy', stars: 1,
   genres: ['Band'], art: 8, bpm: 62, signature: '4/4', playable: true } as const;
 export const LOVE_ROOT = `${import.meta.env.BASE_URL}songs/love/`;
 export const LOVE_COUNT_IN = 4 * 60 / 62;
-const OFFSET_KEY = 'drumup.vr.love.chart-offset.v1';
+const OFFSET_KEY = 'drumup.vr.love.chart-offset.v2';
 export function savedLoveOffset(): number | null {
-  try { const raw = localStorage.getItem(OFFSET_KEY); const n = Number(raw);
+  try { let raw = localStorage.getItem(OFFSET_KEY);
+    if (raw === null) { const legacy = Number(localStorage.getItem('drumup.vr.love.chart-offset.v1')); if (legacy > 0) raw = String(legacy); }
+    const n = Number(raw);
     return raw !== null && Number.isFinite(n) && n >= 0 && n <= 120 ? n : null;
   } catch { return null; }
 }
 export function saveLoveOffset(value: number) { try { localStorage.setItem(OFFSET_KEY, String(value)); } catch { /* Optional persistence. */ } }
+export const loveChartOffset = () => savedLoveOffset() ?? LOVE_CHART_OFFSET_SECONDS;
 
 export function parseLoveChart(data: unknown): NoteEvent[] {
   const chart = data as { bpm?: number; bars?: number; notes?: { time: number; instrument: string; bar: number; beat: number; velocity?: number }[] };
@@ -33,6 +37,9 @@ export class VRMusicTransport extends EventTarget implements RhythmAudio {
   private position = 0;
   private epoch = 0;
   private request = 0;
+  private reportedMP3Start = false;
+  private lastOutputPosition = 0;
+  mp3StartContextTime = 0;
   paused = true;
   readonly seeking = false;
   readonly gain: GainNode;
@@ -43,18 +50,35 @@ export class VRMusicTransport extends EventTarget implements RhythmAudio {
     super(); this.context = context; this.buffer = buffer; this.preroll = preroll;
     this.gain = context.createGain(); this.gain.gain.value = .65; this.gain.connect(context.destination);
   }
-  get currentTime() { return this.paused ? this.position : this.position + Math.max(0, this.context.currentTime - this.epoch); }
+  get currentTime() {
+    if (this.paused) return this.position;
+    const outputTime = outputAudioTime(this.context);
+    this.lastOutputPosition = Math.max(this.lastOutputPosition, this.position + Math.max(0, outputTime - this.epoch));
+    if (!this.reportedMP3Start && outputTime >= this.mp3StartContextTime) {
+      this.reportedMP3Start = true;
+      console.info('[DRUM UP SYNC] MP3 output start observed', { scheduledContextSeconds: this.mp3StartContextTime,
+        observedOutputContextSeconds: outputTime, observationLateMs: (outputTime - this.mp3StartContextTime) * 1000 });
+    }
+    return this.lastOutputPosition;
+  }
   set currentTime(value: number) { const playing = !this.paused; this.pause(); this.position = Math.max(0, value); if (playing) void this.play(); }
+  contextTimeAt(timelineSeconds: number) { return this.epoch + timelineSeconds - this.position; }
+  outputTime() { return outputAudioTime(this.context); }
   async play() {
     if (!this.paused) return;
     const request = ++this.request;
     await this.context.resume();
     if (request !== this.request) return;
     this.epoch = this.context.currentTime + .035; this.paused = false;
+    this.lastOutputPosition = this.position; this.reportedMP3Start = false;
     const source = this.context.createBufferSource(); this.source = source; source.buffer = this.buffer; source.connect(this.gain);
     const wait = Math.max(0, this.preroll - this.position), offset = Math.max(0, this.position - this.preroll);
     if (offset >= this.buffer.duration) { this.paused = true; return; }
-    source.start(this.epoch + wait, offset);
+    this.mp3StartContextTime = this.epoch + wait;
+    source.start(this.mp3StartContextTime, offset);
+    console.info('[DRUM UP SYNC] MP3 scheduled', { contextSeconds: this.mp3StartContextTime, bufferOffsetSeconds: offset,
+      countdownEndContextSeconds: this.epoch + this.preroll - this.position,
+      countInSeconds: this.preroll, outputLatencySeconds: this.context.outputLatency ?? 0 });
     source.onended = () => {
       if (this.source !== source) return;
       this.position = this.preroll + this.buffer.duration; this.paused = true; this.source = null;

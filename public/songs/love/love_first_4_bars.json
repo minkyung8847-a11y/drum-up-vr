@@ -8,7 +8,7 @@
     4
   ],
   "bars": 4,
-  "audioStartOffsetSeconds": null,
+  "audioStartOffsetSeconds": 2.90,
   "scorePickup": "initial rest before first full bar; confirm alignment to audio",
   "noteTimeReference": "relative to first full bar, not MP3 start",
   "notes": [
