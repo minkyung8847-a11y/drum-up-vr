@@ -24,6 +24,7 @@ import { createLocalKickDebug } from '../pedal/localKickDebug';
 import { createKickTrigger } from '../pedal/kickTrigger';
 import { attachXRKickInput } from '../pedal/xrKickInput';
 import { createVRARModeWindow } from './vrARModeWindow';
+import { createVRUnifiedPanel } from './vrUnifiedPanel';
 import { createSongMedia, songBpmAt } from './songPlayback';
 import type { SongPlayback } from './songPlayback';
 import './vrPractice.css';
@@ -201,6 +202,12 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     const sticks = createVirtualDrumsticks(camera);
     for (const hand of ['left', 'right'] as const) sticks.offsets[hand].rotation.x = THREE.MathUtils.degToRad(12);
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
+    const unifiedPanel = createVRUnifiedPanel(scene, rig, kit.group, {
+      background: initialBackground.current,
+      onBackground: id => { backgrounds.select(id); setBackground(id); },
+      getVolume: () => drumSynth.getVolume(), setVolume: volume => drumSynth.setVolume(volume),
+    });
+    backgroundRef.current = id => { backgrounds.select(id); unifiedPanel.setBackground(id); };
     const arModeWindow = createVRARModeWindow(scene, renderer.xr, rig, mode => {
       void xrActionRef.current(mode);
     }, action => {
@@ -287,6 +294,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       rhythmSession?.addEventListener('visibilitychange', pauseHiddenRhythm);
       applyView(sessionMode);
       arModeWindow.show(rhythmSession?.environmentBlendMode === 'alpha-blend' || arAvailable);
+      unifiedPanel.show();
       if (resumeAfterSwitch) highway?.toggle(performance.now());
       resumeAfterSwitch = false;
       setPendingMode(null);
@@ -311,6 +319,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       }
       controllers.setActive(false);
       arModeWindow.hide();
+      unifiedPanel.hide();
       scene.background = vrBackground;
       backgrounds.setVisible(true);
       collisions.reset();
@@ -548,6 +557,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     let referenceSpace: XRReferenceSpace | null = null;
     let audioSession: XRSession | null = null;
     let rightPointerWasActive = false;
+    const panelPointerWasActive = { left: false, right: false };
     renderer.setAnimationLoop((time, frame) => {
       const frameDelta = previousTime === null ? 0 : (time - previousTime) / 1000;
       const delta = Math.min(frameDelta, 0.05);
@@ -590,6 +600,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       }
       if (renderer.xr.isPresenting && frame && reference) seating.update(frame, reference);
       const viewer = frame && reference ? frame.getViewerPose(reference) ?? null : null;
+      unifiedPanel.update(session, frame, reference, viewer, time);
       const rightPointerActive = arModeWindow.update(session, viewer);
       controllers.setRightPointerActive(rightPointerActive);
       controllers.update(frame);
@@ -604,6 +615,10 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       }
       if (renderer.xr.isPresenting && frame && viewer && audioReady) {
         for (const hand of ['left', 'right'] as const) {
+          const overPanel = unifiedPanel.isPointing(hand);
+          if (overPanel !== panelPointerWasActive[hand]) collisions.reset(hand);
+          panelPointerWasActive[hand] = overPanel;
+          if (overPanel) { collisions.suspend(hand); continue; }
           if (hand === 'right' && rightPointerActive) continue;
           collisions.update(hand, controllers.tipSamples[hand], frameDelta, time / 1000, headPosition);
         }
@@ -632,6 +647,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       if (session) void session.end().catch(() => {});
       controllers.dispose();
       arModeWindow.dispose();
+      unifiedPanel.dispose();
       poseRef.current = () => {};
       xrActionRef.current = async () => {};
       unsubscribeKit();

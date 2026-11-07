@@ -75,6 +75,8 @@ class DrumSynth {
     }
   }
 
+  public getVolume(): number { return this.volume; }
+
   public getCurrentKitId(): string {
     return this.currentKitId;
   }
