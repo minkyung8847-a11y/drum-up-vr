@@ -55,9 +55,10 @@ try {
     window.panelStart(source);window.panelStep(10);
     const chart=get('note-highway-anchor'),note=get('note-kick-3000'),before=note.position.clone();
     window.panelMode(source,'ar');
+    const darkLane=get('vr-lane-ribbons').material.uniforms.arMode.value===1;
     const ar=window.vrScene.background===null && note.visible && !note.position.equals(before);
     window.panelMode(source,'vr');
-    return {initial,ar,restored:window.vrScene.background===background,
+    return {initial,ar,darkLane,whiteLane:get('vr-lane-ribbons').material.uniforms.arMode.value===0,restored:window.vrScene.background===background,
       continuous:kit===get('vr-drum-kit')&&lanes===get('vr-note-lanes')&&chart===get('note-highway-anchor')&&note.visible,
       fixed:kit.matrixWorld.equals(pose)&&panel.matrixWorld.equals(panelPose),
       noLegacy:!get('ar-mode-window')&&!get('vr-rhythm-controls'),sameSession:window.testXR===session&&!session.ended};
@@ -82,7 +83,7 @@ try {
   await fallback.getByRole('button',{name:'Exit VR',exact:true}).waitFor();
   assert(await fallback.evaluate(()=>{
     window.panelStep(5);const note=window.get('note-kick-3000'),before=note.position.clone();window.panelStep(10);
-    return window.testXR.mode==='immersive-ar'&&window.vrScene.background===null
+    return window.get('vr-lane-ribbons').material.uniforms.arMode.value===1&&window.testXR.mode==='immersive-ar'&&window.vrScene.background===null
       &&window.get('note-highway-anchor')===window.previousChart&&window.get('vr-drum-kit')===window.previousKit
       &&window.get('vr-unified-panel').matrixWorld.equals(window.previousPose)&&note.visible&&!note.position.equals(before);
   }),'Fallback session preserves chart, kit, panel and resumes note timeline');

@@ -23,7 +23,7 @@ try{
   const surfaces=captureRhythmSurfaces(kit.hitSurfaces),lanes=createVRNoteLanes(surfaces,new T.Vector3(0,1.35,1));scene.add(lanes.lines);
   const order=['crash','hihat','snare','smallTom','kick','middleTom','floorTom','ride'];
   const kick=surfaces.find(s=>s.id==='kick'),kickCentre=new T.Vector3(0,kick.height,0).applyMatrix4(kick.world);
-  const alignment=[...lanes.paths.keys()].join()===order.join()&&order.every((id,i)=>{const target=lanes.paths.get(id)(0,new T.Vector3()),start=lanes.paths.get(id)(1,new T.Vector3());return Math.abs(target.x-(kickCentre.x+(i-4)*lanes.layout.spacing))<1e-8&&Math.abs(start.x-kickCentre.x)<1e-8&&Math.abs(start.z-(target.z-7))<1e-8&&Math.abs(start.y-target.y-1.25)<1e-8;});
+  const alignment=[...lanes.paths.keys()].join()===order.join()&&order.every((id,i)=>{const target=lanes.paths.get(id)(0,new T.Vector3()),start=lanes.paths.get(id)(1,new T.Vector3());return Math.abs(target.x-(kickCentre.x+(i-4)*lanes.layout.spacing))<1e-8&&Math.abs(start.x-target.x)<1e-8&&Math.abs(start.z-(target.z-7))<1e-8&&Math.abs(start.y-target.y-1.25)<1e-8;});
   const camera=new T.PerspectiveCamera(65,1.6,.03,40);camera.position.set(0,1.35,1);camera.updateMatrixWorld(true);
   const projectedWidth=(progress)=>{const p=lanes.paths.get('kick')(progress,new T.Vector3()),q=p.clone().add(new T.Vector3(.16,0,0));return Math.abs(q.project(camera).x-p.project(camera).x);};
   const perspective=projectedWidth(0)>projectedWidth(1)*5;
@@ -46,6 +46,7 @@ try{
   const arrive=(note,delta=0)=>{context.currentTime=start+note.time+calibration+delta;highway.update(-99999,eye);};
   arrive(kicks[0],-.5);const filling=scene.getObjectByName(`note-kick-${kicks[0].time*1000+230}`)?.userData.fill;
   arrive(kicks[0]);const name=`note-kick-${kicks[0].time*1000+230}`,mesh=scene.getObjectByName(name);
+  if(Math.abs(mesh.scale.x/mesh.scale.y-1.6)>1e-8)throw Error('Wrong ellipse aspect');
   const fillExact=filling>.7&&filling<.8&&Math.abs(mesh.userData.fill-1)<1e-8;
   // Render the actual note shader: center grows in all directions, ring stays intact.
   const probe=new T.WebGLRenderer({alpha:true,preserveDrawingBuffer:true});probe.setSize(128,128);probe.setClearColor(0,0);probe.toneMapping=T.NoToneMapping;
@@ -189,7 +190,7 @@ try{
   window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',key:' ',cancelable:true}));window.panelStep(2);
   const bright=rim.material.opacity>.6&&head.material.color.getHex()!==original&&window.scene.getObjectByName('drum-hit-wave-kick').visible;
   window.dispatchEvent(new KeyboardEvent('keyup',{code:'Space',key:' ',cancelable:true}));window.panelStep(40);
-  return{bright,restored:head.material.color.getHex()===original&&Math.abs(rim.material.opacity-.38)<1e-8};
+  return{bright,restored:head.material.color.getHex()===original&&Math.abs(rim.material.opacity-.62)<1e-8};
  });assert(feedback.bright&&feedback.restored,JSON.stringify(feedback));
  console.log('PASS +/-10s seek; player handle drag/scale/distance/save/load; unified scale/save; inert sticks outside grab; min/max bounds; 8 visible colored rims and kick color/wave feedback.');
  assert.deepEqual(errors,[]);console.log('PASS actual MP3/player integration, countdown gating, world-fixed above line, real raycast+Trigger PAUSE/PLAY, frozen notes/MISS/progress, resumed MP3 progress. Headset mocked; physical Quest not tested.');
