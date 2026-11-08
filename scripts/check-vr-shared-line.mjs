@@ -8,7 +8,7 @@ import {installMockWebXR} from './helpers/mock-webxr.mjs';
 import {installUnifiedPanelControls} from './helpers/unified-panel-controls.mjs';
 const vite=await createServer({server:{host:'127.0.0.1',port:0}});await vite.listen();let browser;
 try{
- browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1600,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1600,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  await page.addInitScript(installMockWebXR,{mode:'switchable'});await page.goto(`${vite.resolvedUrls.local[0]}#/vr`);
  await page.locator('.vr-practice-hint').filter({hasText:'Click to play'}).waitFor({timeout:30000});
  const unit=await page.evaluate(async()=>{
@@ -17,11 +17,14 @@ try{
   const {createVRNoteHighway,captureRhythmSurfaces,createVRNoteLanes}=await import('/src/components/vrNoteHighway.ts');
   const {createRestoredVRDrumSet}=await import('/src/components/restoredVRDrumSet.ts');
   const {VRMusicTransport,parseLoveChart,LOVE_COUNT_IN}=await import('/src/components/vrMusicSong.ts');
-  const scene=new T.Scene(),kit=createRestoredVRDrumSet(scene);scene.updateMatrixWorld(true);
+  const {applySeatedKitHeight}=await import('/src/components/vrSeating.ts');
+  const scene=new T.Scene(),kit=createRestoredVRDrumSet(scene);applySeatedKitHeight(kit.group);applySeatedKitHeight(kit.group);if(kit.group.position.y!==-.12)throw Error('Height accumulated');scene.updateMatrixWorld(true);
   const before=[];kit.group.traverse(o=>before.push([o.id,...o.position.toArray(),...o.quaternion.toArray(),...o.scale.toArray()]));
   const surfaces=captureRhythmSurfaces(kit.hitSurfaces),lanes=createVRNoteLanes(surfaces,new T.Vector3(0,1.35,1));scene.add(lanes.lines);
-  const alignment=surfaces.every(surface=>{const centre=new T.Vector3(0,surface.height,0).applyMatrix4(surface.world),target=lanes.paths.get(surface.id)(0,new T.Vector3());return Math.abs(target.x-centre.x*(lanes.layout.z-1)/(centre.z-1))<1e-8;});
-  const lowered=lanes.layout.y<1.02&&lanes.layout.y>.90;
+  const order=['crash','hihat','snare','smallTom','kick','middleTom','floorTom','ride'];
+  const kick=surfaces.find(s=>s.id==='kick'),kickCentre=new T.Vector3(0,kick.height,0).applyMatrix4(kick.world);
+  const alignment=[...lanes.paths.keys()].join()===order.join()&&order.every((id,i)=>{const target=lanes.paths.get(id)(0,new T.Vector3()),start=lanes.paths.get(id)(1,new T.Vector3());return Math.abs(target.x-(kickCentre.x+(i-4)*lanes.layout.spacing))<1e-8&&start.x===target.x&&start.z===target.z;});
+  const lowered=lanes.layout.y<.90&&lanes.layout.y>.78;
   const targets=[...lanes.paths.values()].map(path=>path(0,new T.Vector3()));
   if(!targets.every(p=>Math.abs(p.y-lanes.layout.y)<1e-10&&Math.abs(p.z-lanes.layout.z)<1e-10))throw Error('Different arrival heights/depths');
   if(scene.getObjectByName('vr-judgment-line')!==lanes.judgmentLine)throw Error('Missing common line');
@@ -41,6 +44,16 @@ try{
   arrive(kicks[0],-.5);const filling=scene.getObjectByName(`note-kick-${kicks[0].time*1000+230}`)?.userData.fill;
   arrive(kicks[0]);const name=`note-kick-${kicks[0].time*1000+230}`,mesh=scene.getObjectByName(name);
   const fillExact=filling>.7&&filling<.8&&Math.abs(mesh.userData.fill-1)<1e-8;
+  // Render the actual note shader: center grows in all directions, ring stays intact.
+  const probe=new T.WebGLRenderer({alpha:true,preserveDrawingBuffer:true});probe.setSize(128,128);probe.setClearColor(0,0);probe.toneMapping=T.NoToneMapping;
+  const probeScene=new T.Scene(),probeCamera=new T.OrthographicCamera(-1,1,1,-1,.1,10);probeCamera.position.z=2;
+  const probeMaterial=mesh.material.clone(),quad=new T.Mesh(new T.PlaneGeometry(2,2),probeMaterial);probeScene.add(quad);
+  const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const c=canvas.getContext('2d');
+  const sample=(fill,x=64,y=64)=>{probeMaterial.uniforms.fill.value=fill;probe.render(probeScene,probeCamera);c.clearRect(0,0,128,128);c.drawImage(probe.domElement,0,0);return [...c.getImageData(x,y,1,1).data];};
+  const radial=sample(0)[3]===0&&sample(.25)[3]>60&&[[76,64],[52,64],[64,76],[64,52]].every(([x,y])=>sample(.25,x,y)[3]>60)&&sample(.25,90,64)[3]<10&&sample(1,98,64)[3]>120&&sample(0,107,64)[3]>150;
+  const {VR_NEON_LANES}=await import('/src/components/vrLaneConfig.ts');
+  const palette=VR_NEON_LANES.every(({color})=>{probeMaterial.uniforms.tint.value.setHex(color);const rgb=sample(1);return [color>>16,(color>>8)&255,color&255].every((value,i)=>Math.abs(value-rgb[i])<3);});
+  quad.geometry.dispose();probeMaterial.dispose();probe.dispose();
   const centreExact=!!mesh&&mesh.position.distanceTo(lanes.paths.get('kick')(0,new T.Vector3()))<1e-8;
   const wrong=highway.strike('floorTom',0)==='Miss'&&mesh.visible;
   const perfect=highway.strike('kick',0)==='Perfect'&&!scene.getObjectByName(name);
@@ -62,9 +75,9 @@ try{
   const preserved=JSON.stringify(before)===JSON.stringify(after)&&localStorage.getItem('drumup.vr.note-sync-ms.v1')==='230'&&localStorage.getItem('drumup.vr.love.chart-offset.v2')==='2.9';
   highway.dispose();audio.dispose();lanes.dispose();
   const update=T.Scene.prototype.updateMatrixWorld;T.Scene.prototype.updateMatrixWorld=function(...a){if(this.getObjectByName('vr-unified-panel'))window.scene=this;return update.apply(this,a);};
-  return{lineCount,alignment,lowered,fillExact,centreExact,wrong,perfect,effectStarted,frozen,effectEnded,great,missOnce,missEnded,preserved,status};
+  return{radial,palette,lineCount,alignment,lowered,fillExact,centreExact,wrong,perfect,effectStarted,frozen,effectEnded,great,missOnce,missEnded,preserved,status};
  });
- assert.equal(unit.lineCount,1);for(const key of ['alignment','lowered','fillExact','centreExact','wrong','perfect','effectStarted','frozen','effectEnded','great','missOnce','missEnded','preserved'])assert(unit[key],key+' '+JSON.stringify(unit));
+ assert.equal(unit.lineCount,1);for(const key of ['radial','palette','alignment','lowered','fillExact','centreExact','wrong','perfect','effectStarted','frozen','effectEnded','great','missOnce','missEnded','preserved'])assert(unit[key],key+' '+JSON.stringify(unit));
  console.log('PASS shared line, calibrated centre arrival, correct instrument, early Great, immediate note removal, 200ms white effects, weak MISS, pause freezes notes/effects/score, kit and saved offsets unchanged.');
  await page.waitForFunction(()=>window.scene);
  await page.getByRole('button',{name:'Enter VR',exact:true}).click();await page.getByRole('button',{name:'Exit VR',exact:true}).waitFor();await page.evaluate(installUnifiedPanelControls);
@@ -100,7 +113,7 @@ try{
  await page.waitForTimeout(2000);await page.evaluate(()=>window.panelStep(20));
  const worldPreview=await page.evaluate(()=>{
   const T=window.T,renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1600,1000);renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;
-  const camera=new T.PerspectiveCamera(65,1.6,.03,40);camera.position.set(0,1.28,1);camera.lookAt(0,1.35,-1.5);renderer.render(window.scene,camera);
+  const camera=new T.PerspectiveCamera(65,1.6,.03,40);camera.position.set(0,1.28,1.8);camera.lookAt(0,.90,-.4);renderer.render(window.scene,camera);
   const image=renderer.domElement.toDataURL('image/png');renderer.dispose();return image;
  });
  const worldFile=join(tmpdir(),'drum-up-shared-line-world.png');await writeFile(worldFile,Buffer.from(worldPreview.split(',')[1],'base64'));console.log('WORLD PREVIEW: '+worldFile);
@@ -141,6 +154,7 @@ try{
   const maxOk=Math.abs(temp.scale.x-WORLD_PANEL_LIMITS.maxScale)<1e-8&&temp.position.distanceTo(eye)<=WORLD_PANEL_LIMITS.maxDistance+1e-8;
   input.gamepad.axes=[0,0,-1,1];for(let i=0;i<300;i++)bounded.update(input,window.testXR.frame(),ref,eye,.05);
   const minOk=Math.abs(temp.scale.x-WORLD_PANEL_LIMITS.minScale)<1e-8&&temp.position.distanceTo(eye)>=WORLD_PANEL_LIMITS.minDistance-1e-8;bounded.finish();localStorage.removeItem('drumup.test.bounds');input.gamepad.axes=[0,0,0,0];
+  let halos=0;scene.traverse(o=>{if(o.name.startsWith('drum-neon-glow-')&&o.material.uniforms.pulse.value>=0)halos++;});if(halos!==8)throw Error('Missing neon glow');
   let rims=0,visibleRims=0;scene.traverse(o=>{if(o.name.startsWith('drum-accent-rim-')){rims++;let visible=true;for(let p=o;p;p=p.parent)visible&&=p.visible;if(visible)visibleRims++;}});
   return{moved,scaled,fixed,restored,safe,unifiedScaled,inert,maxOk,minOk,rims,visibleRims,savedScale:saved.scale};
  });
@@ -154,7 +168,7 @@ try{
   window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',key:' ',cancelable:true}));window.panelStep(2);
   const bright=rim.material.opacity>.6&&head.material.color.getHex()!==original&&window.scene.getObjectByName('drum-hit-wave-kick').visible;
   window.dispatchEvent(new KeyboardEvent('keyup',{code:'Space',key:' ',cancelable:true}));window.panelStep(40);
-  return{bright,restored:head.material.color.getHex()===original&&Math.abs(rim.material.opacity-.52)<1e-8};
+  return{bright,restored:head.material.color.getHex()===original&&Math.abs(rim.material.opacity-.78)<1e-8};
  });assert(feedback.bright&&feedback.restored,JSON.stringify(feedback));
  console.log('PASS +/-10s seek; player handle drag/scale/distance/save/load; unified scale/save; inert sticks outside grab; min/max bounds; 8 visible colored rims and kick color/wave feedback.');
  assert.deepEqual(errors,[]);console.log('PASS actual MP3/player integration, countdown gating, world-fixed above line, real raycast+Trigger PAUSE/PLAY, frozen notes/MISS/progress, resumed MP3 progress. Headset mocked; physical Quest not tested.');

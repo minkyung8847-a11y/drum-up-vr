@@ -73,6 +73,7 @@ try {
  assert.equal(result.domMutations,0,'Pedal during immersive playback must not mutate the desktop React settings');
  assert.equal(result.textureUploads,0,'Pedal must not upload the settings texture while AUDIO is open');
  const visibleDiagnostics=await page.evaluate(async()=>{
+  const key=(type,options)=>{const actual=performance.now.bind(performance);try{performance.now=()=>window.testXR.time;window.dispatchEvent(new KeyboardEvent(type,options));}finally{performance.now=actual;}};
   window.right.targetRaySpace.tracked=true;
   window.panelClick(window.right,390,435);
   window.right.targetRaySpace={position:[.25,1.05,.05],quaternion:[0,0,0,1],tracked:true};
@@ -81,9 +82,9 @@ try {
   const panel=window.scene.getObjectByName('vr-unified-panel'),version=panel.material.map.version,n=window.hits.length;
   await new Promise(r=>setTimeout(r,50));
   for(const hand of ['left','right'])window[hand].gripSpace.quaternion=[0,0,0,1];window.panelStep(6);
-  window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',key:' ',cancelable:true}));
+  key('keydown',{code:'Space',key:' ',cancelable:true});
   for(let i=0;i<100;i++){
-   window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',key:' ',repeat:true,cancelable:true}));
+   key('keydown',{code:'Space',key:' ',repeat:true,cancelable:true});
    if(i%12===0)for(const hand of ['left','right'])window[hand].gripSpace.quaternion=[0,0,0,1];
    if(i%12===6)for(const hand of ['left','right'])window[hand].gripSpace.quaternion=new window.THREE.Quaternion().setFromAxisAngle(new window.THREE.Vector3(1,0,0),-.05).toArray();
    window.panelStep();
@@ -91,8 +92,8 @@ try {
   const pulseReleased=!panel.userData.panelState.footPedal.pressed;
   window.dispatchEvent(new Event('blur'));await new Promise(r=>setTimeout(r,50));
   const raysAlive=window.scene.getObjectByName('unified-panel-ray-0').visible&&window.scene.getObjectByName('unified-panel-ray-1').visible;
-  window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',key:' ',repeat:false,cancelable:true}));
-  window.dispatchEvent(new KeyboardEvent('keyup',{code:'Space',key:' ',cancelable:true}));window.panelStep(12);
+  key('keydown',{code:'Space',key:' ',repeat:false,cancelable:true});
+  key('keyup',{code:'Space',key:' ',cancelable:true});window.panelStep(12);
   window.testXR.disconnect(keyboard);
   return {uploads:panel.material.map.version-version,played:window.hits.slice(n),pulseReleased,raysAlive,released:!panel.userData.panelState.footPedal.pressed};
  });
@@ -100,7 +101,7 @@ try {
  assert.equal(visibleDiagnostics.played.filter(id=>id==='kick').length,1);
  assert.equal(visibleDiagnostics.played.filter(id=>id==='snare').length,8);
  assert.equal(visibleDiagnostics.played.filter(id=>id==='ride').length,8);
- assert(visibleDiagnostics.pulseReleased&&visibleDiagnostics.released&&visibleDiagnostics.raysAlive);
+ assert(visibleDiagnostics.pulseReleased&&visibleDiagnostics.released&&visibleDiagnostics.raysAlive,JSON.stringify(visibleDiagnostics));
  assert.deepEqual(errors,[]);
  await page.getByRole('button',{name:'Exit VR',exact:true}).click();
  await page.locator('.foot-pedal-settings > summary').click();

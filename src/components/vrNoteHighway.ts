@@ -1,3 +1,4 @@
+import { VR_NEON_LANES, DRUM_ACCENTS as COLORS, VR_LANE_LAYOUT } from './vrLaneConfig';
 import * as THREE from 'three';
 import type { DrumHitSurface } from './vrStickCollision';
 import type { NoteEvent } from '../types';
@@ -9,14 +10,10 @@ import { VR_BASIC_DRUM_BEAT } from './vrBasicDrumBeat';
 export const RHYTHM_BPM = VR_BASIC_DRUM_BEAT.bpm;
 export const VR_JUDGMENT_LINE = {
   belowCymbals: .06, depthBehindKit: .25, padding: .12,
-  thickness: .006, glowHeight: .045, farDepth: 7, farRise: 1.25,
+  thickness: .006, glowHeight: .045, farDepth: 0, farRise: .42,
 } as const;
 export const VR_NOTE_EFFECT_MS = { success: 200, miss: 160 } as const;
 const TRAVEL_MS = 3000, PERFECT_MS = 50, GREAT_MS = 120;
-const COLORS: Record<string, number> = {
-  crash: 0xffa35c, hihat: 0x52ffae, snare: 0xff4fad, kick: 0xff803b,
-  smallTom: 0x35e4ff, middleTom: 0x43ffda, floorTom: 0xf967e5, ride: 0x6db9ff,
-};
 export type RhythmState = 'idle' | 'playing' | 'paused' | 'finished';
 export type RhythmJudgment = 'Perfect' | 'Great' | 'Miss';
 export type RhythmAction = 'toggle' | 'restart';
@@ -30,7 +27,7 @@ export function captureRhythmSurfaces(surfaces: DrumHitSurface[]): RhythmSurface
   return surfaces.map(surface => ({ ...surface, world: surface.mesh.matrixWorld.clone() }));
 }
 
-export function createVRNoteLanes(surfaces: RhythmSurface[], eye: THREE.Vector3) {
+export function createVRNoteLanes(surfaces: RhythmSurface[], _eye: THREE.Vector3) {
   // Capture the authored kit once. All endpoints share world Y/Z, independent
   // of head pose or the individual drum/cymbal surface's height and tilt.
   const centres = surfaces.map(surface => ({ id: surface.id, cymbal: surface.cymbal,
@@ -40,27 +37,30 @@ export function createVRNoteLanes(surfaces: RhythmSurface[], eye: THREE.Vector3)
   const tomTop = Math.max(...centres.filter(s => /Tom/.test(s.id)).map(s => s.position.y));
   const y = Math.max(tomTop + .035, Math.min(...upperCymbals.map(s => s.position.y)) - VR_JUDGMENT_LINE.belowCymbals);
   const z = Math.min(...centres.map(s => s.position.z)) - VR_JUDGMENT_LINE.depthBehindKit;
-  // Project each real surface centre through the INITIAL seated eye onto the
-  // common line plane. Equal-width slots caused the old rightward displacement.
-  const projected = centres.map(s => {
-    const ratio = (z-eye.z) / Math.min(-.15,s.position.z-eye.z);
-    return { ...s, x: eye.x + (s.position.x-eye.x)*ratio, projectedRadius: s.radius*Math.abs(ratio) };
-  });
-  const centreX = projected.find(s => s.id === 'kick')!.x;
-  const halfWidth = Math.max(...projected.map(s => Math.abs(s.x-centreX)+s.projectedRadius)) + VR_JUDGMENT_LINE.padding;
-  const minX = centreX-halfWidth, maxX = centreX+halfWidth;
-  const layout = { minX, maxX, y, z, centreX };
-  const vanishing = new THREE.Vector3(centreX, y + VR_JUDGMENT_LINE.farRise, z - VR_JUDGMENT_LINE.farDepth);
-  const positions: THREE.Vector3[] = [];
-  const paths = new Map(projected.map(surface => {
-    const target = new THREE.Vector3(surface.x, y, z);
-    positions.push(target, vanishing);
-    return [surface.id, (progress: number, out: THREE.Vector3) => out.lerpVectors(target, vanishing, progress)] as const;
+  const kick = centres.find(surface=>surface.id==='kick')!;
+  const leftTom = centres.find(surface=>surface.id==='smallTom')!, rightTom = centres.find(surface=>surface.id==='middleTom')!;
+  const spacing = THREE.MathUtils.clamp(Math.abs(rightTom.position.x-leftTom.position.x)/2,VR_LANE_LAYOUT.minimumSpacing,VR_LANE_LAYOUT.maximumSpacing);
+  const kickIndex = VR_NEON_LANES.findIndex(lane=>lane.id==='kick');
+  const centreX = kick.position.x;
+  const targets = VR_NEON_LANES.map((_,index)=>new THREE.Vector3(centreX+(index-kickIndex)*spacing,y,z));
+  const halfWidth = Math.max(...targets.map(target=>Math.abs(target.x-centreX)+spacing*.5),...centres.map(s=>Math.abs(s.position.x-centreX)+s.radius)) + VR_JUDGMENT_LINE.padding;
+  const minX=centreX-halfWidth,maxX=centreX+halfWidth;
+  const layout={minX,maxX,y,z,centreX,spacing};
+  const positions:THREE.Vector3[]=[],colors:number[]=[];
+  const paths:Map<string,(progress:number,out:THREE.Vector3)=>THREE.Vector3>=new Map(VR_NEON_LANES.map((lane,index)=>{
+    const target=targets[index],start=target.clone().add(new THREE.Vector3(0,VR_JUDGMENT_LINE.farRise,0));
+    positions.push(target,start);const color=new THREE.Color(lane.color);colors.push(color.r,color.g,color.b,color.r,color.g,color.b);
+    // Parallel vertical lanes: fixed X/Z at every point, never a shared vanishing point.
+    return [lane.id,(progress:number,out:THREE.Vector3)=>out.set(target.x,target.y+VR_JUDGMENT_LINE.farRise*progress,target.z)] as const;
   }));
-  const geometry = new THREE.BufferGeometry().setFromPoints(positions);
-  const material = new THREE.LineBasicMaterial({ color: 0xaab5c3, transparent: true, opacity: .22,
-    depthTest: false, depthWrite: false, toneMapped: false });
-  const lines = new THREE.LineSegments(geometry, material); lines.name = 'vr-note-lanes'; lines.renderOrder = 1;
+  const geometry=new THREE.BufferGeometry().setFromPoints(positions);geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  const material=new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.30,depthTest:false,depthWrite:false,toneMapped:false});
+  const lines=new THREE.LineSegments(geometry,material);lines.name='vr-note-lanes';lines.renderOrder=1;
+  const markerGeometry=new THREE.RingGeometry(.017,VR_LANE_LAYOUT.markerRadius,40);
+  const markers=VR_NEON_LANES.map((lane,index)=>{
+    const marker=new THREE.Mesh(markerGeometry,new THREE.MeshBasicMaterial({color:lane.color,transparent:true,opacity:.8,depthTest:false,depthWrite:false,toneMapped:false}));
+    marker.name='lane-point-'+lane.id;marker.position.copy(targets[index]);marker.renderOrder=4;lines.add(marker);return marker;
+  });
   const lineGeometry = new THREE.PlaneGeometry(maxX - minX, VR_JUDGMENT_LINE.glowHeight);
   const lineMaterial = new THREE.ShaderMaterial({ transparent: true, depthTest: false, depthWrite: false, toneMapped: false,
     uniforms: { core: { value: VR_JUDGMENT_LINE.thickness / VR_JUDGMENT_LINE.glowHeight } },
@@ -69,8 +69,8 @@ export function createVRNoteLanes(surfaces: RhythmSurface[], eye: THREE.Vector3)
   const judgmentLine = new THREE.Mesh(lineGeometry, lineMaterial); judgmentLine.name = 'vr-judgment-line';
   judgmentLine.position.set(layout.centreX, y, z); judgmentLine.renderOrder = 3; lines.add(judgmentLine);
   return { lines, paths, layout, judgmentLine,
-    setPassthrough(enabled: boolean) { material.opacity = enabled ? .30 : .22; },
-    dispose() { lines.removeFromParent(); geometry.dispose(); material.dispose(); lineGeometry.dispose(); lineMaterial.dispose(); } };
+    setPassthrough(enabled: boolean) { material.opacity = enabled ? .42 : .30; },
+    dispose() { lines.removeFromParent(); geometry.dispose(); material.dispose(); lineGeometry.dispose(); lineMaterial.dispose(); markerGeometry.dispose(); markers.forEach(marker=>marker.material.dispose()); } };
 }
 
 export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[],
@@ -97,7 +97,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     transparent: true, depthTest: false, depthWrite: false, toneMapped: false,
     uniforms: { tint: { value: new THREE.Color(COLORS[id] ?? 0xffffff) }, fill: { value: 0 } },
     vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: 'varying vec2 vUv;uniform vec3 tint;uniform float fill;void main(){vec2 p=(vUv-.5)*2.;float r=length(p);float ring=smoothstep(.60,.65,r)*(1.-smoothstep(.71,.77,r));float halo=exp(-pow((r-.68)*12.,2.))*.18;float disc=(1.-smoothstep(.56,.60,r))*smoothstep(-.01,.01,fill)* (1.-smoothstep(-.60+1.20*fill-.015,-.60+1.20*fill+.015,p.y));float a=max(ring+halo,disc*(.28+.45*fill));gl_FragColor=vec4(tint,a);}'
+    fragmentShader: 'varying vec2 vUv;uniform vec3 tint;uniform float fill;void main(){vec2 p=(vUv-.5)*2.;float r=length(p);float ring=smoothstep(.60,.65,r)*(1.-smoothstep(.71,.77,r));float halo=exp(-pow((r-.68)*12.,2.))*.18;float radius=.60*sqrt(clamp(fill,0.,1.));float disc=fill>.0001?1.-smoothstep(radius-.012,radius+.012,r):0.;float a=max(ring+halo,disc*(.28+.45*fill));gl_FragColor=vec4(tint,a);\n#include <colorspace_fragment>\n}'
   }), noteSize }]));
   const labelTextures = new Map<RhythmJudgment, THREE.CanvasTexture>();
   for (const text of ['Perfect','Great','Miss'] as const) {

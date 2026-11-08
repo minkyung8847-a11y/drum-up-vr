@@ -12,7 +12,7 @@ import { EnvironmentSwitcher } from './EnvironmentSwitcher';
 import { createVRDrumInteraction } from './vrDrumInteraction';
 import { createVRHardwareInstances } from './vrHardwareInstances';
 import { createVRAssistedStrikes } from './vrAssistedStrikes';
-import { createVRSeating, VR_SEATING } from './vrSeating';
+import { createVRSeating, VR_SEATING, applySeatedKitHeight } from './vrSeating';
 import { createVirtualDrumsticks } from './virtualDrumsticks';
 import { captureRhythmSurfaces, createVRNoteHighway, createVRNoteLanes, RHYTHM_BPM } from './vrNoteHighway';
 import { applyStickPose, createXRDrumstickControllers } from './xrDrumstickControllers';
@@ -129,6 +129,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
 
     // Restore initial-Git instrument transforms before caching hit surfaces.
     const kit = createRestoredVRDrumSet(scene);
+    applySeatedKitHeight(kit.group);
     kit.group.name = 'vr-drum-kit';
     // Discard placements from the removed editor; always use the authored kit.
     try { localStorage.removeItem('drumup.vr.drum-layout.v1'); } catch { /* Storage can be unavailable. */ }

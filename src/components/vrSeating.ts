@@ -1,8 +1,15 @@
 import * as THREE from 'three';
 
-// Raise the seated virtual eye and hands slightly so the complete kit sits
-// lower relative to the player without sinking the bass drum or pedals below the floor.
-export const VR_SEATING = { playerZ: 1.0, eyeLift: 0.08, kitForward: 0 } as const;
+// Keep the existing seated rig calibration. The VR kit now also has one
+// explicit, non-accumulating vertical offset before collision/note capture.
+export const VR_SEATING = { playerZ: 1.0, eyeLift: 0.08, kitForward: 0, kitHeightOffset: -.12 } as const;
+
+// Apply once before caching collisions/notes; never accumulate an offset on re-entry.
+export function applySeatedKitHeight(kit: THREE.Group) {
+  kit.userData.seatedBaseY ??= kit.position.y;
+  kit.position.y = kit.userData.seatedBaseY + VR_SEATING.kitHeightOffset;
+  kit.updateWorldMatrix(true,true);
+}
 
 export function createVRSeating(rig: THREE.Group, kit: THREE.Group, refreshHits: () => void) {
   const desktopRig = rig.position.clone();

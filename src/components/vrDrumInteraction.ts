@@ -20,7 +20,6 @@ interface DrumKitScene {
 // Shared by real controller collisions and existing desktop clicks.
 export function createVRDrumInteraction(kit: DrumKitScene) {
   const feedback = createVRDrumFeedback(kit.hitSurfaces,kit.tomVisuals);
-  const silver = new THREE.Color(0xeef4ff);
   // Animate only the existing local mechanism; snapshot the restored resting
   // transforms instead of calling the old full-kit deformation update().
   const mechanism = [kit.kickMechanism?.board, kit.kickMechanism?.beater]
@@ -108,11 +107,11 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
         for (const { material, color, emissive, intensity } of target.materials) {
           const glow = cymbal ? Math.max(0, 1 - age / 0.085) * velocity : 0;
           {
-            const highlight = Math.max(0, 1 - age / 0.15) ** 2 * 0.32;
+            const highlight = Math.max(0, 1 - age / 0.15) ** 2 * 0.46;
             material.color.copy(color).lerp(state.accent, highlight);
           }
-          material.emissive.copy(emissive).lerp(silver, glow);
-          material.emissiveIntensity = intensity + glow * 0.18;
+          material.emissive.copy(emissive).lerp(state.accent, glow);
+          material.emissiveIntensity = intensity + glow * 0.45;
         }
       }
       if (age >= duration) state.age = Infinity;
