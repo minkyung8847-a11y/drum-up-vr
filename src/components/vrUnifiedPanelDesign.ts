@@ -333,14 +333,14 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
         });
         ctx.beginPath(); ctx.arc(98, 683, 8, 0, Math.PI * 2); ctx.fillStyle = pedal.pressed ? '#ffffff' : '#4c515a'; ctx.fill();
         ctx.textAlign = 'left'; ctx.font = '18px Arial'; ctx.fillStyle = '#edf0f5';
-        ctx.fillText(pedal.pressed ? 'PEDAL PRESSED · ' + pedal.label : 'PEDAL RELEASED', 120, 690, 310);
+        ctx.fillText(pedal.pressed ? 'PEDAL PRESSED · ' + pedal.label : 'PEDAL IDLE', 120, 690, 310);
         ctx.fillText('INPUT STATUS: ' + (!pedal.enabled ? 'DISABLED' : pedal.status === 'INPUT DETECTED' ? 'INPUT DETECTED' : 'WAITING'), 450, 690, 490);
         ctx.font = '16px Arial'; ctx.fillStyle = '#bdc5d1';
         ctx.fillText('CONNECTION STATUS: ' + pedal.status + ' · USB connection unknown', 84, 714, 856);
         ctx.fillText(pedal.message, 84, 737, 856);
         ctx.fillText('KICK: ' + (pedal.played === null ? 'WAITING' : pedal.played ? 'PLAYED' : 'NOT PLAYED (audio / duplicate / visibility)'), 84, 758, 856);
         ctx.font = '16px monospace'; ctx.fillStyle = '#aeb8c7';
-        ctx.fillText('code: ' + (pedal.eventCode || '—') + '  key: ' + JSON.stringify(pedal.eventKey) + '  repeat: ' + pedal.repeat, 84, 851, 856);
+        ctx.fillText('code: ' + (pedal.eventCode || '—') + '  key: ' + JSON.stringify(pedal.eventKey) + '  repeat: ' + pedal.repeat + '  ignored: ' + pedal.ignoredRepeats, 84, 851, 856);
         ctx.fillText('down: ' + pedal.down + '  up: ' + pedal.up + '  VR/XR: ' + pedal.immersive + '  last: ' + (pedal.lastInput ? new Date(pedal.lastInput).toLocaleTimeString() : '—'), 84, 876, 856);
       }
     } else if (state.setting === 'NOTE') {

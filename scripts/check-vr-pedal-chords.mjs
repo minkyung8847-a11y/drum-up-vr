@@ -78,19 +78,28 @@ try {
   window.right.targetRaySpace.tracked=false;window.panelStep(20);
   const panel=window.scene.getObjectByName('vr-unified-panel'),version=panel.material.map.version,n=window.hits.length;
   await new Promise(r=>setTimeout(r,50));
+  for(const hand of ['left','right'])window[hand].gripSpace.quaternion=[0,0,0,1];window.panelStep(6);
   window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',key:' ',cancelable:true}));
   for(let i=0;i<100;i++){
-   window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',key:' ',repeat:true,cancelable:true}));window.panelStep();
+   window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',key:' ',repeat:true,cancelable:true}));
+   if(i%12===0)for(const hand of ['left','right'])window[hand].gripSpace.quaternion=[0,0,0,1];
+   if(i%12===6)for(const hand of ['left','right'])window[hand].gripSpace.quaternion=new window.THREE.Quaternion().setFromAxisAngle(new window.THREE.Vector3(1,0,0),-.05).toArray();
+   window.panelStep();
   }
-  const pressed=panel.userData.panelState.footPedal.pressed;
+  const pulseReleased=!panel.userData.panelState.footPedal.pressed;
+  window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',key:' ',repeat:false,cancelable:true}));
   window.dispatchEvent(new KeyboardEvent('keyup',{code:'Space',key:' ',cancelable:true}));window.panelStep(12);
-  return {uploads:panel.material.map.version-version,played:window.hits.slice(n),pressed,released:!panel.userData.panelState.footPedal.pressed};
+  return {uploads:panel.material.map.version-version,played:window.hits.slice(n),pulseReleased,released:!panel.userData.panelState.footPedal.pressed};
  });
- assert(visibleDiagnostics.uploads>0&&visibleDiagnostics.uploads<=13,JSON.stringify(visibleDiagnostics));
- assert.deepEqual(visibleDiagnostics.played,['kick']);assert(visibleDiagnostics.pressed&&visibleDiagnostics.released);
+ assert(visibleDiagnostics.uploads>0&&visibleDiagnostics.uploads<=3,JSON.stringify(visibleDiagnostics));
+ assert.equal(visibleDiagnostics.played.filter(id=>id==='kick').length,1);
+ assert.equal(visibleDiagnostics.played.filter(id=>id==='snare').length,8);
+ assert.equal(visibleDiagnostics.played.filter(id=>id==='ride').length,8);
+ assert(visibleDiagnostics.pulseReleased&&visibleDiagnostics.released);
+ assert.deepEqual(errors,[]);
  await page.getByRole('button',{name:'Exit VR',exact:true}).click();
  await page.locator('.foot-pedal-settings > summary').click();
  assert.match(await page.getByRole('region',{name:'Foot pedal settings'}).innerText(),/WAITING FOR INPUT/);
- console.log('PASS visible diagnostics stay live at <=10 Hz under 100 repeat events, one kick only, desktop snapshot resumes on XR exit.');
+ console.log('PASS held pedal: one kick, 16 continuing stick hits, pulse clears while held, <=3 texture updates for 100 repeats, desktop snapshot resumes on XR exit.');
  console.log('PASS 28 pedal+stick pairs and 8 two-stick+pedal triples, real samples, continuous XR frames, no desktop DOM work or unrelated texture uploads. Physical Quest crash not reproduced/verified.');
 }finally{await browser?.close();await vite.close();}

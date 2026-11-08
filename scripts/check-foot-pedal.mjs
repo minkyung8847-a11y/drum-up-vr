@@ -36,10 +36,14 @@ try {
   assert.match(await settings.innerText(), /CURRENT KEY: SPACE/);
   assert.match(await settings.innerText(), /UNKNOWN/);
   await settings.getByRole('button', { name: 'TEST INPUT', exact: true }).click();
-  await page.keyboard.down('Space'); await page.keyboard.down('Space'); await page.waitForTimeout(100);
+  await page.keyboard.down('Space'); await page.keyboard.down('Space');
   assert.equal(await page.evaluate(() => window.hits.filter(id => id === 'kick').length), 1);
   assert.match(await settings.innerText(), /PEDAL PRESSED/);
   assert.equal(await settings.locator('i.pressed').count(), 1);
+  await page.waitForTimeout(160);
+  assert.equal(await settings.locator('i.pressed').count(), 0, 'indicator auto releases even while held');
+  await page.keyboard.down('Space');
+  assert.equal(await page.evaluate(() => window.hits.length), 1, 'held repeat after pulse must not rearm');
   await page.keyboard.up('Space');
   assert.equal(await settings.locator('i.pressed').count(), 0);
   await page.keyboard.press('Space'); await page.waitForTimeout(60);

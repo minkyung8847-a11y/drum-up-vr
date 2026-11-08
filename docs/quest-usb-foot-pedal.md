@@ -7,7 +7,7 @@
 1. 풋스위치를 Windows 전용 프로그램에서 Space로 설정한다. 설정이 장치에 저장되는지는 해당 장치의 동작으로 확인해야 한다.
 2. USB-A → USB-C 어댑터로 Quest 3에 연결하고, 이 변경을 포함한 사이트의 `#/vr`를 연다. WebXR은 HTTPS 등의 보안 컨텍스트에서 실행한다.
 3. VR 입장 전 PC/Quest 브라우저 상단의 **SETTINGS · CONTROLLER · FOOT PEDAL**에서 **TEST INPUT**을 누르고 페달을 밟아 2D 브라우저 수신부터 확인할 수 있다.
-4. **Enter VR** → 통합 패널 **SETTINGS → CONTROLLER**. FOOT PEDAL 영역이 바로 펼쳐진다. **ENABLE FOOT PEDAL: ON**을 확인하고 **TEST INPUT**을 누른다. FOOT PEDAL 제목의 +/−로 접고 펼칠 수 있다. OFF로 끄면 페달 입력만 중단되고 기존 오른쪽 Grip은 유지된다. 페달을 밟으면 흰 원, **PEDAL PRESSED**, 수신 키, **INPUT DETECTED**, **KICK: PLAYED**를 확인한다. 놓으면 원이 꺼진다. KICK: PLAYED는 앱 타격 함수의 실행 결과이며 실제 스피커 출력/USB 신원을 보증하지 않는다.
+4. **Enter VR** → 통합 패널 **SETTINGS → CONTROLLER**. FOOT PEDAL 영역이 바로 펼쳐진다. **ENABLE FOOT PEDAL: ON**을 확인하고 **TEST INPUT**을 누른다. FOOT PEDAL 제목의 +/−로 접고 펼칠 수 있다. OFF로 끄면 페달 입력만 중단되고 기존 오른쪽 Grip은 유지된다. 페달을 밟으면 흰 원, **PEDAL PRESSED**, 수신 키, **INPUT DETECTED**, **KICK: PLAYED**를 확인한다. 표시등은 최대 120ms 후 자동으로 꺼지고, 더 빨리 놓으면 즉시 꺼진다. 계속 밟아도 추가 타격하지 않으며 실제로 놓았다가 다시 밟아야 다음 킥이 난다. KICK: PLAYED는 앱 타격 함수의 실행 결과이며 실제 스피커 출력/USB 신원을 보증하지 않는다.
 5. **AUTO DETECT** → **PRESS YOUR FOOT PEDAL**에서 원하는 키를 입력한다. 이 입력은 할당 전용이고 타격하지 않는다. 놓은 뒤 다시 밟아 테스트한다. ESC / CANCEL로 취소한다. 할당과 ENABLE 상태는 현재 사이트의 localStorage에 저장되며 다른 도메인/브라우저에는 공유되지 않는다. 저장이 차단되면 이번 세션에만 적용된다고 표시한다.
 6. MUSIC에서 **사랑으로**를 선택하고 START. 기존 네 박 카운트다운 이후 킥 노트를 페달로 친다. 오른쪽 Grip도 계속 사용 가능하다.
 
@@ -83,3 +83,12 @@ Quest 3에서 페달 단독은 정상이나 FREE PLAY에서 스틱과 함께 치
 실행: `npm run test:vr:pedal-chords`, `npm run test:pedal:usb`.
 
 Quest GPU/USB 드라이버/브라우저 프로세스 종료는 모의 장치가 재현하지 못한다. 실제 Quest에서 업데이트 후 같은 동시 타격을 다시 확인해야 종료 문제가 해소됐는지 확정할 수 있다. 키트 모델, 위치, 스틱 충돌, 샘플, 타격 판정, 음악 및 노트 데이터는 변경하지 않았다.
+
+
+## 길게 누르는 페달 입력 수정 (2026-11-08)
+
+물리적으로 누른 키를 기억하는 latch와 화면의 짧은 타격 표시를 분리했다. 첫 keydown만 기존 킥 타격을 실행하고, 표시등은 최대 120ms 후 PEDAL IDLE로 복귀한다. 실제 keyup을 만들어 내거나 물리 latch를 시간만으로 해제하지 않는다. 따라서 계속 누른 상태에서 표시가 꺼진 뒤에도 킥이 다시 나지 않는다. 실제 keyup 후 다시 밟으면 정상 재타격한다.
+
+누름 유지 중 repeat=true 또는 중복 keydown은 preventDefault/전파 차단과 정수 진단 카운트만 수행하고 바로 반환한다. Date.now, 상태 복사, changed 콜백, React 업데이트, 킥 함수, VR 텍스처 갱신을 반복 이벤트마다 실행하지 않는다. 무시한 반복 횟수는 SETTINGS의 ignored/ignoredRepeats에 실제 입력 변화 또는 표시 복귀 때 함께 표시된다.
+
+Windows Edge 모의 WebXR에서 100개 반복 이벤트 동안 킥 1회, 스네어/라이드 스틱 타격 16회 지속, 누르고 있는 중 표시 자동 복귀, 페달 진단 텍스처 갱신 최대 3회, 실제 해제 후 재타격을 검증했다. 기존 동시 타격 및 MUSIC 판정 테스트와 프로덕션 빌드도 확인했다. Quest 3에서의 프레임 정지 해소는 사용자 실기 재확인이 필요하다.
