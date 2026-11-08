@@ -744,6 +744,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         const p = viewer.transform.position;
         headPosition.set(p.x, p.y, p.z).applyMatrix4(rig.matrixWorld);
         if (!isVisibleXR()) highway?.pause(time);
+        noteLanes?.update(time);
         highway?.update(time, headPosition);
         if (loveTransport && isVisibleXR()) {
           worldViewerQuaternion.setFromRotationMatrix(worldViewerMatrix.fromArray(viewer.transform.matrix).premultiply(rig.matrixWorld));

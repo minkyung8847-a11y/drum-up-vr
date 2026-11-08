@@ -29,3 +29,12 @@ AudioContext, chartOffsetSeconds, calibrationOffsetMs, MP3 시작 오프셋, JSO
 - 전체 985개 노트 싱크, 실제 VR/AR 패널 전환 재질, 심벌/Grip, 페달 동시 타격 회귀.
 
 Windows Edge의 실제 Three/WebGL/Web Audio와 모의 XR 결과다. Quest 3 실기 FPS/스테레오 체감/실제 카메라 배경 위 시인성은 확인하지 않았다.
+
+
+## 추가 미세 조정: 레인 연장/원거리 페이드/링/판정 글자
+
+- 평행 경로의 farDepth 7→10.5m, farRise 1.25→1.875m. 기존 경사·X 간격·판정선 위치·도착 시각 식은 유지한다. VR/AR 모두 UV 경로 진행률 .45~1 구간에 smoothstep alpha fade를 적용해 먼 끝에서 0으로 사라진다.
+- 링 중심 반지름 .95→.90, 폭 .024R→.030R(25% 증가). 추가 5% 안쪽 이동이며 총 10% 안쪽이다. soft alphaMap과 외곽 glow 중심, 심벌의 해당 반지름 표면 높이도 함께 맞춘다. opacity/채도/타격 pulse는 그대로다.
+- 기존 하나의 판정선 셰이더에서 core/glow를 조금 강화하고 96개 고정 셀의 작고 희미한 반짝임을 계산한다. 입자/객체 생성 없이 time uniform만 갱신한다. 판정선의 위치/크기/판정 시간은 그대로다.
+- VR_JUDGMENT_COLORS: MISS #ff565f, GREAT #50d987, PERFECT #f2c45c. 월드 효과 라벨 및 기존 패널 판정 글자에 같은 색을 적용한다. 골드 글로우 10px, 나머지 6px. 기존 글자 위치/폰트/표시/제거 타이밍은 유지하고 라벨 텍스처에 sRGB를 지정한다.
+- GPU 검사: VR 원거리 alpha 194→190→70→0, AR 214→210→77→0. 판정선 반짝임의 시간별 픽셀 변화, 자원 수 불변을 확인했다. 실제 캔버스 픽셀로 빨강/초록/골드 라벨을 검사하고 전체 985개 노트 도착·실제 MP3/높이/플레이어 회귀를 통과했다. Quest 3 실기 FPS는 측정하지 않았다.

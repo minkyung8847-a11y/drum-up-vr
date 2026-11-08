@@ -1,3 +1,4 @@
+import {VR_JUDGMENT_COLORS} from './vrNeonStyle';
 import {DRUM_HEIGHT} from './vrDrumHeight';
 import type { FootPedalState } from '../pedal/footPedal';
 import { DRUM_ENVIRONMENTS } from './drumEnvironments';
@@ -289,9 +290,10 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
         card(ctx, state, `rhythm-${index}`, x, 660, 284, 68, false);
         ctx.fillStyle = '#f1f3f8'; ctx.font = '600 24px Arial'; ctx.fillText(label, x + 142, 703);
       });
-      ctx.fillStyle = '#d0d7e2'; ctx.font = '600 23px Arial';
+      ctx.save();const judgment=state.countIn===undefined?state.judgment:undefined;
+      ctx.fillStyle=judgment?VR_JUDGMENT_COLORS[judgment]:'#d0d7e2';ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=judgment==='Perfect'?10:judgment?6:0;ctx.font='600 23px Arial';
       ctx.fillText(state.countIn !== undefined ? `COUNT IN ${state.countIn}` : state.judgment?.toUpperCase() ?? state.rhythm.toUpperCase(), 512, 782);
-      ctx.font = '21px Arial'; ctx.fillText(`PERFECT ${state.perfect}    GREAT ${state.great}    MISS ${state.miss}`, 512, 829);
+      ctx.restore();ctx.fillStyle='#d0d7e2';ctx.font = '21px Arial'; ctx.fillText(`PERFECT ${state.perfect}    GREAT ${state.great}    MISS ${state.miss}`, 512, 829);
     }
   } else if (state.tab === 'BACKGROUND') {
     title(ctx, 'BACKGROUND', 'BACKGROUND');

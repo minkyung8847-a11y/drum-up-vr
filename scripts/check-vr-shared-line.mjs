@@ -23,7 +23,7 @@ try{
   const surfaces=captureRhythmSurfaces(kit.hitSurfaces),lanes=createVRNoteLanes(surfaces,new T.Vector3(0,1.35,1));scene.add(lanes.lines);
   const order=['crash','hihat','snare','smallTom','kick','middleTom','floorTom','ride'];
   const kick=surfaces.find(s=>s.id==='kick'),kickCentre=new T.Vector3(0,kick.height,0).applyMatrix4(kick.world);
-  const alignment=[...lanes.paths.keys()].join()===order.join()&&order.every((id,i)=>{const target=lanes.paths.get(id)(0,new T.Vector3()),start=lanes.paths.get(id)(1,new T.Vector3());return Math.abs(target.x-(kickCentre.x+(i-4)*lanes.layout.spacing))<1e-8&&Math.abs(start.x-target.x)<1e-8&&Math.abs(start.z-(target.z-7))<1e-8&&Math.abs(start.y-target.y-1.25)<1e-8;});
+  const alignment=[...lanes.paths.keys()].join()===order.join()&&order.every((id,i)=>{const target=lanes.paths.get(id)(0,new T.Vector3()),start=lanes.paths.get(id)(1,new T.Vector3());return Math.abs(target.x-(kickCentre.x+(i-4)*lanes.layout.spacing))<1e-8&&Math.abs(start.x-target.x)<1e-8&&Math.abs(start.z-(target.z-10.5))<1e-8&&Math.abs(start.y-target.y-1.875)<1e-8;});
   const camera=new T.PerspectiveCamera(65,1.6,.03,40);camera.position.set(0,1.35,1);camera.updateMatrixWorld(true);
   const projectedWidth=(progress)=>{const p=lanes.paths.get('kick')(progress,new T.Vector3()),q=p.clone().add(new T.Vector3(.16,0,0));return Math.abs(q.project(camera).x-p.project(camera).x);};
   const perspective=projectedWidth(0)>projectedWidth(1)*5;
@@ -62,6 +62,8 @@ try{
   const wrong=highway.strike('floorTom',0)==='Miss'&&mesh.visible;
   const perfect=highway.strike('kick',0)==='Perfect'&&!scene.getObjectByName(name);
   const effect=scene.children.find(o=>o.name==='note-highway-anchor').children.find(o=>o.userData.judgment==='Perfect'&&o.visible);
+  const labelColor=group=>{const image=group.children[3].material.map.image,data=image.getContext('2d').getImageData(0,0,image.width,image.height).data,sum=[0,0,0];let n=0;for(let i=0;i<data.length;i+=4)if(data[i+3]>220){n++;for(let c=0;c<3;c++)sum[c]+=data[i+c];}return sum.map(v=>v/n);};
+  const gold=labelColor(effect);if(!(gold[0]>gold[1]&&gold[1]>gold[2]))throw Error('PERFECT not gold');
   const effectStarted=!!effect&&effect.children[1].visible&&effect.children[2].visible;
   const snapshot=()=>JSON.stringify(scene.getObjectByName('note-highway-anchor').children.map(o=>[o.name,o.visible,...o.position.toArray(),...o.scale.toArray(),...o.children.map(c=>[c.visible,...c.position.toArray(),...c.scale.toArray(),c.material?.opacity])]));
   highway.pause(0);const atPause=audio.currentTime,saved=snapshot(),score=JSON.stringify(totals);context.currentTime+=20;highway.update(999999,eye);
@@ -77,8 +79,10 @@ try{
   // The resumed transport has a new context epoch, but score seconds are unchanged.
   context.currentTime=audio.contextTimeAt(LOVE_COUNT_IN+kicks[1].time+calibration-.08);highway.update(0,eye);
   const great=highway.strike('kick',0)==='Great'&&!scene.getObjectByName(`note-kick-${kicks[1].time*1000+230}`);
+  const greatEffect=scene.getObjectByName('note-highway-anchor').children.find(o=>o.userData.judgment==='Great'&&o.visible),green=labelColor(greatEffect);if(!(green[1]>green[0]&&green[1]>green[2]))throw Error('GREAT not green');
   context.currentTime=audio.contextTimeAt(LOVE_COUNT_IN+kicks[2].time+calibration+.121);highway.update(0,eye);
   const missed=scene.getObjectByName('note-highway-anchor').children.find(o=>o.userData.judgment==='Miss'&&o.visible),missCount=totals.m;
+  const red=labelColor(missed);if(!(red[0]>red[1]&&red[0]>red[2]))throw Error('MISS not red');
   highway.update(0,eye);const missOnce=totals.m===missCount&&!!missed&&!missed.children[1].visible;
   context.currentTime+=.18;highway.update(0,eye);const missEnded=!missed.visible;
   const after=[];kit.group.traverse(o=>after.push([o.id,...o.position.toArray(),...o.quaternion.toArray(),...o.scale.toArray()]));

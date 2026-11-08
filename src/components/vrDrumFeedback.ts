@@ -3,31 +3,32 @@ import type {DrumHitSurface} from './vrStickCollision';
 import {DRUM_ACCENTS} from './vrLaneConfig';
 import {softNeonColor} from './vrNeonStyle';
 export {DRUM_ACCENTS} from './vrLaneConfig';
-export const DRUM_NEON_STYLE={rimInner:.938,rimOuter:.962,idleOpacity:.62,hitOpacity:.82,duration:.24,surfaceLift:.0015,glowSpan:2.7} as const;
+export const DRUM_NEON_STYLE={rimInner:.885,rimOuter:.915,idleOpacity:.62,hitOpacity:.82,duration:.24,surfaceLift:.0015,glowSpan:2.7} as const;
 // Two restrained layers share the visible playing surface, including cymbal motion.
 export function createVRDrumFeedback(surfaces:DrumHitSurface[],visuals?:Map<string,{head:THREE.Mesh}>){
  const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
  const ctx=canvas.getContext('2d')!,gradient=ctx.createRadialGradient(128,128,0,128,128,128);
- for(const [stop,color] of [[0,'#000'],[.975,'#000'],[.985,'#fff'],[.993,'#fff'],[1,'#000']] as const)gradient.addColorStop(stop,color);
+ for(const [stop,color] of [[0,'#000'],[.967,'#000'],[.979,'#fff'],[.991,'#fff'],[1,'#000']] as const)gradient.addColorStop(stop,color);
  ctx.fillStyle=gradient;ctx.fillRect(0,0,256,256);const softRim=new THREE.CanvasTexture(canvas);
  const states=surfaces.map(surface=>{
   const parent=visuals?.get(surface.id)?.head??surface.mesh;
   parent.geometry.computeBoundingBox();const bounds=parent.geometry.boundingBox!;
   // Use the actual visible head radius, not its larger invisible collision proxy.
   const radius=Math.max(Math.abs(bounds.min.x),Math.abs(bounds.max.x),Math.abs(bounds.min.z),Math.abs(bounds.max.z));
-  const rimHeight=surface.cymbal ? .019*(1-.95)**2 : bounds.max.y;
+  const ringCentre=(DRUM_NEON_STYLE.rimInner+DRUM_NEON_STYLE.rimOuter)/2;
+  const rimHeight=surface.cymbal ? .019*(1-ringCentre)**2 : bounds.max.y;
   const y=rimHeight+DRUM_NEON_STYLE.surfaceLift,color=softNeonColor(DRUM_ACCENTS[surface.id]);
   const material=new THREE.MeshBasicMaterial({color,alphaMap:softRim,transparent:true,opacity:DRUM_NEON_STYLE.idleOpacity,depthTest:false,side:THREE.DoubleSide,depthWrite:false,toneMapped:false});
   const rim=new THREE.Mesh(new THREE.RingGeometry(radius*DRUM_NEON_STYLE.rimInner,radius*DRUM_NEON_STYLE.rimOuter,96),material);
   rim.name=`drum-accent-rim-${surface.id}`;rim.rotation.x=-Math.PI/2;rim.position.y=y;rim.renderOrder=4;parent.add(rim);
   const glowMaterial=new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,toneMapped:false,side:THREE.DoubleSide,
-   uniforms:{tint:{value:color.clone()},pulse:{value:0}},
+   uniforms:{tint:{value:color.clone()},pulse:{value:0},ringCentre:{value:ringCentre*2/DRUM_NEON_STYLE.glowSpan}},
    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-   fragmentShader:`varying vec2 vUv;uniform vec3 tint;uniform float pulse;void main(){
-    float r=length((vUv-.5)*2.),centre=.703704;
+   fragmentShader:`varying vec2 vUv;uniform vec3 tint;uniform float pulse;uniform float ringCentre;void main(){
+    float r=length((vUv-.5)*2.),centre=ringCentre;
     float nearGlow=exp(-pow((r-centre)/.055,2.))*(.10+.14*pulse);
     float outerGlow=exp(-pow((r-centre)/(.115+.025*pulse),2.))*(.045+.09*pulse);
-    float wash=(1.-smoothstep(.55,.71,r))*(.012+.09*pulse);
+    float wash=(1.-smoothstep(centre-.15,centre+.01,r))*(.012+.09*pulse);
     float edge=1.-smoothstep(.90,1.,r);gl_FragColor=vec4(tint,max(nearGlow+outerGlow,wash)*edge);
 #include <colorspace_fragment>
 }`});
