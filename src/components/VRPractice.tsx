@@ -1,3 +1,4 @@
+import {readDrumHeight,saveDrumHeight} from './vrDrumHeight';
 import { createVRMusicPlayer } from './vrMusicPlayer';
 import { createFootPedal, createPedalGripGate } from '../pedal/footPedal';
 import type { FootPedalController, FootPedalState } from '../pedal/footPedal';
@@ -129,7 +130,8 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
 
     // Restore initial-Git instrument transforms before caching hit surfaces.
     const kit = createRestoredVRDrumSet(scene);
-    applySeatedKitHeight(kit.group);
+    let drumHeight=readDrumHeight();
+    applySeatedKitHeight(kit.group,drumHeight);
     kit.group.name = 'vr-drum-kit';
     // Discard placements from the removed editor; always use the authored kit.
     try { localStorage.removeItem('drumup.vr.drum-layout.v1'); } catch { /* Storage can be unavailable. */ }
@@ -231,6 +233,8 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     const unifiedPanel = createVRUnifiedPanel(scene, rig, kit.group, {
       footPedal: () => footPedal,
       player: musicPlayer,
+      getDrumHeight:()=>drumHeight,
+      onDrumHeight:setDrumHeight,
       background: initialBackground.current,
       onBackground: id => { backgrounds.select(id); setBackground(id); },
       getVolume: () => drumSynth.getVolume(), setVolume: volume => drumSynth.setVolume(volume),
@@ -336,6 +340,14 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     const collisions = createVRAssistedStrikes(kit.hitSurfaces, (id, hand, velocity) => {
       if (audioReady) hitDrum(id, velocity, previousTime ?? performance.now(), hand);
     });
+    function setDrumHeight(value:number) {
+      const result=saveDrumHeight(value),delta=result.height-drumHeight;drumHeight=result.height;
+      applySeatedKitHeight(kit.group,drumHeight);
+      // Move visuals immediately, even paused, without resetting transport or score.
+      for(const surface of rhythmSurfaces)surface.world.copy(surface.mesh.matrixWorld);
+      noteLanes?.shiftHeight(delta);highway?.shiftHeight(delta);
+      collisions.refreshSurfaces();controllers.resetSamples();return result;
+    }
     const seating = createVRSeating(rig, kit.group, () => {
       interaction.update(1);
       collisions.refreshSurfaces();

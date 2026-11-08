@@ -17,7 +17,8 @@
     "test:pedal:regression": "node scripts/check-pedal-regression.mjs",
     "test:pedal:production": "node scripts/check-pedal-production.mjs",
     "test:vr:session": "node scripts/check-vr-session.mjs",
-    "test:vr:cymbals": "node scripts/check-vr-cymbal-motion.mjs"
+    "test:vr:cymbals": "node scripts/check-vr-cymbal-motion.mjs",
+    "test:vr:height": "node scripts/check-vr-height-layout.mjs"
   },
   "dependencies": {
     "@types/three": "^0.185.4",

@@ -18,13 +18,16 @@ try{
   const {createRestoredVRDrumSet}=await import('/src/components/restoredVRDrumSet.ts');
   const {VRMusicTransport,parseLoveChart,LOVE_COUNT_IN}=await import('/src/components/vrMusicSong.ts');
   const {applySeatedKitHeight}=await import('/src/components/vrSeating.ts');
-  const scene=new T.Scene(),kit=createRestoredVRDrumSet(scene);applySeatedKitHeight(kit.group);applySeatedKitHeight(kit.group);if(kit.group.position.y!==-.12)throw Error('Height accumulated');scene.updateMatrixWorld(true);
+  const scene=new T.Scene(),kit=createRestoredVRDrumSet(scene);applySeatedKitHeight(kit.group);applySeatedKitHeight(kit.group);if(kit.group.position.y!==0)throw Error('Height accumulated');scene.updateMatrixWorld(true);
   const before=[];kit.group.traverse(o=>before.push([o.id,...o.position.toArray(),...o.quaternion.toArray(),...o.scale.toArray()]));
   const surfaces=captureRhythmSurfaces(kit.hitSurfaces),lanes=createVRNoteLanes(surfaces,new T.Vector3(0,1.35,1));scene.add(lanes.lines);
   const order=['crash','hihat','snare','smallTom','kick','middleTom','floorTom','ride'];
   const kick=surfaces.find(s=>s.id==='kick'),kickCentre=new T.Vector3(0,kick.height,0).applyMatrix4(kick.world);
-  const alignment=[...lanes.paths.keys()].join()===order.join()&&order.every((id,i)=>{const target=lanes.paths.get(id)(0,new T.Vector3()),start=lanes.paths.get(id)(1,new T.Vector3());return Math.abs(target.x-(kickCentre.x+(i-4)*lanes.layout.spacing))<1e-8&&start.x===target.x&&start.z===target.z;});
-  const lowered=lanes.layout.y<.90&&lanes.layout.y>.78;
+  const alignment=[...lanes.paths.keys()].join()===order.join()&&order.every((id,i)=>{const target=lanes.paths.get(id)(0,new T.Vector3()),start=lanes.paths.get(id)(1,new T.Vector3());return Math.abs(target.x-(kickCentre.x+(i-4)*lanes.layout.spacing))<1e-8&&Math.abs(start.x-kickCentre.x)<1e-8&&Math.abs(start.z-(target.z-7))<1e-8&&Math.abs(start.y-target.y-1.25)<1e-8;});
+  const camera=new T.PerspectiveCamera(65,1.6,.03,40);camera.position.set(0,1.35,1);camera.updateMatrixWorld(true);
+  const projectedWidth=(progress)=>{const p=lanes.paths.get('kick')(progress,new T.Vector3()),q=p.clone().add(new T.Vector3(.16,0,0));return Math.abs(q.project(camera).x-p.project(camera).x);};
+  const perspective=projectedWidth(0)>projectedWidth(1)*5;
+  const lowered=lanes.layout.y<1.02&&lanes.layout.y>.90;
   const targets=[...lanes.paths.values()].map(path=>path(0,new T.Vector3()));
   if(!targets.every(p=>Math.abs(p.y-lanes.layout.y)<1e-10&&Math.abs(p.z-lanes.layout.z)<1e-10))throw Error('Different arrival heights/depths');
   if(scene.getObjectByName('vr-judgment-line')!==lanes.judgmentLine)throw Error('Missing common line');
@@ -62,6 +65,12 @@ try{
   const snapshot=()=>JSON.stringify(scene.getObjectByName('note-highway-anchor').children.map(o=>[o.name,o.visible,...o.position.toArray(),...o.scale.toArray(),...o.children.map(c=>[c.visible,...c.position.toArray(),...c.scale.toArray(),c.material?.opacity])]));
   highway.pause(0);const atPause=audio.currentTime,saved=snapshot(),score=JSON.stringify(totals);context.currentTime+=20;highway.update(999999,eye);
   const frozen=snapshot()===saved&&audio.currentTime===atPause&&JSON.stringify(totals)===score&&highway.strike('kick',999999)===undefined;
+  const heldNotes=scene.getObjectByName('note-highway-anchor').children.filter(o=>o.name.startsWith('note-')&&o.visible).map(o=>({mesh:o,y:o.position.y,fill:o.userData.fill}));
+  const previousLine=lanes.judgmentLine.getWorldPosition(new T.Vector3()).y;
+  lanes.shiftHeight(.06);highway.shiftHeight(.06);
+  const heightPaused=heldNotes.length>0&&heldNotes.every(({mesh,y,fill})=>Math.abs(mesh.position.y-y-.06)<1e-9&&mesh.userData.fill===fill)&&Math.abs(lanes.judgmentLine.getWorldPosition(new T.Vector3()).y-previousLine-.06)<1e-9&&audio.currentTime===atPause&&JSON.stringify(totals)===score;
+  lanes.shiftHeight(-.06);highway.shiftHeight(-.06);
+  if(!heightPaused)throw Error('Paused height adjustment changed clock/score or left notes behind');
   highway.toggle(999999);await Promise.resolve();await Promise.resolve();context.currentTime+=.25;highway.update(-99,eye);
   const effectEnded=!scene.getObjectByName('note-highway-anchor').children.some(o=>o.visible&&o.userData.judgment==='Perfect');
   // The resumed transport has a new context epoch, but score seconds are unchanged.
@@ -75,9 +84,9 @@ try{
   const preserved=JSON.stringify(before)===JSON.stringify(after)&&localStorage.getItem('drumup.vr.note-sync-ms.v1')==='230'&&localStorage.getItem('drumup.vr.love.chart-offset.v2')==='2.9';
   highway.dispose();audio.dispose();lanes.dispose();
   const update=T.Scene.prototype.updateMatrixWorld;T.Scene.prototype.updateMatrixWorld=function(...a){if(this.getObjectByName('vr-unified-panel'))window.scene=this;return update.apply(this,a);};
-  return{radial,palette,lineCount,alignment,lowered,fillExact,centreExact,wrong,perfect,effectStarted,frozen,effectEnded,great,missOnce,missEnded,preserved,status};
+  return{perspective,radial,palette,lineCount,alignment,lowered,fillExact,centreExact,wrong,perfect,effectStarted,frozen,effectEnded,great,missOnce,missEnded,preserved,status};
  });
- assert.equal(unit.lineCount,1);for(const key of ['radial','palette','alignment','lowered','fillExact','centreExact','wrong','perfect','effectStarted','frozen','effectEnded','great','missOnce','missEnded','preserved'])assert(unit[key],key+' '+JSON.stringify(unit));
+ assert.equal(unit.lineCount,1);for(const key of ['perspective','radial','palette','alignment','lowered','fillExact','centreExact','wrong','perfect','effectStarted','frozen','effectEnded','great','missOnce','missEnded','preserved'])assert(unit[key],key+' '+JSON.stringify(unit));
  console.log('PASS shared line, calibrated centre arrival, correct instrument, early Great, immediate note removal, 200ms white effects, weak MISS, pause freezes notes/effects/score, kit and saved offsets unchanged.');
  await page.waitForFunction(()=>window.scene);
  await page.getByRole('button',{name:'Enter VR',exact:true}).click();await page.getByRole('button',{name:'Exit VR',exact:true}).waitFor();await page.evaluate(installUnifiedPanelControls);
@@ -93,6 +102,8 @@ try{
  await page.waitForTimeout(4200);await page.evaluate(()=>window.panelStep(4));
  const player=await page.evaluate(()=>{const p=window.scene.getObjectByName('vr-music-player');return{visible:p.visible,parent:p.parent===window.scene,data:p.userData.playback,position:p.position.toArray(),line:window.scene.getObjectByName('vr-judgment-line').position.toArray()};});
  assert(player.visible&&player.parent);assert(player.position[1]>player.line[1]);assert(player.data.position<2&&player.data.duration>300);
+ // Move beyond the chart's preserved intro offset before freezing real active notes.
+ await page.waitForTimeout(3000);await page.evaluate(()=>window.panelStep(20));
  await page.evaluate(async()=>{
   const {PLAYER_BUTTONS,VR_MUSIC_PLAYER}=await import('/src/components/vrMusicPlayer.ts');
   const p=window.scene.getObjectByName('vr-music-player'),rig=window.scene.getObjectByName('player-rig'),T=window.T;
@@ -105,6 +116,16 @@ try{
  await page.waitForTimeout(500);
  const held=await page.evaluate(()=>{window.testXR.head.position=[.15,1.3,-.05];window.testXR.head.quaternion=[0,Math.sin(.2),0,Math.cos(.2)];window.panelStep(30);const p=window.scene.getObjectByName('vr-music-player'),s=window.scene.getObjectByName('vr-unified-panel').userData.panelState;return{fixed:JSON.stringify(p.matrixWorld.toArray())===JSON.stringify(window.playerMatrix),position:p.userData.playback.position,notes:JSON.stringify(window.scene.getObjectByName('note-highway-anchor').children.map(o=>[o.name,o.visible,...o.position.toArray(),...o.scale.toArray()])),miss:s.miss,image:p.material.map.image.toDataURL('image/png')};});
  assert(held.fixed);assert.equal(held.position,paused.data.position);assert.equal(held.notes,paused.notes);assert.equal(held.miss,paused.miss);
+ const liveHeight=await page.evaluate(()=>{
+  const scene=window.scene,T=window.T,panel=scene.getObjectByName('vr-unified-panel'),player=scene.getObjectByName('vr-music-player'),root=scene.getObjectByName('vr-drum-kit'),line=scene.getObjectByName('vr-judgment-line');
+  const time=player.userData.playback.position,score=JSON.stringify([panel.userData.panelState.perfect,panel.userData.panelState.great,panel.userData.panelState.miss]);
+  const notes=scene.getObjectByName('note-highway-anchor').children.filter(o=>o.name.startsWith('note-')&&o.visible).map(mesh=>({mesh,y:mesh.position.y,fill:mesh.userData.fill}));const y=root.position.y,lineY=line.getWorldPosition(new T.Vector3()).y;
+  window.panelClick(window.input,880,106);window.panelClick(window.input,860,435);window.panelClick(window.input,512,648);
+  const diagnostics={rootY:root.position.y,lineDelta:line.getWorldPosition(new T.Vector3()).y-lineY,notes:notes.length,setting:panel.userData.panelState.setting,tab:panel.userData.panelState.tab,heights:notes.map(n=>({delta:n.mesh.position.y-n.y,fill:n.mesh.userData.fill===n.fill}))};
+  const moved=root.position.y===.02&&Math.abs(line.getWorldPosition(new T.Vector3()).y-lineY-.02)<1e-9&&notes.length>0&&notes.every(n=>Math.abs(n.mesh.position.y-n.y-.02)<1e-9&&n.mesh.userData.fill===n.fill);
+  window.panelClick(window.input,810,648);
+  return{diagnostics,moved,restored:root.position.y===y&&notes.every(n=>Math.abs(n.mesh.position.y-n.y)<1e-9),frozen:player.userData.playback.position===time&&panel.userData.panelState.rhythm==='paused'&&JSON.stringify([panel.userData.panelState.perfect,panel.userData.panelState.great,panel.userData.panelState.miss])===score};
+ });assert(liveHeight.moved&&liveHeight.restored&&liveHeight.frozen,JSON.stringify(liveHeight));console.log('PASS actual MP3 paused: SETTINGS height moves active notes/line together and RESET restores them, without changing music position, fill or score.');
  const preview=join(tmpdir(),'drum-up-music-player.png');await writeFile(preview,Buffer.from(held.image.split(',')[1],'base64'));console.log('PLAYER PREVIEW: '+preview);
  await page.evaluate(()=>window.playerClick());await page.waitForTimeout(400);await page.evaluate(()=>window.panelStep(20));
  const resumed=await page.evaluate(()=>({state:window.scene.getObjectByName('vr-unified-panel').userData.panelState.rhythm,data:window.scene.getObjectByName('vr-music-player').userData.playback}));
@@ -168,7 +189,7 @@ try{
   window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',key:' ',cancelable:true}));window.panelStep(2);
   const bright=rim.material.opacity>.6&&head.material.color.getHex()!==original&&window.scene.getObjectByName('drum-hit-wave-kick').visible;
   window.dispatchEvent(new KeyboardEvent('keyup',{code:'Space',key:' ',cancelable:true}));window.panelStep(40);
-  return{bright,restored:head.material.color.getHex()===original&&Math.abs(rim.material.opacity-.78)<1e-8};
+  return{bright,restored:head.material.color.getHex()===original&&Math.abs(rim.material.opacity-.38)<1e-8};
  });assert(feedback.bright&&feedback.restored,JSON.stringify(feedback));
  console.log('PASS +/-10s seek; player handle drag/scale/distance/save/load; unified scale/save; inert sticks outside grab; min/max bounds; 8 visible colored rims and kick color/wave feedback.');
  assert.deepEqual(errors,[]);console.log('PASS actual MP3/player integration, countdown gating, world-fixed above line, real raycast+Trigger PAUSE/PLAY, frozen notes/MISS/progress, resumed MP3 progress. Headset mocked; physical Quest not tested.');

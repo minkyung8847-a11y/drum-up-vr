@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 export const WORLD_PANEL_LIMITS = { minScale:.55,maxScale:1.75,minDistance:.70,maxDistance:4.5,deadzone:.3,scaleSpeed:.85,distanceSpeed:.85 } as const;
 // Shared opt-in grab/scale/distance behavior for any world-fixed panel.
+// Up/negative Y = farther; down = nearer. Left/right scales.
 // Thumbsticks are inert until this panel's handle is held with Trigger.
 export function createWorldPanelTransform(mesh:THREE.Object3D,rig:THREE.Group,key:string) {
   let input:XRInputSource|null=null;
@@ -28,8 +29,8 @@ export function createWorldPanelTransform(mesh:THREE.Object3D,rig:THREE.Group,ke
       const vertical=(axes?.[3]??axes?.[1]??0)+(buttons?.[13]?.pressed?1:0)-(buttons?.[12]?.pressed?1:0);
       const horizontal=(axes?.[2]??axes?.[0]??0)+(buttons?.[15]?.pressed?1:0)-(buttons?.[14]?.pressed?1:0);
       const dt=Math.min(.05,Math.max(0,delta));let adjusted=false;
-      if(Math.abs(vertical)>WORLD_PANEL_LIMITS.deadzone){mesh.scale.setScalar(THREE.MathUtils.clamp(mesh.scale.x*Math.exp(-vertical*dt*WORLD_PANEL_LIMITS.scaleSpeed),WORLD_PANEL_LIMITS.minScale,WORLD_PANEL_LIMITS.maxScale));adjusted=true;}
-      if(Math.abs(horizontal)>WORLD_PANEL_LIMITS.deadzone){offset.copy(mesh.position).sub(eye).normalize();mesh.position.addScaledVector(offset,horizontal*dt*WORLD_PANEL_LIMITS.distanceSpeed);adjusted=true;}
+      if(Math.abs(horizontal)>WORLD_PANEL_LIMITS.deadzone){mesh.scale.setScalar(THREE.MathUtils.clamp(mesh.scale.x*Math.exp(horizontal*dt*WORLD_PANEL_LIMITS.scaleSpeed),WORLD_PANEL_LIMITS.minScale,WORLD_PANEL_LIMITS.maxScale));adjusted=true;}
+      if(Math.abs(vertical)>WORLD_PANEL_LIMITS.deadzone){offset.copy(mesh.position).sub(eye).normalize();mesh.position.addScaledVector(offset,-vertical*dt*WORLD_PANEL_LIMITS.distanceSpeed);adjusted=true;}
       const before=position.copy(mesh.position);constrain(eye);adjusted ||= before.distanceToSquared(mesh.position)>1e-10;
       mesh.updateWorldMatrix(true,true);if(adjusted)relative.copy(world).invert().multiply(mesh.matrixWorld);return true;
     },

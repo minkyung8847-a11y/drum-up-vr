@@ -1,3 +1,4 @@
+import {DRUM_HEIGHT} from './vrDrumHeight';
 import type { FootPedalState } from '../pedal/footPedal';
 import { DRUM_ENVIRONMENTS } from './drumEnvironments';
 import type { DrumEnvironmentId } from './drumEnvironments';
@@ -33,6 +34,7 @@ export interface UnifiedPanelState {
   rhythm: 'idle' | 'playing' | 'paused' | 'finished'; bpm: number;
   perfect: number; great: number; miss: number; countIn?: number; noteSyncMs: number;
   judgment?: 'Perfect' | 'Great' | 'Miss';
+  drumHeight?: number; drumHeightSaved?: boolean;
   footPedal?: FootPedalState; footPedalOpen?: boolean;
   songResults?: { perfect: number; great: number; miss: number; accuracy: number };
 }
@@ -41,7 +43,7 @@ export function filteredSongs(state: UnifiedPanelState) {
     .filter(song => state.genre === 'All' || (song.genres as readonly string[]).includes(state.genre));
 }
 export const maxSongScroll = (state: UnifiedPanelState) => Math.max(0, filteredSongs(state).length * SONG_LIST.row - SONG_LIST.height);
-export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move' | 'detail' | 'noteSync' | 'results' | 'pedal' | 'player'; index: number };
+export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move' | 'detail' | 'noteSync' | 'results' | 'pedal' | 'player' | 'drumHeight'; index: number };
 export function panelActionAt(state: UnifiedPanelState, x: number, y: number): PanelAction | null {
   for (let index = 0; index < 4; index++) {
     if (Math.hypot(x - [200, 432, 656, 880][index], y - 106) <= 86)
@@ -86,6 +88,11 @@ export function panelActionAt(state: UnifiedPanelState, x: number, y: number): P
         const index = FOOT_PEDAL_LAYOUT.buttons.findIndex(within);
         if (index >= 0) return action('pedal', index + 1);
       }
+    }
+    if (state.setting === 'GENERAL' && y>=618 && y<=678) {
+      if(x>=84&&x<=344)return action('drumHeight',-1);
+      if(x>=382&&x<=642)return action('drumHeight',1);
+      if(x>=680&&x<=940)return action('drumHeight',0);
     }
     if (state.setting === 'NOTE') {
       if (y >= 611 && y <= 683 && x >= 84 && x <= 194) return action('noteSync', -1);
@@ -305,7 +312,7 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
     ['AUDIO', 'CONTROLLER', 'NOTE', 'GENERAL'].forEach((setting, index) => {
       const x = 60 + index * 234;
       card(ctx, state, `setting-${index}`, x, 370, 202, 130, state.setting === setting);
-      ctx.textAlign = 'center'; ctx.fillStyle = '#f1f3f8'; ctx.font = '600 22px Arial'; ctx.fillText(setting, x + 101, 443);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#f1f3f8'; ctx.font = '600 22px Arial'; ctx.fillText(setting==='GENERAL'?'DRUM HEIGHT':setting, x + 101, 443);
     });
     if (state.setting === 'AUDIO') {
       ctx.textAlign = 'left'; ctx.fillStyle = '#c9ced8'; ctx.font = '23px Arial'; ctx.fillText('MASTER VOLUME', 84, 574);
@@ -349,6 +356,12 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
       ctx.fillStyle = '#eff2f8'; ctx.font = '24px Arial'; ctx.fillText('−10', 139, 658); ctx.fillText('+10', 885, 658);
       ctx.font = '32px Arial'; ctx.fillText(`${state.noteSyncMs >= 0 ? '+' : ''}${state.noteSyncMs} ms`, 512, 658);
       card(ctx, state, 'noteSync-0', 390, 700, 244, 48, false); ctx.font = '600 21px Arial'; ctx.fillText('RESET', 512, 731);
+    } else if(state.setting==='GENERAL') {
+      ctx.textAlign='center';ctx.fillStyle='#edf0f5';ctx.font='600 25px Arial';ctx.fillText('DRUM HEIGHT',512,550);
+      const height=state.drumHeight??DRUM_HEIGHT.default;ctx.font='28px Arial';ctx.fillText((height>=0?'+':'')+Math.round(height*100)+' cm',512,593);
+      ['LOWER','RAISE','RESET HEIGHT'].forEach((label,i)=>{const index=[-1,1,0][i],x=[84,382,680][i];card(ctx,state,'drumHeight-'+index,x,618,260,60,false);ctx.fillStyle='#edf0f5';ctx.font='600 21px Arial';ctx.fillText(label,x+130,655);});
+      ctx.fillStyle='#b7c0cf';ctx.font='19px Arial';ctx.fillText('2 cm steps · range -30 to +30 cm',512,715);
+      ctx.fillText(state.drumHeightSaved===false?'SESSION ONLY · storage unavailable':'Height saved automatically',512,744);
     } else {
       ctx.fillStyle = '#afb7c5'; ctx.textAlign = 'center'; ctx.font = '24px Arial'; ctx.fillText(`${state.setting} SETTINGS`, 512, 623);
       ctx.font = '20px Arial'; ctx.fillStyle = '#737d8d'; ctx.fillText('Preview', 512, 663);

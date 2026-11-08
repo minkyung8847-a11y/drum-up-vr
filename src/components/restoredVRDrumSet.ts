@@ -26,7 +26,7 @@ export const VR_LAYOUT_ADJUSTMENTS: Record<string, { offset: [number, number, nu
   middleTom: { offset: [0.03, 0.16, 0], tiltDegrees: 15 },
   snare: { offset: [0, 0, 0.23], tiltDegrees: 0, height: KNEE_HEIGHT },
   floorTom: { offset: [-0.02, 0, 0.26], tiltDegrees: 0, height: KNEE_HEIGHT },
-  hihat: { offset: [-0.12, 0, 0.05], tiltDegrees: 4, height: original.instruments.smallTom.position[1] * RESTORED_VR_SCALE + 0.12 },
+  hihat: { offset: [-0.08, 0, 0.05], tiltDegrees: 4, height: original.instruments.smallTom.position[1] * RESTORED_VR_SCALE + 0.12 },
   crash: { offset: [0, 0, 0], tiltDegrees: 4, height: 1.10 },
   ride: { offset: [0.03, 0, 0], tiltDegrees: 4, height: 1.02 },
 };

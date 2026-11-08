@@ -1,13 +1,14 @@
+import {readDrumHeight,clampDrumHeight} from './vrDrumHeight';
 import * as THREE from 'three';
 
 // Keep the existing seated rig calibration. The VR kit now also has one
 // explicit, non-accumulating vertical offset before collision/note capture.
-export const VR_SEATING = { playerZ: 1.0, eyeLift: 0.08, kitForward: 0, kitHeightOffset: -.12 } as const;
+export const VR_SEATING = { playerZ: 1.0, eyeLift: 0.08, kitForward: 0, kitHeightOffset: 0 } as const;
 
-// Apply once before caching collisions/notes; never accumulate an offset on re-entry.
-export function applySeatedKitHeight(kit: THREE.Group) {
+// Absolute offset from the authored base; safe for live changes and XR re-entry.
+export function applySeatedKitHeight(kit: THREE.Group, height = readDrumHeight()) {
   kit.userData.seatedBaseY ??= kit.position.y;
-  kit.position.y = kit.userData.seatedBaseY + VR_SEATING.kitHeightOffset;
+  kit.position.y = kit.userData.seatedBaseY + VR_SEATING.kitHeightOffset + clampDrumHeight(height);
   kit.updateWorldMatrix(true,true);
 }
 

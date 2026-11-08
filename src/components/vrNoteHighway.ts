@@ -10,7 +10,7 @@ import { VR_BASIC_DRUM_BEAT } from './vrBasicDrumBeat';
 export const RHYTHM_BPM = VR_BASIC_DRUM_BEAT.bpm;
 export const VR_JUDGMENT_LINE = {
   belowCymbals: .06, depthBehindKit: .25, padding: .12,
-  thickness: .006, glowHeight: .045, farDepth: 0, farRise: .42,
+  thickness: .006, glowHeight: .045, farDepth: 7, farRise: 1.25,
 } as const;
 export const VR_NOTE_EFFECT_MS = { success: 200, miss: 160 } as const;
 const TRAVEL_MS = 3000, PERFECT_MS = 50, GREAT_MS = 120;
@@ -46,12 +46,13 @@ export function createVRNoteLanes(surfaces: RhythmSurface[], _eye: THREE.Vector3
   const halfWidth = Math.max(...targets.map(target=>Math.abs(target.x-centreX)+spacing*.5),...centres.map(s=>Math.abs(s.position.x-centreX)+s.radius)) + VR_JUDGMENT_LINE.padding;
   const minX=centreX-halfWidth,maxX=centreX+halfWidth;
   const layout={minX,maxX,y,z,centreX,spacing};
+  let heightDelta=0;
   const positions:THREE.Vector3[]=[],colors:number[]=[];
   const paths:Map<string,(progress:number,out:THREE.Vector3)=>THREE.Vector3>=new Map(VR_NEON_LANES.map((lane,index)=>{
-    const target=targets[index],start=target.clone().add(new THREE.Vector3(0,VR_JUDGMENT_LINE.farRise,0));
+    const target=targets[index],start=new THREE.Vector3(centreX,y+VR_JUDGMENT_LINE.farRise,z-VR_JUDGMENT_LINE.farDepth);
     positions.push(target,start);const color=new THREE.Color(lane.color);colors.push(color.r,color.g,color.b,color.r,color.g,color.b);
-    // Parallel vertical lanes: fixed X/Z at every point, never a shared vanishing point.
-    return [lane.id,(progress:number,out:THREE.Vector3)=>out.set(target.x,target.y+VR_JUDGMENT_LINE.farRise*progress,target.z)] as const;
+    // Long perspective paths converge at a world-fixed far point; progress=0 is the unchanged hit time.
+    return [lane.id,(progress:number,out:THREE.Vector3)=>out.set(THREE.MathUtils.lerp(target.x,centreX,progress),target.y+heightDelta+VR_JUDGMENT_LINE.farRise*progress,target.z-VR_JUDGMENT_LINE.farDepth*progress)] as const;
   }));
   const geometry=new THREE.BufferGeometry().setFromPoints(positions);geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
   const material=new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.30,depthTest:false,depthWrite:false,toneMapped:false});
@@ -69,6 +70,7 @@ export function createVRNoteLanes(surfaces: RhythmSurface[], _eye: THREE.Vector3
   const judgmentLine = new THREE.Mesh(lineGeometry, lineMaterial); judgmentLine.name = 'vr-judgment-line';
   judgmentLine.position.set(layout.centreX, y, z); judgmentLine.renderOrder = 3; lines.add(judgmentLine);
   return { lines, paths, layout, judgmentLine,
+    shiftHeight(delta:number) { heightDelta+=delta;lines.position.y+=delta;layout.y+=delta;lines.updateWorldMatrix(true,true); },
     setPassthrough(enabled: boolean) { material.opacity = enabled ? .42 : .30; },
     dispose() { lines.removeFromParent(); geometry.dispose(); material.dispose(); lineGeometry.dispose(); lineMaterial.dispose(); markerGeometry.dispose(); markers.forEach(marker=>marker.material.dispose()); } };
 }
@@ -197,6 +199,10 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   return {
     setNoteSyncMs(value: number) { if (!media) return; const delta = value-noteSyncMs; noteSyncMs=value; for (const note of notes) note.arrival+=delta; },
     restart, pause,
+    shiftHeight(delta:number) {
+      for(const note of notes) if(note.mesh) note.mesh.position.y+=delta;
+      for(const effect of effects){effect.origin.y+=delta;effect.target.y+=delta;for(const mesh of effect.group.children)mesh.position.y+=delta;}
+    },
     seekTo(timelineSeconds: number, now: number) {
       if (!media || !Number.isFinite(timelineSeconds)) return;
       const resume = state === 'playing'; media.audio.pause(); media.audio.currentTime = Math.max(media.offset,timelineSeconds);

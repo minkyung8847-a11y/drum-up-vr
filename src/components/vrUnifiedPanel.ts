@@ -1,3 +1,4 @@
+import {DRUM_HEIGHT} from './vrDrumHeight';
 import { createWorldPanelTransform } from './vrWorldPanel';
 import type { VRMusicPlayer } from './vrMusicPlayer';
 import type { FootPedalController, FootPedalState } from '../pedal/footPedal';
@@ -31,11 +32,13 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   getSongPreview?: () => { playing: boolean; progress: number };
   footPedal?: () => FootPedalController;
   player?: VRMusicPlayer;
+  getDrumHeight?: () => number;
+  onDrumHeight?: (height:number) => {height:number;saved:boolean};
   onNoteSync?: (milliseconds: number) => void;
 }) {
   const state: UnifiedPanelState = { tab: 'MUSIC', genre: 'All', song: 0, scroll: 0,
     practice: 'FREE PLAY', background: options.background, setting: 'AUDIO', volume: options.getVolume(), hover: '', pressed: '',
-    minimized: false, viewMode: 'vr', canAR: false, rhythm: 'idle', bpm: RHYTHM_BPM, perfect: 0, great: 0, miss: 0, noteSyncMs: getNoteSyncMs() };
+    minimized: false, viewMode: 'vr', canAR: false, rhythm: 'idle', bpm: RHYTHM_BPM, perfect: 0, great: 0, miss: 0, noteSyncMs: getNoteSyncMs(),drumHeight:options.getDrumHeight?.()??DRUM_HEIGHT.default,drumHeightSaved:true };
   const canvas = document.createElement('canvas');
   const resolution = Math.min(2.5, (options.maxTextureSize ?? 4096) / PANEL_SIZE.width);
   canvas.width = Math.floor(PANEL_SIZE.width * resolution); canvas.height = Math.floor(PANEL_SIZE.height * resolution);
@@ -146,6 +149,10 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     return action ? { hit, action, x, y } : null;
   }
   function activate(action: PanelAction) {
+    if(action.kind==='drumHeight'){
+      const next=action.index?(state.drumHeight??0)+action.index*DRUM_HEIGHT.step:DRUM_HEIGHT.default;
+      const result=options.onDrumHeight?.(next);if(result){state.drumHeight=result.height;state.drumHeightSaved=result.saved;}dirty=true;return;
+    }
     if (action.kind === 'player') { options.player?.activate(action.index); dirty = true; return; }
     if (action.kind === 'pedal') {
       if (action.index === 0) state.footPedalOpen = !state.footPedalOpen;
