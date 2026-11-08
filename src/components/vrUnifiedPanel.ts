@@ -28,6 +28,8 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   onSongPreviewStop?: () => void;
   getSongPreview?: () => { playing: boolean; progress: number };
   footPedal?: () => FootPedalController;
+  onPlayerHit?: (ray: THREE.Raycaster) => THREE.Intersection | null;
+  onPlayerToggle?: () => void;
   onNoteSync?: (milliseconds: number) => void;
 }) {
   const state: UnifiedPanelState = { tab: 'MUSIC', genre: 'All', song: 0, scroll: 0,
@@ -153,6 +155,8 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     rig.updateWorldMatrix(true, false); world.fromArray(pose.transform.matrix).premultiply(rig.matrixWorld);
     rotation.extractRotation(world); raycaster.ray.origin.setFromMatrixPosition(world);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
+    const playerHit = options.onPlayerHit?.(raycaster);
+    if (playerHit) return { hit: playerHit, action: { key: 'player-0', kind: 'player', index: 0 } as PanelAction, x: 0, y: 0 };
     const detailHit = detail.hit(raycaster);
     if (detailHit) return { hit: detailHit.hit, action: { key: `detail-${detailHit.index}`, kind: 'detail', index: detailHit.index } as PanelAction, x: 0, y: 0 };
     mesh.updateWorldMatrix(true, false);
@@ -166,6 +170,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     return action ? { hit, action, x, y } : null;
   }
   function activate(action: PanelAction) {
+    if (action.kind === 'player') { options.onPlayerToggle?.(); dirty = true; return; }
     if (action.kind === 'pedal') {
       if (action.index === 0) state.footPedalOpen = !state.footPedalOpen;
       const pedal = options.footPedal?.();

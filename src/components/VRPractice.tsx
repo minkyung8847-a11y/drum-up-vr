@@ -1,3 +1,4 @@
+import { createVRMusicPlayer } from './vrMusicPlayer';
 import { createFootPedal, createPedalGripGate } from '../pedal/footPedal';
 import type { FootPedalController, FootPedalState } from '../pedal/footPedal';
 import { FootPedalSettings } from '../pedal/FootPedalSettings';
@@ -218,8 +219,12 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     const sticks = createVirtualDrumsticks(camera);
     for (const hand of ['left', 'right'] as const) sticks.offsets[hand].rotation.x = THREE.MathUtils.degToRad(12);
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
+    const musicPlayer = createVRMusicPlayer(scene, () => {
+      if (loveTransport && isVisibleXR()) highway?.toggle(performance.now());
+    });
     const unifiedPanel = createVRUnifiedPanel(scene, rig, kit.group, {
       footPedal: () => footPedal,
+      onPlayerHit: ray => musicPlayer.hit(ray), onPlayerToggle: () => musicPlayer.toggle(),
       background: initialBackground.current,
       onBackground: id => { backgrounds.select(id); setBackground(id); },
       getVolume: () => drumSynth.getVolume(), setVolume: volume => drumSynth.setVolume(volume),
@@ -389,6 +394,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       if (!noteLanes) {
         noteLanes = createVRNoteLanes(rhythmSurfaces, laneEye);
         scene.add(noteLanes.lines);
+        musicPlayer.place(noteLanes.layout);
         noteLanes.lines.visible = unifiedPanel.state.practice === 'RUDIMENT';
         if (song) {
           const media = createSongMedia(song);
@@ -413,6 +419,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       if (!disposed) setFootPedalState({ ...footPedal.state });
       cancelLook();
       songCountdown.hide();
+      musicPlayer.hide();
       kickDebug?.setImmersive(false);
       rhythmSession?.removeEventListener('visibilitychange', pauseHiddenRhythm);
       rhythmSession = null;
@@ -712,6 +719,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       if (renderer.xr.isPresenting && frame && reference) seating.update(frame, reference);
       const viewer = frame && reference ? frame.getViewerPose(reference) ?? null : null;
       footPedal.tick(time);
+      musicPlayer.update(loveTransport, unifiedPanel.state.rhythm, renderer.xr.isPresenting && isVisibleXR(), time);
       unifiedPanel.update(session, frame, reference, viewer, time);
       controllers.update(frame);
       if (renderer.xr.isPresenting && viewer) {
@@ -758,7 +766,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       if (session) void session.end().catch(() => {});
       controllers.dispose();
       footPedal.dispose(); footPedalRef.current = null;
-      unifiedPanel.dispose();
+      unifiedPanel.dispose(); musicPlayer.dispose();
       poseRef.current = () => {};
       xrActionRef.current = async () => {};
       unsubscribeKit();

@@ -1,0 +1,103 @@
+import assert from 'node:assert/strict';
+import {writeFile} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {chromium} from 'playwright';
+import {createServer} from 'vite';
+import {installMockWebXR} from './helpers/mock-webxr.mjs';
+import {installUnifiedPanelControls} from './helpers/unified-panel-controls.mjs';
+const vite=await createServer({server:{host:'127.0.0.1',port:0}});await vite.listen();let browser;
+try{
+ browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1600,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(installMockWebXR,{mode:'switchable'});await page.goto(`${vite.resolvedUrls.local[0]}#/vr`);
+ await page.locator('.vr-practice-hint').filter({hasText:'Click to play'}).waitFor({timeout:30000});
+ const unit=await page.evaluate(async()=>{
+  const url=performance.getEntriesByType('resource').find(e=>/\/three\.js\?/.test(e.name)).name;
+  const T=window.T=window.THREE=await import(url);
+  const {createVRNoteHighway,captureRhythmSurfaces,createVRNoteLanes}=await import('/src/components/vrNoteHighway.ts');
+  const {createRestoredVRDrumSet}=await import('/src/components/restoredVRDrumSet.ts');
+  const {VRMusicTransport,parseLoveChart,LOVE_COUNT_IN}=await import('/src/components/vrMusicSong.ts');
+  const scene=new T.Scene(),kit=createRestoredVRDrumSet(scene);scene.updateMatrixWorld(true);
+  const before=[];kit.group.traverse(o=>before.push([o.id,...o.position.toArray(),...o.quaternion.toArray(),...o.scale.toArray()]));
+  const surfaces=captureRhythmSurfaces(kit.hitSurfaces),lanes=createVRNoteLanes(surfaces,new T.Vector3(0,1.35,1));scene.add(lanes.lines);
+  const targets=[...lanes.paths.values()].map(path=>path(0,new T.Vector3()));
+  if(!targets.every(p=>Math.abs(p.y-lanes.layout.y)<1e-10&&Math.abs(p.z-lanes.layout.z)<1e-10))throw Error('Different arrival heights/depths');
+  if(scene.getObjectByName('vr-judgment-line')!==lanes.judgmentLine)throw Error('Missing common line');
+  let lineCount=0;scene.traverse(o=>{if(o.name==='vr-judgment-line')lineCount++;});
+  const gain=()=>({gain:{value:0,setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}});
+  const sources=[];const context={currentTime:10,destination:{},resume:async()=>{},createGain:gain,
+   createBufferSource:()=>{const source={buffer:null,connect(){},disconnect(){},start(){},stop(){},onended:null};sources.push(source);return source;},
+   createOscillator:()=>({frequency:{value:0},connect(){},disconnect(){},start(){},stop(){}})};
+  const audio=new VRMusicTransport(context,{duration:307.776});
+  const data=await(await fetch('/songs/love/love_first_4_bars.json')).json(),parsed=parseLoveChart(data),offset=2.9,calibration=.230;
+  const notes=parsed.map(n=>({...n,time:n.time+offset}));let totals;let status;
+  localStorage.setItem('drumup.vr.note-sync-ms.v1','230');localStorage.setItem('drumup.vr.love.chart-offset.v2','2.9');
+  const highway=createVRNoteHighway(scene,surfaces,lanes.paths,(s,j)=>{status={s,j};},{notes,audio,offset:LOVE_COUNT_IN,windows:{perfect:50,great:120},noteSyncMs:230,onResults:(p,g,m)=>{totals={p,g,m};}});
+  highway.restart(0);await Promise.resolve();await Promise.resolve();const start=audio.mp3StartContextTime;
+  const kicks=notes.filter(n=>n.instrument==='kick'),eye=new T.Vector3(0,1.35,1);
+  const arrive=(note,delta=0)=>{context.currentTime=start+note.time+calibration+delta;highway.update(-99999,eye);};
+  arrive(kicks[0]);const name=`note-kick-${kicks[0].time*1000+230}`,mesh=scene.getObjectByName(name);
+  const centreExact=!!mesh&&mesh.position.distanceTo(lanes.paths.get('kick')(0,new T.Vector3()))<1e-8;
+  const wrong=highway.strike('floorTom',0)==='Miss'&&mesh.visible;
+  const perfect=highway.strike('kick',0)==='Perfect'&&!scene.getObjectByName(name);
+  const effect=scene.children.find(o=>o.name==='note-highway-anchor').children.find(o=>o.userData.judgment==='Perfect'&&o.visible);
+  const effectStarted=!!effect&&effect.children[1].visible&&effect.children[2].visible;
+  const snapshot=()=>JSON.stringify(scene.getObjectByName('note-highway-anchor').children.map(o=>[o.name,o.visible,...o.position.toArray(),...o.scale.toArray(),...o.children.map(c=>[c.visible,...c.position.toArray(),...c.scale.toArray(),c.material?.opacity])]));
+  highway.pause(0);const atPause=audio.currentTime,saved=snapshot(),score=JSON.stringify(totals);context.currentTime+=20;highway.update(999999,eye);
+  const frozen=snapshot()===saved&&audio.currentTime===atPause&&JSON.stringify(totals)===score&&highway.strike('kick',999999)===undefined;
+  highway.toggle(999999);await Promise.resolve();await Promise.resolve();context.currentTime+=.25;highway.update(-99,eye);
+  const effectEnded=!scene.getObjectByName('note-highway-anchor').children.some(o=>o.visible&&o.userData.judgment==='Perfect');
+  // The resumed transport has a new context epoch, but score seconds are unchanged.
+  context.currentTime=audio.contextTimeAt(LOVE_COUNT_IN+kicks[1].time+calibration-.08);highway.update(0,eye);
+  const great=highway.strike('kick',0)==='Great'&&!scene.getObjectByName(`note-kick-${kicks[1].time*1000+230}`);
+  context.currentTime=audio.contextTimeAt(LOVE_COUNT_IN+kicks[2].time+calibration+.121);highway.update(0,eye);
+  const missed=scene.getObjectByName('note-highway-anchor').children.find(o=>o.userData.judgment==='Miss'&&o.visible),missCount=totals.m;
+  highway.update(0,eye);const missOnce=totals.m===missCount&&!!missed&&!missed.children[1].visible;
+  context.currentTime+=.18;highway.update(0,eye);const missEnded=!missed.visible;
+  const after=[];kit.group.traverse(o=>after.push([o.id,...o.position.toArray(),...o.quaternion.toArray(),...o.scale.toArray()]));
+  const preserved=JSON.stringify(before)===JSON.stringify(after)&&localStorage.getItem('drumup.vr.note-sync-ms.v1')==='230'&&localStorage.getItem('drumup.vr.love.chart-offset.v2')==='2.9';
+  highway.dispose();audio.dispose();lanes.dispose();
+  const update=T.Scene.prototype.updateMatrixWorld;T.Scene.prototype.updateMatrixWorld=function(...a){if(this.getObjectByName('vr-unified-panel'))window.scene=this;return update.apply(this,a);};
+  return{lineCount,centreExact,wrong,perfect,effectStarted,frozen,effectEnded,great,missOnce,missEnded,preserved,status};
+ });
+ assert.equal(unit.lineCount,1);for(const key of ['centreExact','wrong','perfect','effectStarted','frozen','effectEnded','great','missOnce','missEnded','preserved'])assert(unit[key],key+' '+JSON.stringify(unit));
+ console.log('PASS shared line, calibrated centre arrival, correct instrument, early Great, immediate note removal, 200ms white effects, weak MISS, pause freezes notes/effects/score, kit and saved offsets unchanged.');
+ await page.waitForFunction(()=>window.scene);
+ await page.getByRole('button',{name:'Enter VR',exact:true}).click();await page.getByRole('button',{name:'Exit VR',exact:true}).waitFor();await page.evaluate(installUnifiedPanelControls);
+ await page.evaluate(()=>{
+  window.input=window.testXR.connect('right');window.input.targetRaySpace={...window.input.gripSpace};window.panelStep(3);window.panelClick(window.input,350,430);window.panelStep(30);
+  const detail=window.scene.getObjectByName('vr-song-detail'),rig=window.scene.getObjectByName('player-rig'),T=window.T;
+  const point=detail.localToWorld(new T.Vector3(0,(.5-1050/1200)*.827,0)),origin=new T.Vector3(.24,1.15,.86);
+  window.input.targetRaySpace.position=rig.worldToLocal(origin.clone()).toArray();window.input.targetRaySpace.quaternion=new T.Quaternion().setFromUnitVectors(new T.Vector3(0,0,-1),point.sub(origin).normalize()).toArray();window.panelStep(3);
+  window.input.gamepad.buttons[0].pressed=true;window.input.gamepad.buttons[0].value=1;window.panelStep();window.input.gamepad.buttons[0].pressed=false;window.input.gamepad.buttons[0].value=0;window.panelStep(4);
+ });
+ await page.waitForFunction(()=>window.scene.getObjectByName('vr-unified-panel').userData.panelState.minimized,{timeout:45000});
+ const countdownHidden=await page.evaluate(()=>!window.scene.getObjectByName('vr-music-player').visible);assert(countdownHidden,'Player hidden during countdown');
+ await page.waitForTimeout(4200);await page.evaluate(()=>window.panelStep(4));
+ const player=await page.evaluate(()=>{const p=window.scene.getObjectByName('vr-music-player');return{visible:p.visible,parent:p.parent===window.scene,data:p.userData.playback,position:p.position.toArray(),line:window.scene.getObjectByName('vr-judgment-line').position.toArray()};});
+ assert(player.visible&&player.parent);assert(player.position[1]>player.line[1]);assert(player.data.position<2&&player.data.duration>300);
+ await page.evaluate(()=>{
+  const p=window.scene.getObjectByName('vr-music-player'),rig=window.scene.getObjectByName('player-rig'),T=window.T;
+  window.playerClick=()=>{const point=p.localToWorld(new T.Vector3((720/1152-.5)*1.16,(.5-74/192)*.194,0)),origin=new T.Vector3(.24,1.15,.86);
+   window.input.targetRaySpace.position=rig.worldToLocal(origin.clone()).toArray();window.input.targetRaySpace.quaternion=new T.Quaternion().setFromUnitVectors(new T.Vector3(0,0,-1),point.sub(origin).normalize()).toArray();window.panelStep(3);
+   window.input.gamepad.buttons[0].pressed=true;window.input.gamepad.buttons[0].value=1;window.panelStep();window.input.gamepad.buttons[0].pressed=false;window.input.gamepad.buttons[0].value=0;window.panelStep(4);};window.playerClick();window.panelStep(20);
+ });
+ const paused=await page.evaluate(()=>{const p=window.scene.getObjectByName('vr-music-player'),s=window.scene.getObjectByName('vr-unified-panel').userData.panelState;window.playerMatrix=p.matrixWorld.toArray();return{rhythm:s.rhythm,data:{...p.userData.playback},notes:JSON.stringify(window.scene.getObjectByName('note-highway-anchor').children.map(o=>[o.name,o.visible,...o.position.toArray(),...o.scale.toArray()])),miss:s.miss};});
+ assert.equal(paused.rhythm,'paused');assert(paused.data.paused);
+ await page.waitForTimeout(500);
+ const held=await page.evaluate(()=>{window.testXR.head.position=[.15,1.3,-.05];window.testXR.head.quaternion=[0,Math.sin(.2),0,Math.cos(.2)];window.panelStep(30);const p=window.scene.getObjectByName('vr-music-player'),s=window.scene.getObjectByName('vr-unified-panel').userData.panelState;return{fixed:JSON.stringify(p.matrixWorld.toArray())===JSON.stringify(window.playerMatrix),position:p.userData.playback.position,notes:JSON.stringify(window.scene.getObjectByName('note-highway-anchor').children.map(o=>[o.name,o.visible,...o.position.toArray(),...o.scale.toArray()])),miss:s.miss,image:p.material.map.image.toDataURL('image/png')};});
+ assert(held.fixed);assert.equal(held.position,paused.data.position);assert.equal(held.notes,paused.notes);assert.equal(held.miss,paused.miss);
+ const preview=join(tmpdir(),'drum-up-music-player.png');await writeFile(preview,Buffer.from(held.image.split(',')[1],'base64'));console.log('PLAYER PREVIEW: '+preview);
+ await page.evaluate(()=>window.playerClick());await page.waitForTimeout(400);await page.evaluate(()=>window.panelStep(20));
+ const resumed=await page.evaluate(()=>({state:window.scene.getObjectByName('vr-unified-panel').userData.panelState.rhythm,data:window.scene.getObjectByName('vr-music-player').userData.playback}));
+ assert.equal(resumed.state,'playing');assert(resumed.data.position>paused.data.position+.2&&resumed.data.position<paused.data.position+1);
+ assert(Math.abs(resumed.data.progress-resumed.data.position/resumed.data.duration)<1e-10);
+ await page.waitForTimeout(2000);await page.evaluate(()=>window.panelStep(20));
+ const worldPreview=await page.evaluate(()=>{
+  const T=window.T,renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1600,1000);renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;
+  const camera=new T.PerspectiveCamera(65,1.6,.03,40);camera.position.set(0,1.28,1);camera.lookAt(0,1.35,-1.5);renderer.render(window.scene,camera);
+  const image=renderer.domElement.toDataURL('image/png');renderer.dispose();return image;
+ });
+ const worldFile=join(tmpdir(),'drum-up-shared-line-world.png');await writeFile(worldFile,Buffer.from(worldPreview.split(',')[1],'base64'));console.log('WORLD PREVIEW: '+worldFile);
+ assert.deepEqual(errors,[]);console.log('PASS actual MP3/player integration, countdown gating, world-fixed above line, real raycast+Trigger PAUSE/PLAY, frozen notes/MISS/progress, resumed MP3 progress. Headset mocked; physical Quest not tested.');
+}finally{await browser?.close();await vite.close();}
