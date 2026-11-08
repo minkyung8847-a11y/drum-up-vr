@@ -8,7 +8,7 @@ import { VR_BASIC_DRUM_BEAT } from './vrBasicDrumBeat';
 
 export const RHYTHM_BPM = VR_BASIC_DRUM_BEAT.bpm;
 export const VR_JUDGMENT_LINE = {
-  heightAboveKit: .10, depthBehindKit: .25, padding: .12,
+  belowCymbals: .06, depthBehindKit: .25, padding: .12,
   thickness: .006, glowHeight: .045, farDepth: 7, farRise: 1.25,
 } as const;
 export const VR_NOTE_EFFECT_MS = { success: 200, miss: 160 } as const;
@@ -30,22 +30,30 @@ export function captureRhythmSurfaces(surfaces: DrumHitSurface[]): RhythmSurface
   return surfaces.map(surface => ({ ...surface, world: surface.mesh.matrixWorld.clone() }));
 }
 
-export function createVRNoteLanes(surfaces: RhythmSurface[], _eye: THREE.Vector3) {
+export function createVRNoteLanes(surfaces: RhythmSurface[], eye: THREE.Vector3) {
   // Capture the authored kit once. All endpoints share world Y/Z, independent
   // of head pose or the individual drum/cymbal surface's height and tilt.
-  const centres = surfaces.map(surface => ({ id: surface.id,
+  const centres = surfaces.map(surface => ({ id: surface.id, cymbal: surface.cymbal,
     position: new THREE.Vector3(0, surface.height, 0).applyMatrix4(surface.world),
     radius: surface.radius * new THREE.Vector3().setFromMatrixColumn(surface.world, 0).length() }));
-  const minX = Math.min(...centres.map(s => s.position.x - s.radius)) - VR_JUDGMENT_LINE.padding;
-  const maxX = Math.max(...centres.map(s => s.position.x + s.radius)) + VR_JUDGMENT_LINE.padding;
-  const y = Math.max(...centres.map(s => s.position.y)) + VR_JUDGMENT_LINE.heightAboveKit;
+  const upperCymbals = centres.filter(s => s.cymbal && s.id !== 'hihat');
+  const tomTop = Math.max(...centres.filter(s => /Tom/.test(s.id)).map(s => s.position.y));
+  const y = Math.max(tomTop + .035, Math.min(...upperCymbals.map(s => s.position.y)) - VR_JUDGMENT_LINE.belowCymbals);
   const z = Math.min(...centres.map(s => s.position.z)) - VR_JUDGMENT_LINE.depthBehindKit;
-  const layout = { minX, maxX, y, z, centreX: (minX + maxX) / 2 };
-  const vanishing = new THREE.Vector3(layout.centreX, y + VR_JUDGMENT_LINE.farRise, z - VR_JUDGMENT_LINE.farDepth);
-  const ordered = centres.slice().sort((a, b) => a.position.x - b.position.x || a.id.localeCompare(b.id));
+  // Project each real surface centre through the INITIAL seated eye onto the
+  // common line plane. Equal-width slots caused the old rightward displacement.
+  const projected = centres.map(s => {
+    const ratio = (z-eye.z) / Math.min(-.15,s.position.z-eye.z);
+    return { ...s, x: eye.x + (s.position.x-eye.x)*ratio, projectedRadius: s.radius*Math.abs(ratio) };
+  });
+  const centreX = projected.find(s => s.id === 'kick')!.x;
+  const halfWidth = Math.max(...projected.map(s => Math.abs(s.x-centreX)+s.projectedRadius)) + VR_JUDGMENT_LINE.padding;
+  const minX = centreX-halfWidth, maxX = centreX+halfWidth;
+  const layout = { minX, maxX, y, z, centreX };
+  const vanishing = new THREE.Vector3(centreX, y + VR_JUDGMENT_LINE.farRise, z - VR_JUDGMENT_LINE.farDepth);
   const positions: THREE.Vector3[] = [];
-  const paths = new Map(ordered.map((surface, index) => {
-    const target = new THREE.Vector3(THREE.MathUtils.lerp(minX, maxX, (index + .5) / ordered.length), y, z);
+  const paths = new Map(projected.map(surface => {
+    const target = new THREE.Vector3(surface.x, y, z);
     positions.push(target, vanishing);
     return [surface.id, (progress: number, out: THREE.Vector3) => out.lerpVectors(target, vanishing, progress)] as const;
   }));
@@ -83,8 +91,14 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     transparent: true, depthTest: false, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
   const targets = [...paths.values()].map(path => path(0, new THREE.Vector3()));
   const width = Math.max(...targets.map(p => p.x)) - Math.min(...targets.map(p => p.x));
-  const noteSize = THREE.MathUtils.clamp(width / Math.max(1, surfaces.length - 1) * .72, .14, .25);
-  const lanes = new Map(surfaces.map(({id}) => [id, { positionAt: paths.get(id)!, noteMaterial: material(COLORS[id] ?? 0xffffff), noteSize }]));
+  const noteSize = THREE.MathUtils.clamp(width / Math.max(1, surfaces.length - 1) * .72, .14, .20);
+  const noteMaterials = new Set<THREE.ShaderMaterial>();
+  const lanes = new Map(surfaces.map(({id}) => [id, { positionAt: paths.get(id)!, noteMaterial: new THREE.ShaderMaterial({
+    transparent: true, depthTest: false, depthWrite: false, toneMapped: false,
+    uniforms: { tint: { value: new THREE.Color(COLORS[id] ?? 0xffffff) }, fill: { value: 0 } },
+    vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader: 'varying vec2 vUv;uniform vec3 tint;uniform float fill;void main(){vec2 p=(vUv-.5)*2.;float r=length(p);float ring=smoothstep(.60,.65,r)*(1.-smoothstep(.71,.77,r));float halo=exp(-pow((r-.68)*12.,2.))*.18;float disc=(1.-smoothstep(.56,.60,r))*smoothstep(-.01,.01,fill)* (1.-smoothstep(-.60+1.20*fill-.015,-.60+1.20*fill+.015,p.y));float a=max(ring+halo,disc*(.28+.45*fill));gl_FragColor=vec4(tint,a);}'
+  }), noteSize }]));
   const labelTextures = new Map<RhythmJudgment, THREE.CanvasTexture>();
   for (const text of ['Perfect','Great','Miss'] as const) {
     const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 64;
@@ -109,19 +123,23 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   const earlyWindow = media ? greatWindow : travel * .15;
   const events = media ? media.notes.map(note => ({ id: note.instrument ?? PAD_TO_INSTRUMENT[note.padId], arrival: note.time * 1000 }))
     : VR_BASIC_DRUM_BEAT.events.map(note => ({id: note.id, arrival: travel + note.hitTimeMs}));
-  type NoteMesh = THREE.Mesh<THREE.PlaneGeometry,THREE.MeshBasicMaterial>;
+  type NoteMesh = THREE.Mesh<THREE.PlaneGeometry,THREE.ShaderMaterial>;
   const pool: NoteMesh[] = [];
   let noteSyncMs = media?.noteSyncMs ?? 0;
   const notes = events.filter(event => lanes.has(event.id)).sort((a,b) => a.arrival-b.arrival).map(({id,arrival}) => ({
     id, lane: lanes.get(id)!, arrival: arrival + noteSyncMs, arrivalObserved: false, mesh: undefined as NoteMesh | undefined, resolved: false }));
   const showNote = (note: typeof notes[number]) => {
-    if (!note.mesh) { note.mesh = pool.pop() ?? new THREE.Mesh(geometry,note.lane.noteMaterial); anchor.add(note.mesh); }
-    note.mesh.name = `note-${note.id}-${note.arrival}`; note.mesh.material = note.lane.noteMaterial;
+    if (!note.mesh) {
+      note.mesh = pool.pop() ?? new THREE.Mesh(geometry,note.lane.noteMaterial.clone());
+      noteMaterials.add(note.mesh.material); anchor.add(note.mesh);
+    }
+    note.mesh.name = `note-${note.id}-${note.arrival}`; note.mesh.material.uniforms.tint.value.copy(note.lane.noteMaterial.uniforms.tint.value);
     note.mesh.renderOrder = 2; note.mesh.visible = true; return note.mesh;
   };
   const hideNote = (note: typeof notes[number]) => {
     if (!note.mesh) return; note.mesh.visible = false; note.mesh.removeFromParent(); pool.push(note.mesh); note.mesh = undefined;
   };
+  let refreshOnSeek = false;
   let state: RhythmState = 'idle', epoch = 0, pauseAt = 0, perfect = 0, great = 0, miss = 0;
   // Deliberately identical to the existing audio-based timing equation.
   const elapsedAt = (now: number) => media ? (media.audio.currentTime - media.offset) * 1000 : (state === 'paused' ? pauseAt : now) - epoch;
@@ -169,7 +187,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     if (judgment === 'Perfect') perfect++; else if (judgment === 'Great') great++; else miss++;
     effectAt(closest.lane,closest.arrival,elapsed,judgment); report(now); return judgment;
   }
-  function onSeeked() { clear(); const elapsed = elapsedAt(0); for (const note of notes) note.resolved = note.arrival < elapsed-greatWindow; }
+  function onSeeked() { clear(); refreshOnSeek = true; const elapsed = elapsedAt(0); for (const note of notes) note.resolved = note.arrival < elapsed-greatWindow; }
   function finish(now: number) {
     for (const note of notes) { if (!note.resolved) { note.resolved = true; miss++; } hideNote(note); }
     effects.forEach(effect => { effect.group.visible = false; }); setState('finished'); report(now);
@@ -179,6 +197,11 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   return {
     setNoteSyncMs(value: number) { if (!media) return; const delta = value-noteSyncMs; noteSyncMs=value; for (const note of notes) note.arrival+=delta; },
     restart, pause,
+    seekTo(timelineSeconds: number, now: number) {
+      if (!media || !Number.isFinite(timelineSeconds)) return;
+      const resume = state === 'playing'; media.audio.pause(); media.audio.currentTime = Math.max(media.offset,timelineSeconds);
+      onSeeked(); if (resume) play(); else setState('paused'); report(now);
+    },
     toggle(now: number) { if (state === 'playing') pause(now); else if (state === 'paused') { epoch+=now-pauseAt; play(); } else restart(now); },
     stop() { media?.audio.pause(); clear(); setState('idle'); },
     strike(id: string, now: number) {
@@ -186,8 +209,10 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     },
     update(now: number, _viewer: THREE.Vector3) {
       // No note movement, expiration, judging or effect decay while paused.
-      if (state !== 'playing' || (media && media.audio.paused)) return;
-      const elapsed=elapsedAt(now); updateEffects(elapsed);
+      if (state !== 'playing' && !(state === 'paused' && refreshOnSeek)) return;
+      if (state === 'playing' && media && media.audio.paused) return;
+      refreshOnSeek = false;
+      const elapsed=elapsedAt(now); if (state === 'playing') updateEffects(elapsed);
       if (!media && elapsed >= travel+VR_BASIC_DRUM_BEAT.durationMs) { finish(now); return; }
       for (const note of notes) {
         const remaining=note.arrival-elapsed;
@@ -197,18 +222,19 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
             spawnMP3Seconds:(note.arrival-travel)/1000,scheduledContextSeconds:media.timingDebug.contextAt(media.offset+note.arrival/1000),
             observedOutputContextSeconds:media.timingDebug.outputTime(),arrivalErrorMs:-remaining,resolvedBeforeArrival:note.resolved});
         }
-        if (!note.resolved && remaining < -greatWindow && !media?.audio.seeking) {
+        if (state === 'playing' && !note.resolved && remaining < -greatWindow && !media?.audio.seeking) {
           note.resolved=true; miss++; hideNote(note); effectAt(note.lane,note.arrival,elapsed,'Miss'); onStatus(state,'Miss');
         }
         if (note.resolved || remaining>travel || remaining < -greatWindow) { hideNote(note); continue; }
         const mesh=showNote(note); note.lane.positionAt(remaining/travel,mesh.position); mesh.scale.setScalar(note.lane.noteSize);
+        mesh.userData.fill = THREE.MathUtils.clamp(1-remaining/travel,0,1); mesh.material.uniforms.fill.value = mesh.userData.fill;
       }
       report(now);
     },
     dispose() {
       media?.audio.removeEventListener('seeked',onSeeked); media?.audio.removeEventListener('ended',onEnded); media?.audio.pause();
       anchor.removeFromParent(); geometry.dispose(); texture.dispose(); flashTexture.dispose(); labelTextures.forEach(texture=>texture.dispose());
-      lanes.forEach(lane=>lane.noteMaterial.dispose());
+      lanes.forEach(lane=>lane.noteMaterial.dispose()); noteMaterials.forEach(material=>material.dispose());
       for (const effect of effects) for (const mesh of [effect.ghost,effect.ripple,effect.flash,effect.label]) mesh.material.dispose();
     },
   };

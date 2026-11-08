@@ -1,3 +1,5 @@
+import { createWorldPanelTransform } from './vrWorldPanel';
+import type { VRMusicPlayer } from './vrMusicPlayer';
 import type { FootPedalController, FootPedalState } from '../pedal/footPedal';
 import * as THREE from 'three';
 import { DRUM_ENVIRONMENTS } from './drumEnvironments';
@@ -28,8 +30,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   onSongPreviewStop?: () => void;
   getSongPreview?: () => { playing: boolean; progress: number };
   footPedal?: () => FootPedalController;
-  onPlayerHit?: (ray: THREE.Raycaster) => THREE.Intersection | null;
-  onPlayerToggle?: () => void;
+  player?: VRMusicPlayer;
   onNoteSync?: (milliseconds: number) => void;
 }) {
   const state: UnifiedPanelState = { tab: 'MUSIC', genre: 'All', song: 0, scroll: 0,
@@ -93,8 +94,9 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   const raycaster = new THREE.Raycaster(), world = new THREE.Matrix4(), rotation = new THREE.Matrix4();
   const eye = new THREE.Vector3(), anchor = new THREE.Vector3(), forward = new THREE.Vector3(0, 0, -1);
   const pointing = new Set<StickHand>();
-  const dragWorld = new THREE.Matrix4(), dragPosition = new THREE.Vector3(), dragScale = new THREE.Vector3();
-  let drag: { input: XRInputSource; relative: THREE.Matrix4 } | null = null;
+  const panelTransform = createWorldPanelTransform(mesh,rig,PANEL_POSE_KEY);
+  const transforms = [panelTransform,...(options.player ? [options.player.transform] : [])];
+  const draggingInput = () => panelTransform.input ?? options.player?.transform.input ?? null;
   let session: XRSession | null = null, reference: XRReferenceSpace | null = null;
   let placed = false, dirty = true, pedalDirty = false, lastDraw = -Infinity, lastFrame = 0, pressedUntil = 0;
   const coverLoaded = () => { dirty = true; };
@@ -109,40 +111,14 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     drawUnifiedPanel(context, state); texture.needsUpdate = true; dirty = pedalDirty = false; lastDraw = now;
   }
   redraw(0);
-  function savePose() {
-    try { localStorage.setItem(PANEL_POSE_KEY, JSON.stringify({ version: 1, position: mesh.position.toArray(), quaternion: mesh.quaternion.toArray() })); }
-    catch { /* The current world pose remains usable without persistence. */ }
-  }
+  function savePose() { panelTransform.save(); }
   function placeDefault(save = false) {
     kit.getWorldPosition(anchor);
     mesh.position.set(anchor.x - 1.25, Math.max(anchor.y + 2.25, eye.y + .95), anchor.z - 1.05);
-    mesh.lookAt(eye); mesh.updateWorldMatrix(true, true); placed = true;
+    mesh.scale.setScalar(1); mesh.lookAt(eye); mesh.updateWorldMatrix(true, true); placed = true;
     if (save) savePose();
   }
-  function loadPose() {
-    try {
-      const pose = JSON.parse(localStorage.getItem(PANEL_POSE_KEY) ?? 'null');
-      if (pose?.version !== 1 || !Array.isArray(pose.position) || pose.position.length !== 3
-        || !pose.position.every((value: number) => Number.isFinite(value) && Math.abs(value) < 30)
-        || !Array.isArray(pose.quaternion) || pose.quaternion.length !== 4
-        || !pose.quaternion.every(Number.isFinite) || Math.abs(Math.hypot(...pose.quaternion) - 1) > .01) return false;
-      dragPosition.fromArray(pose.position).sub(eye);
-      // Recover an unreachable/behind-the-player saved window on fresh entry.
-      if (dragPosition.length() < .45 || dragPosition.length() > 6 || dragPosition.z > .25) return false;
-      mesh.position.fromArray(pose.position); mesh.quaternion.fromArray(pose.quaternion).normalize();
-      mesh.updateWorldMatrix(true, true); placed = true; return true;
-    } catch { return false; }
-  }
-  function gripWorld(input: XRInputSource, frame: XRFrame) {
-    const pose = reference && input.gripSpace ? frame.getPose(input.gripSpace, reference) : null;
-    if (!pose || pose.emulatedPosition) return false;
-    rig.updateWorldMatrix(true, false); dragWorld.fromArray(pose.transform.matrix).premultiply(rig.matrixWorld); return true;
-  }
-  function movePanel(input: XRInputSource, frame: XRFrame) {
-    if (!drag || drag.input !== input || !gripWorld(input, frame)) return false;
-    dragWorld.multiply(drag.relative).decompose(mesh.position, mesh.quaternion, dragScale);
-    mesh.updateWorldMatrix(true, true); return true;
-  }
+  function loadPose() { if (!panelTransform.load(eye)) return false; placed = true; return true; }
   function setScroll(value: number) {
     const next = THREE.MathUtils.clamp(value, 0, maxSongScroll(state));
     if (state.scroll !== next) { state.scroll = next; dirty = true; }
@@ -155,8 +131,8 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     rig.updateWorldMatrix(true, false); world.fromArray(pose.transform.matrix).premultiply(rig.matrixWorld);
     rotation.extractRotation(world); raycaster.ray.origin.setFromMatrixPosition(world);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
-    const playerHit = options.onPlayerHit?.(raycaster);
-    if (playerHit) return { hit: playerHit, action: { key: 'player-0', kind: 'player', index: 0 } as PanelAction, x: 0, y: 0 };
+    const playerHit = options.player?.hit(raycaster);
+    if (playerHit) return { hit: playerHit.hit, action: { key: `player-${playerHit.index}`, kind: 'player', index: playerHit.index } as PanelAction, x: 0, y: 0 };
     const detailHit = detail.hit(raycaster);
     if (detailHit) return { hit: detailHit.hit, action: { key: `detail-${detailHit.index}`, kind: 'detail', index: detailHit.index } as PanelAction, x: 0, y: 0 };
     mesh.updateWorldMatrix(true, false);
@@ -170,7 +146,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     return action ? { hit, action, x, y } : null;
   }
   function activate(action: PanelAction) {
-    if (action.kind === 'player') { options.onPlayerToggle?.(); dirty = true; return; }
+    if (action.kind === 'player') { options.player?.activate(action.index); dirty = true; return; }
     if (action.kind === 'pedal') {
       if (action.index === 0) state.footPedalOpen = !state.footPedalOpen;
       const pedal = options.footPedal?.();
@@ -216,16 +192,14 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   }
   function begin(input: XRInputSource, frame: XRFrame) {
     if (held.has(input)) return;
-    if (drag) { held.add(input); handledSelect.add(input); return; }
+    if (draggingInput()) { held.add(input); handledSelect.add(input); return; }
     const target = cast(input, frame); if (!target) return;
     held.add(input); handledSelect.add(input);
     state.pressed = target.action.key; pressedUntil = performance.now() + 160;
     if (target.action.kind === 'move') {
-      if (gripWorld(input, frame)) {
-        mesh.updateWorldMatrix(true, false);
-        drag = { input, relative: dragWorld.clone().invert().multiply(mesh.matrixWorld) };
-        gestures.clear();
-      }
+      if (panelTransform.begin(input,frame,reference)) gestures.clear();
+    } else if (target.action.kind === 'player' && target.action.index === 3) {
+      if (options.player?.transform.begin(input,frame,reference)) gestures.clear();
     } else if (target.action.kind === 'song' || target.action.kind === 'scrollbar') {
       gestures.set(input, { action: target.action, y: target.y, scroll: state.scroll, dragging: target.action.kind === 'scrollbar' });
       if (target.action.kind === 'scrollbar') setScroll((target.y - 437 - 72) / 226 * maxSongScroll(state));
@@ -233,7 +207,9 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     dirty = true;
   }
   function finish(input: XRInputSource, frame?: XRFrame) {
-    if (drag?.input === input) { if (frame) movePanel(input, frame); drag = null; savePose(); }
+    for (const transform of transforms) {
+      if (transform?.input === input) { if (frame) transform.update(input,frame,reference,eye); transform.finish(input); }
+    }
     const gesture = gestures.get(input);
     if (gesture && !gesture.dragging) activate(gesture.action);
     gestures.delete(input); held.delete(input); state.pressed = ''; dirty = true;
@@ -242,14 +218,14 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   const end = (event: XRInputSourceEvent) => finish(event.inputSource, event.frame);
   const select = (event: XRInputSourceEvent) => {
     if (handledSelect.delete(event.inputSource)) return;
-    if (drag) return;
+    if (draggingInput()) return;
     const target = cast(event.inputSource, event.frame);
     if (target) { activate(target.action); state.pressed = target.action.key; pressedUntil = performance.now() + 160; }
   };
   const changed = (event: XRInputSourcesChangeEvent) => {
-    for (const input of event.removed) { if (drag?.input === input) { drag = null; savePose(); } gestures.delete(input); held.delete(input); down.delete(input); handledSelect.delete(input); }
+    for (const input of event.removed) { if (draggingInput() === input) { panelTransform.finish(input); options.player?.transform.finish(input); } gestures.delete(input); held.delete(input); down.delete(input); handledSelect.delete(input); }
   };
-  function resetInput() { if (drag) { drag = null; savePose(); } gestures.clear(); held.clear(); down.clear(); handledSelect.clear(); pointing.clear(); }
+  function resetInput() { panelTransform.finish(); options.player?.transform.finish(); gestures.clear(); held.clear(); down.clear(); handledSelect.clear(); pointing.clear(); }
   function bind(next: XRSession | null) {
     if (next === session) return;
     session?.removeEventListener('selectstart', start); session?.removeEventListener('selectend', end);
@@ -259,7 +235,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     session?.addEventListener('select', select); session?.addEventListener('inputsourceschange', changed);
   }
   return {
-    mesh, state,
+    mesh, state, transform: panelTransform,
     setFootPedal(value: FootPedalState) {
       state.footPedal = value;
       // Do not upload a 2560×2300 canvas (and regenerate its mipmaps) for each
@@ -299,12 +275,16 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
       if (!mesh.visible || !frame || !space || !viewer || next?.visibilityState !== 'visible') { resetInput(); return; }
       rig.updateWorldMatrix(true, false); world.fromArray(viewer.transform.matrix).premultiply(rig.matrixWorld); eye.setFromMatrixPosition(world);
       if (!placed && !loadPose()) placeDefault();
-      let hover = '', pointerIndex = 0;
+      let hover = '';
       for (const input of next.inputSources) {
-        if (drag?.input === input && !movePanel(input, frame)) finish(input);
+        if (input.hand || !input.gripSpace || input.targetRayMode !== 'tracked-pointer'
+          || (input.handedness !== 'left' && input.handedness !== 'right')) continue;
+        for (const transform of transforms) {
+          if (transform?.input === input && !transform.update(input,frame,reference,eye,delta)) finish(input);
+        }
         let target = cast(input, frame);
         const known = (input.gamepad?.mapping as string) === 'xr-standard'
-          || input.profiles.some(profile => /^(meta-quest-touch|oculus-touch|generic-trigger)/.test(profile));
+          || (input.profiles ?? []).some(profile => /^(meta-quest-touch|oculus-touch|generic-trigger)/.test(profile));
         const button = known && !input.hand ? input.gamepad?.buttons[0] : undefined;
         if (button) {
           const previous = down.get(input) ?? false, pressed = button.pressed || button.value >= (previous ? .4 : .75);
@@ -312,10 +292,19 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
           else if (!pressed && previous) finish(input, frame);
           down.set(input, pressed); target = cast(input, frame);
         }
+        // Keyboard/HID input never owns controller pointer visibility or slots.
+        // Keep a faint tracked ray even when no panel is under its tip.
+        const pointer = pointers[input.handedness === 'left' ? 0 : 1];
+        const rayPose = frame.getPose(input.targetRaySpace,space);
+        if (rayPose && !rayPose.emulatedPosition) {
+          pointer.line.position.copy(raycaster.ray.origin); pointer.line.quaternion.setFromUnitVectors(forward,raycaster.ray.direction);
+          pointer.line.scale.z = target?.hit.distance ?? 1.6; pointer.line.visible = true;
+          if (target) { pointer.dot.position.copy(target.hit.point); pointer.dot.visible = true; }
+        }
         const gesture = gestures.get(input);
-        if (drag) {
+        if (draggingInput()) {
           if (input.handedness === 'left' || input.handedness === 'right') pointing.add(input.handedness);
-          if (drag.input !== input) continue;
+          if (draggingInput() !== input) continue;
         }
         if (!target) {
           if (gesture && !frame.getPose(input.targetRaySpace, space)) { gestures.delete(input); held.delete(input); }
@@ -329,19 +318,14 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
             gesture.dragging = true; setScroll(gesture.scroll - (target.y - gesture.y));
           }
         }
-        if (state.tab === 'MUSIC' && target.y >= SONG_LIST.y) {
+        if (!draggingInput() && state.tab === 'MUSIC' && target.y >= SONG_LIST.y) {
           const axis = input.gamepad?.axes?.[3] ?? input.gamepad?.axes?.[1] ?? 0;
           if (Math.abs(axis) > .25) setScroll(state.scroll + axis * delta * 360);
         }
-        const pointer = pointers[pointerIndex++];
-        if (pointer) {
-          pointer.line.position.copy(raycaster.ray.origin); pointer.line.quaternion.setFromUnitVectors(forward, raycaster.ray.direction);
-          pointer.line.scale.z = target.hit.distance; pointer.dot.position.copy(target.hit.point);
-          pointer.line.visible = pointer.dot.visible = true;
-        }
+
       }
       if (hover !== state.hover) { state.hover = hover; dirty = true; }
-      handleMaterial.color.setHex(drag ? 0xf5f7ff : hover === 'move-0' ? 0xd9deea : 0x858c98);
+      handleMaterial.color.setHex(panelTransform.input ? 0xf5f7ff : hover === 'move-0' ? 0xd9deea : 0x858c98);
       if (state.pressed && !held.size && now >= pressedUntil) { state.pressed = ''; dirty = true; }
       // Diagnostic counters may change at keyboard repeat speed. Coalesce them
       // to 10 Hz; navigation and Trigger feedback keep their existing cadence.

@@ -1,3 +1,4 @@
+import { createVRDrumFeedback, DRUM_ACCENTS } from './vrDrumFeedback';
 import * as THREE from 'three';
 import type { DrumPadId } from '../types';
 import type { DrumHitSurface } from './vrStickCollision';
@@ -18,6 +19,7 @@ interface DrumKitScene {
 
 // Shared by real controller collisions and existing desktop clicks.
 export function createVRDrumInteraction(kit: DrumKitScene) {
+  const feedback = createVRDrumFeedback(kit.hitSurfaces,kit.tomVisuals);
   const silver = new THREE.Color(0xeef4ff);
   // Animate only the existing local mechanism; snapshot the restored resting
   // transforms instead of calling the old full-kit deformation update().
@@ -47,7 +49,7 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
       mesh.material = Array.isArray(original) ? original.map(clone) : clone(original);
       return { mesh, original, materials, position: mesh.position.clone(), rotation: mesh.rotation.clone() };
     });
-    return { id: surface.id, cymbal: surface.cymbal, tom, targets, age: Infinity, velocity: 1, startScale: 1 };
+    return { accent: new THREE.Color(DRUM_ACCENTS[surface.id]), id: surface.id, cymbal: surface.cymbal, tom, targets, age: Infinity, velocity: 1, startScale: 1 };
   });
 
   function hit(partId: string, velocity = 1) {
@@ -56,6 +58,7 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
     // Each trigger creates an overlapping Web Audio voice from preloaded samples.
     drumSynth.trigger(partId === 'hihat' && !hiHatClosed ? 'hihat-open' : VR_SOUND_IDS[partId], velocity);
     if (state.tom) state.startScale = state.tom.group.scale.x;
+    feedback.hit(partId, velocity);
     state.age = 0;
     state.velocity = THREE.MathUtils.clamp(velocity, 0, 1);
     if (partId === 'kick') { kickAge = 0; kickVelocity = state.velocity; }
@@ -63,6 +66,7 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
   }
 
   function update(delta: number) {
+    feedback.update(delta);
     if (kickAge !== Infinity) {
       kickAge += delta;
       const amount = kickAge < 0.16 ? Math.sin(Math.PI * kickAge / 0.16) * kickVelocity : 0;
@@ -103,9 +107,9 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
         } else target.mesh.position.y -= response * 0.0025;
         for (const { material, color, emissive, intensity } of target.materials) {
           const glow = cymbal ? Math.max(0, 1 - age / 0.085) * velocity : 0;
-          if (state.tom) {
+          {
             const highlight = Math.max(0, 1 - age / 0.15) ** 2 * 0.32;
-            material.color.copy(color).lerp(silver, highlight);
+            material.color.copy(color).lerp(state.accent, highlight);
           }
           material.emissive.copy(emissive).lerp(silver, glow);
           material.emissiveIntensity = intensity + glow * 0.18;
@@ -130,7 +134,7 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
     },
     isHiHatClosed: () => hiHatClosed,
     dispose() {
-      update(1);
+      update(1); feedback.dispose();
       for (const state of states) for (const target of state.targets) {
         for (const material of Array.isArray(target.mesh.material) ? target.mesh.material : [target.mesh.material]) material.dispose();
         target.mesh.material = target.original;

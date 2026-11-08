@@ -75,7 +75,9 @@ try {
  const visibleDiagnostics=await page.evaluate(async()=>{
   window.right.targetRaySpace.tracked=true;
   window.panelClick(window.right,390,435);
-  window.right.targetRaySpace.tracked=false;window.panelStep(20);
+  window.right.targetRaySpace={position:[.25,1.05,.05],quaternion:[0,0,0,1],tracked:true};
+  window.left.targetRaySpace={position:[-.25,1.05,.05],quaternion:[0,0,0,1],tracked:true};
+  const keyboard=window.testXR.connect('none',{gripSpace:null,targetRayMode:'screen',profiles:undefined});window.panelStep(20);
   const panel=window.scene.getObjectByName('vr-unified-panel'),version=panel.material.map.version,n=window.hits.length;
   await new Promise(r=>setTimeout(r,50));
   for(const hand of ['left','right'])window[hand].gripSpace.quaternion=[0,0,0,1];window.panelStep(6);
@@ -87,15 +89,18 @@ try {
    window.panelStep();
   }
   const pulseReleased=!panel.userData.panelState.footPedal.pressed;
+  window.dispatchEvent(new Event('blur'));await new Promise(r=>setTimeout(r,50));
+  const raysAlive=window.scene.getObjectByName('unified-panel-ray-0').visible&&window.scene.getObjectByName('unified-panel-ray-1').visible;
   window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',key:' ',repeat:false,cancelable:true}));
   window.dispatchEvent(new KeyboardEvent('keyup',{code:'Space',key:' ',cancelable:true}));window.panelStep(12);
-  return {uploads:panel.material.map.version-version,played:window.hits.slice(n),pulseReleased,released:!panel.userData.panelState.footPedal.pressed};
+  window.testXR.disconnect(keyboard);
+  return {uploads:panel.material.map.version-version,played:window.hits.slice(n),pulseReleased,raysAlive,released:!panel.userData.panelState.footPedal.pressed};
  });
  assert(visibleDiagnostics.uploads>0&&visibleDiagnostics.uploads<=3,JSON.stringify(visibleDiagnostics));
  assert.equal(visibleDiagnostics.played.filter(id=>id==='kick').length,1);
  assert.equal(visibleDiagnostics.played.filter(id=>id==='snare').length,8);
  assert.equal(visibleDiagnostics.played.filter(id=>id==='ride').length,8);
- assert(visibleDiagnostics.pulseReleased&&visibleDiagnostics.released);
+ assert(visibleDiagnostics.pulseReleased&&visibleDiagnostics.released&&visibleDiagnostics.raysAlive);
  assert.deepEqual(errors,[]);
  await page.getByRole('button',{name:'Exit VR',exact:true}).click();
  await page.locator('.foot-pedal-settings > summary').click();

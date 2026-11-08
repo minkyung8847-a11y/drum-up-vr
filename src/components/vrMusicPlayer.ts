@@ -2,71 +2,48 @@ import * as THREE from 'three';
 import type { VRMusicTransport } from './vrMusicSong';
 import { LOVE_ROOT } from './vrMusicSong';
 import type { RhythmState, createVRNoteLanes } from './vrNoteHighway';
-
-export const VR_MUSIC_PLAYER = { width: 1.16, height: .194, heightAboveLine: .48, forwardFromLine: .12,
-  canvasWidth: 1152, canvasHeight: 192, refreshMs: 100 } as const;
-export const PLAYER_PLAY_BUTTON = { x: 682, y: 36, width: 76, height: 76 };
-const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2,'0')}`;
-
-export function createVRMusicPlayer(scene: THREE.Scene, onToggle: () => void) {
-  const canvas=document.createElement('canvas');canvas.width=VR_MUSIC_PLAYER.canvasWidth;canvas.height=VR_MUSIC_PLAYER.canvasHeight;
-  const ctx=canvas.getContext('2d')!, texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
-  texture.generateMipmaps=false;texture.minFilter=THREE.LinearFilter;
-  const geometry=new THREE.PlaneGeometry(VR_MUSIC_PLAYER.width,VR_MUSIC_PLAYER.height);
-  const material=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthTest:false,depthWrite:false,toneMapped:false,side:THREE.DoubleSide});
-  const mesh=new THREE.Mesh(geometry,material);mesh.name='vr-music-player';mesh.renderOrder=1004;mesh.visible=false;
-  // Direct child of the world scene, never the camera, headset, rig or movable panel.
-  scene.add(mesh);
-  let lastDraw=-Infinity, signature='', dirty=true;
-  const cover=new Image();cover.src=`${LOVE_ROOT}cover.jpg`;cover.onload=()=>{dirty=true;};
-  function draw(position:number,duration:number,paused:boolean) {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.beginPath();ctx.roundRect(2,2,1148,188,16);ctx.fillStyle='#1d1f24';ctx.fill();ctx.strokeStyle='#9299a5';ctx.lineWidth=2;ctx.stroke();
-    const sheen=ctx.createLinearGradient(0,4,0,70);sheen.addColorStop(0,'#ffffff12');sheen.addColorStop(1,'#ffffff00');
-    ctx.fillStyle=sheen;ctx.fill();
-    ctx.fillStyle='#353a43';ctx.fillRect(26,25,98,98);
-    if(cover.complete&&cover.naturalWidth)ctx.drawImage(cover,26,25,98,98);
-    ctx.textAlign='left';ctx.fillStyle='#eff1f5';ctx.font='600 33px Arial, "Malgun Gothic", sans-serif';ctx.fillText('사랑으로 (love.)',148,66,490);
-    ctx.fillStyle='#adb5c2';ctx.font='25px Arial';ctx.fillText('wave to earth',148,106);
-    const button=PLAYER_PLAY_BUTTON;
-    ctx.beginPath();ctx.roundRect(button.x,button.y,button.width,button.height,10);
-    const metal=ctx.createLinearGradient(0,button.y,0,button.y+button.height);metal.addColorStop(0,'#626975');metal.addColorStop(.5,'#30353e');metal.addColorStop(1,'#484f5a');
-    ctx.fillStyle=metal;ctx.fill();ctx.strokeStyle='#aeb5c0';ctx.stroke();ctx.fillStyle='#f4f6fa';
-    if(paused){ctx.beginPath();ctx.moveTo(710,55);ctx.lineTo(710,92);ctx.lineTo(738,74);ctx.closePath();ctx.fill();}
-    else{ctx.fillRect(708,56,9,35);ctx.fillRect(725,56,9,35);}
-    ctx.textAlign='right';ctx.fillStyle='#e1e5ec';ctx.font='30px Arial';ctx.fillText(`${clock(position)} / ${clock(duration)}`,1118,88);
-    ctx.beginPath();ctx.roundRect(28,149,1096,9,4);ctx.fillStyle='#454b55';ctx.fill();
-    const progress=duration>0?THREE.MathUtils.clamp(position/duration,0,1):0;
-    if(progress>0){ctx.beginPath();ctx.roundRect(28,149,Math.max(2,1096*progress),9,4);ctx.fillStyle='#d9dfe7';ctx.fill();}
-    texture.needsUpdate=true;dirty=false;
-    mesh.userData.playback={position,duration,paused,progress};
-  }
-  return {
-    mesh,
-    place(layout:ReturnType<typeof createVRNoteLanes>['layout']) {
-      mesh.position.set(layout.centreX,layout.y+VR_MUSIC_PLAYER.heightAboveLine,layout.z+VR_MUSIC_PLAYER.forwardFromLine);
-      mesh.quaternion.identity();mesh.updateWorldMatrix(true,false);
-    },
-    update(transport:VRMusicTransport|null,state:RhythmState,immersive:boolean,now:number) {
-      if(!transport||!immersive||!['playing','paused'].includes(state)){mesh.visible=false;return;}
-      const timeline=transport.currentTime;
-      if(timeline<transport.preroll){mesh.visible=false;return;}
-      mesh.visible=true;
-      // Transport includes count-in, whereas the UI is MP3 time only. No chart
-      // offset or note calibration is involved in this position/progress.
-      const position=THREE.MathUtils.clamp(timeline-transport.preroll,0,transport.buffer.duration);
-      const paused=state==='paused'||transport.paused;
-      const next=`${Math.floor(position*10)}:${paused}:${transport.buffer.duration}`;
-      if((dirty||next!==signature)&&now-lastDraw>=VR_MUSIC_PLAYER.refreshMs){draw(position,transport.buffer.duration,paused);signature=next;lastDraw=now;}
-    },
-    hit(ray:THREE.Raycaster) {
-      if(!mesh.visible)return null;
-      mesh.updateWorldMatrix(true,false);const hit=ray.intersectObject(mesh,false)[0];if(!hit?.uv)return null;
-      const x=hit.uv.x*canvas.width,y=(1-hit.uv.y)*canvas.height,b=PLAYER_PLAY_BUTTON;
-      return x>=b.x&&x<=b.x+b.width&&y>=b.y&&y<=b.y+b.height?hit:null;
-    },
-    toggle(){if(mesh.visible)onToggle();},
-    hide(){mesh.visible=false;},
-    dispose(){cover.onload=null;mesh.removeFromParent();geometry.dispose();material.dispose();texture.dispose();},
-  };
+import {createWorldPanelTransform} from './vrWorldPanel';
+export const PLAYER_POSE_KEY='drumup.vr.music-player-pose.v1';
+export const VR_MUSIC_PLAYER={width:1.04,height:1.04*320/1152,heightAboveLine:.60,forwardFromLine:.12,canvasWidth:1152,canvasHeight:320,refreshMs:100} as const;
+export const PLAYER_PLAY_BUTTON={x:539,y:204,width:74,height:74};
+export const PLAYER_BUTTONS=[PLAYER_PLAY_BUTTON,{x:408,y:204,width:74,height:74},{x:670,y:204,width:74,height:74},{x:390,y:290,width:372,height:30}];
+const clock=(s:number)=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+export function createVRMusicPlayer(scene:THREE.Scene,rig:THREE.Group,options:{onToggle:()=>void;onSeek:(seconds:number)=>void}){
+ const canvas=document.createElement('canvas');canvas.width=1152;canvas.height=320;const ctx=canvas.getContext('2d')!;
+ const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.generateMipmaps=false;texture.minFilter=THREE.LinearFilter;
+ const geometry=new THREE.PlaneGeometry(VR_MUSIC_PLAYER.width,VR_MUSIC_PLAYER.height),material=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthTest:false,depthWrite:false,toneMapped:false,side:THREE.DoubleSide});
+ const mesh=new THREE.Mesh(geometry,material);mesh.name='vr-music-player';mesh.renderOrder=1004;mesh.visible=false;scene.add(mesh);
+ const transform=createWorldPanelTransform(mesh,rig,PLAYER_POSE_KEY);let lastDraw=-Infinity,signature='',dirty=true;
+ const cover=new Image();cover.src=`${LOVE_ROOT}cover.jpg`;cover.onload=()=>{dirty=true;};
+ function triangle(x:number,y:number,direction:number){ctx.beginPath();ctx.moveTo(x-12*direction,y-18);ctx.lineTo(x-12*direction,y+18);ctx.lineTo(x+14*direction,y);ctx.closePath();ctx.fill();}
+ function draw(position:number,duration:number,paused:boolean){
+  ctx.clearRect(0,0,1152,320);ctx.beginPath();ctx.roundRect(2,2,1148,316,18);ctx.fillStyle='rgba(21,24,33,.68)';ctx.fill();ctx.strokeStyle='rgba(187,195,211,.56)';ctx.lineWidth=2;ctx.stroke();
+  const sheen=ctx.createLinearGradient(0,0,0,95);sheen.addColorStop(0,'#b8c5e312');sheen.addColorStop(1,'#b8c5e300');ctx.fillStyle=sheen;ctx.fill();
+  ctx.fillStyle='#ffffff12';ctx.fillRect(30,30,94,94);if(cover.complete&&cover.naturalWidth)ctx.drawImage(cover,30,30,94,94);
+  ctx.textAlign='left';ctx.fillStyle='#f1f3f8';ctx.font='600 34px Arial, "Malgun Gothic", sans-serif';ctx.fillText('사랑으로 (love.)',150,70,920);
+  ctx.font='25px Arial';ctx.fillStyle='#bdc4d1';ctx.fillText('wave to earth',150,109);
+  ctx.font='23px Arial';ctx.fillStyle='#d5dbe5';ctx.fillText(clock(position),44,151);ctx.textAlign='right';ctx.fillText(clock(duration),1108,151);
+  ctx.beginPath();ctx.roundRect(44,166,1064,7,3);ctx.fillStyle='#b8c0d02b';ctx.fill();
+  const progress=duration>0?THREE.MathUtils.clamp(position/duration,0,1):0;if(progress>0){ctx.beginPath();ctx.roundRect(44,166,Math.max(2,1064*progress),7,3);ctx.fillStyle='#dce2ec';ctx.fill();}
+  ctx.fillStyle='#f0f3f9';triangle(450,241,-1);triangle(438,241,-1);triangle(700,241,1);triangle(712,241,1);
+  if(paused)triangle(576,241,1);else{ctx.fillRect(560,221,10,40);ctx.fillRect(583,221,10,40);}
+  if(transform.input){ctx.textAlign='center';ctx.font='16px Arial';ctx.fillStyle='#c7cfdd';ctx.fillText('HOLD  ·  ↑↓ SIZE  /  ←→ DISTANCE',576,290);}
+  ctx.beginPath();ctx.roundRect(430,303,292,5,3);ctx.fillStyle='#bdc5d383';ctx.fill();
+  texture.needsUpdate=true;dirty=false;mesh.userData.playback={position,duration,paused,progress};
+ }
+ return{mesh,transform,
+  place(layout:ReturnType<typeof createVRNoteLanes>['layout']){const eye=new THREE.Vector3(0,1.35,1);if(!transform.load(eye)){mesh.position.set(layout.centreX,layout.y+.60,layout.z+.12);mesh.quaternion.identity();mesh.scale.setScalar(1);}mesh.updateWorldMatrix(true,true);},
+  update(transport:VRMusicTransport|null,state:RhythmState,immersive:boolean,now:number){
+   if(!transport||!immersive||!['playing','paused'].includes(state)||transport.currentTime<transport.preroll){mesh.visible=false;transform.finish();return;}mesh.visible=true;
+   const position=THREE.MathUtils.clamp(transport.currentTime-transport.preroll,0,transport.buffer.duration),paused=state==='paused'||transport.paused;
+   const next=`${Math.floor(position*10)}:${paused}:${transport.buffer.duration}:${!!transform.input}`;if((dirty||next!==signature)&&now-lastDraw>=100){draw(position,transport.buffer.duration,paused);signature=next;lastDraw=now;}
+  },
+  hit(ray:THREE.Raycaster){if(!mesh.visible)return null;mesh.updateWorldMatrix(true,false);const hit=ray.intersectObject(mesh,false)[0];if(!hit?.uv)return null;
+   const x=hit.uv.x*1152,y=(1-hit.uv.y)*320,index=PLAYER_BUTTONS.findIndex(b=>x>=b.x&&x<=b.x+b.width&&y>=b.y&&y<=b.y+b.height);return index>=0?{hit,index}:null;
+  },
+  activate(index:number){if(!mesh.visible||transform.input)return;if(index===0)options.onToggle();else if(index===1)options.onSeek(-10);else if(index===2)options.onSeek(10);},
+  hide(){mesh.visible=false;transform.finish();},
+  dispose(){transform.finish();cover.onload=null;mesh.removeFromParent();geometry.dispose();material.dispose();texture.dispose();},
+ };
 }
+export type VRMusicPlayer=ReturnType<typeof createVRMusicPlayer>;

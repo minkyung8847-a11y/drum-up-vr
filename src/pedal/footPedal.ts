@@ -90,8 +90,9 @@ export function createFootPedal(target: Window, options: {
     state.message = detecting ? 'PRESS YOUR FOOT PEDAL' : '페달을 밟아 킥드럼 입력을 테스트하세요.';
     waitingSince = performance.now(); publish();
   }
+  const blur = () => { if (!state.immersive || !options.active()) reset(); };
   target.addEventListener('keydown', keydown, true); target.addEventListener('keyup', keyup, true);
-  target.addEventListener('blur', reset);
+  target.addEventListener('blur', blur);
   publish();
   return {
     state, detect: () => wait(true), test: () => wait(false), cancel,
@@ -118,7 +119,7 @@ export function createFootPedal(target: Window, options: {
         state.message = '입력 미감지 · 브라우저 포커스/USB 연결 확인. WebXR에서 키 전달이 제한될 수 있습니다.'; publish();
       }
     },
-    dispose() { target.removeEventListener('keydown', keydown, true); target.removeEventListener('keyup', keyup, true); target.removeEventListener('blur', reset); generation++; },
+    dispose() { target.removeEventListener('keydown', keydown, true); target.removeEventListener('keyup', keyup, true); target.removeEventListener('blur', blur); generation++; },
   };
 }
 export type FootPedalController = ReturnType<typeof createFootPedal>;

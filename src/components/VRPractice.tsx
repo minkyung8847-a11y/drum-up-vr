@@ -219,12 +219,17 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     const sticks = createVirtualDrumsticks(camera);
     for (const hand of ['left', 'right'] as const) sticks.offsets[hand].rotation.x = THREE.MathUtils.degToRad(12);
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
-    const musicPlayer = createVRMusicPlayer(scene, () => {
-      if (loveTransport && isVisibleXR()) highway?.toggle(performance.now());
+    const musicPlayer = createVRMusicPlayer(scene, rig, {
+      onToggle: () => { if (loveTransport && isVisibleXR()) highway?.toggle(performance.now()); },
+      onSeek: delta => {
+        if (!loveTransport || !isVisibleXR()) return;
+        const position = THREE.MathUtils.clamp(loveTransport.currentTime-loveTransport.preroll+delta,0,loveTransport.buffer.duration-.02);
+        highway?.seekTo(loveTransport.preroll+position,performance.now());
+      },
     });
     const unifiedPanel = createVRUnifiedPanel(scene, rig, kit.group, {
       footPedal: () => footPedal,
-      onPlayerHit: ray => musicPlayer.hit(ray), onPlayerToggle: () => musicPlayer.toggle(),
+      player: musicPlayer,
       background: initialBackground.current,
       onBackground: id => { backgrounds.select(id); setBackground(id); },
       getVolume: () => drumSynth.getVolume(), setVolume: volume => drumSynth.setVolume(volume),
