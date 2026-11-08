@@ -1,3 +1,4 @@
+import type { FootPedalController, FootPedalState } from '../pedal/footPedal';
 import * as THREE from 'three';
 import { DRUM_ENVIRONMENTS } from './drumEnvironments';
 import type { DrumEnvironmentId } from './drumEnvironments';
@@ -26,6 +27,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   onSongPreview?: () => Promise<void>;
   onSongPreviewStop?: () => void;
   getSongPreview?: () => { playing: boolean; progress: number };
+  footPedal?: () => FootPedalController;
   onNoteSync?: (milliseconds: number) => void;
 }) {
   const state: UnifiedPanelState = { tab: 'MUSIC', genre: 'All', song: 0, scroll: 0,
@@ -164,6 +166,17 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     return action ? { hit, action, x, y } : null;
   }
   function activate(action: PanelAction) {
+    if (action.kind === 'pedal') {
+      if (action.index === 0) state.footPedalOpen = !state.footPedalOpen;
+      const pedal = options.footPedal?.();
+      if (!state.footPedalOpen) pedal?.cancel();
+      if (action.index === 1) pedal?.detect();
+      else if (action.index === 2) pedal?.test();
+      else if (action.index === 3) pedal?.cancel();
+      else if (action.index === 4 && pedal) pedal.setEnabled(!pedal.state.enabled);
+      dirty = true; return;
+    }
+    if ((action.kind === 'tab' || action.kind === 'setting') && state.footPedalOpen) options.footPedal?.().cancel();
     if (action.kind === 'results') { state.songResults = undefined; state.tab = 'MUSIC'; state.minimized = false; dirty = true; return; }
     if (action.kind === 'noteSync') {
       state.noteSyncMs = setNoteSyncMs(action.index ? state.noteSyncMs + action.index * 10 : 0);
@@ -186,7 +199,11 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     else if (action.kind === 'reset') placeDefault(true);
     else if (action.kind === 'background') {
       state.background = DRUM_ENVIRONMENTS[action.index].id; options.onBackground(state.background);
-    } else if (action.kind === 'setting') state.setting = (['AUDIO', 'CONTROLLER', 'NOTE', 'GENERAL'] as const)[action.index];
+    } else if (action.kind === 'setting') {
+      state.setting = (['AUDIO', 'CONTROLLER', 'NOTE', 'GENERAL'] as const)[action.index];
+      // Show the real VR controls immediately; do not leave CONTROLLER as a preview.
+      if (state.setting === 'CONTROLLER') state.footPedalOpen = true;
+    }
     else if (action.kind === 'volume') {
       state.volume = THREE.MathUtils.clamp(options.getVolume() + action.index * .05, 0, 1); options.setVolume(state.volume);
     }
@@ -238,6 +255,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   }
   return {
     mesh, state,
+    setFootPedal(value: FootPedalState) { state.footPedal = value; if (state.tab === 'SETTINGS') dirty = true; },
     showSongResults(perfect: number, great: number, miss: number) {
       const total = perfect + great + miss;
       state.songResults = { perfect, great, miss, accuracy: total ? (perfect + great * .7) / total * 100 : 0 };

@@ -1,7 +1,14 @@
+import type { FootPedalState } from '../pedal/footPedal';
 import { DRUM_ENVIRONMENTS } from './drumEnvironments';
 import type { DrumEnvironmentId } from './drumEnvironments';
 import { LOVE_ROOT, LOVE_SONG } from './vrMusicSong';
 
+// Canvas drawing and UV raycasting share these bounds.
+export const FOOT_PEDAL_LAYOUT = {
+  entry: { x: 84, y: 518, width: 856, height: 40 },
+  enable: { x: 84, y: 568, width: 380, height: 40 },
+  buttons: [84, 374, 664].map(x => ({ x, y: 618, width: 270, height: 44 })),
+};
 export const PANEL_SIZE = { width: 1024, height: 920 };
 export const PANEL_TABS = ['MUSIC', 'PRACTICE', 'BACKGROUND', 'SETTINGS'] as const;
 export const PANEL_GENRES = ['All', 'Pop', 'Rock', 'Band', 'K-Pop', 'My Song'] as const;
@@ -26,6 +33,7 @@ export interface UnifiedPanelState {
   rhythm: 'idle' | 'playing' | 'paused' | 'finished'; bpm: number;
   perfect: number; great: number; miss: number; countIn?: number; noteSyncMs: number;
   judgment?: 'Perfect' | 'Great' | 'Miss';
+  footPedal?: FootPedalState; footPedalOpen?: boolean;
   songResults?: { perfect: number; great: number; miss: number; accuracy: number };
 }
 export function filteredSongs(state: UnifiedPanelState) {
@@ -33,7 +41,7 @@ export function filteredSongs(state: UnifiedPanelState) {
     .filter(song => state.genre === 'All' || (song.genres as readonly string[]).includes(state.genre));
 }
 export const maxSongScroll = (state: UnifiedPanelState) => Math.max(0, filteredSongs(state).length * SONG_LIST.row - SONG_LIST.height);
-export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move' | 'detail' | 'noteSync' | 'results'; index: number };
+export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move' | 'detail' | 'noteSync' | 'results' | 'pedal'; index: number };
 export function panelActionAt(state: UnifiedPanelState, x: number, y: number): PanelAction | null {
   for (let index = 0; index < 4; index++) {
     if (Math.hypot(x - [200, 432, 656, 880][index], y - 106) <= 86)
@@ -69,6 +77,16 @@ export function panelActionAt(state: UnifiedPanelState, x: number, y: number): P
     const index = Math.floor((x - 60) / 310);
     if (index < DRUM_ENVIRONMENTS.length && (x - 60) % 310 <= 284) return action('background', index);
   } else if (state.tab === 'SETTINGS') {
+    if (state.setting === 'CONTROLLER') {
+      const within = (box: { x: number; y: number; width: number; height: number }) =>
+        x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height;
+      if (within(FOOT_PEDAL_LAYOUT.entry)) return action('pedal', 0);
+      if (state.footPedalOpen) {
+        if (within(FOOT_PEDAL_LAYOUT.enable)) return action('pedal', 4);
+        const index = FOOT_PEDAL_LAYOUT.buttons.findIndex(within);
+        if (index >= 0) return action('pedal', index + 1);
+      }
+    }
     if (state.setting === 'NOTE') {
       if (y >= 611 && y <= 683 && x >= 84 && x <= 194) return action('noteSync', -1);
       if (y >= 611 && y <= 683 && x >= 830 && x <= 940) return action('noteSync', 1);
@@ -295,6 +313,36 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
       ctx.fillStyle = '#eff2f8'; ctx.textAlign = 'center'; ctx.font = '32px Arial'; ctx.fillText('−', 124, 658); ctx.fillText('+', 900, 658);
       rounded(ctx, 205, 640, 610, 8, 4); ctx.fillStyle = '#4d535f'; ctx.fill(); rounded(ctx, 205, 640, Math.max(5, 610 * state.volume), 8, 4); ctx.fillStyle = '#d1d7e2'; ctx.fill();
       ctx.font = '20px Arial'; ctx.fillText(`${Math.round(state.volume * 100)}%`, 510, 710);
+    } else if (state.setting === 'CONTROLLER') {
+      const pedal = state.footPedal, layout = FOOT_PEDAL_LAYOUT;
+      card(ctx, state, 'pedal-0', layout.entry.x, layout.entry.y, layout.entry.width, layout.entry.height, !!state.footPedalOpen);
+      ctx.textAlign = 'left'; ctx.fillStyle = '#edf0f5'; ctx.font = '600 21px Arial';
+      ctx.fillText('FOOT PEDAL', 104, 545);
+      ctx.textAlign = 'right'; ctx.font = '20px Arial'; ctx.fillText(state.footPedalOpen ? '−' : '+', 916, 545);
+      if (state.footPedalOpen && pedal) {
+        const enable = layout.enable;
+        card(ctx, state, 'pedal-4', enable.x, enable.y, enable.width, enable.height, pedal.enabled);
+        ctx.textAlign = 'center'; ctx.fillStyle = '#edf0f5'; ctx.font = '600 18px Arial';
+        ctx.fillText('ENABLE FOOT PEDAL: ' + (pedal.enabled ? 'ON' : 'OFF'), enable.x + enable.width / 2, 594);
+        ctx.textAlign = 'left'; ctx.font = '19px Arial'; ctx.fillText('KEY BINDING: ' + pedal.label, 490, 594, 450);
+        ['AUTO DETECT', 'TEST INPUT', 'CANCEL'].forEach((text, i) => {
+          const box = layout.buttons[i];
+          card(ctx, state, 'pedal-' + (i + 1), box.x, box.y, box.width, box.height, i === 0 ? pedal.detecting : i === 1 && pedal.testing);
+          ctx.textAlign = 'center'; ctx.fillStyle = pedal.enabled || i === 2 ? '#edf0f5' : '#8e96a3'; ctx.font = '600 19px Arial';
+          ctx.fillText(text, box.x + box.width / 2, 646);
+        });
+        ctx.beginPath(); ctx.arc(98, 683, 8, 0, Math.PI * 2); ctx.fillStyle = pedal.pressed ? '#ffffff' : '#4c515a'; ctx.fill();
+        ctx.textAlign = 'left'; ctx.font = '18px Arial'; ctx.fillStyle = '#edf0f5';
+        ctx.fillText(pedal.pressed ? 'PEDAL PRESSED · ' + pedal.label : 'PEDAL RELEASED', 120, 690, 310);
+        ctx.fillText('INPUT STATUS: ' + (!pedal.enabled ? 'DISABLED' : pedal.status === 'INPUT DETECTED' ? 'INPUT DETECTED' : 'WAITING'), 450, 690, 490);
+        ctx.font = '16px Arial'; ctx.fillStyle = '#bdc5d1';
+        ctx.fillText('CONNECTION STATUS: ' + pedal.status + ' · USB connection unknown', 84, 714, 856);
+        ctx.fillText(pedal.message, 84, 737, 856);
+        ctx.fillText('KICK: ' + (pedal.played === null ? 'WAITING' : pedal.played ? 'PLAYED' : 'NOT PLAYED (audio / duplicate / visibility)'), 84, 758, 856);
+        ctx.font = '16px monospace'; ctx.fillStyle = '#aeb8c7';
+        ctx.fillText('code: ' + (pedal.eventCode || '—') + '  key: ' + JSON.stringify(pedal.eventKey) + '  repeat: ' + pedal.repeat, 84, 851, 856);
+        ctx.fillText('down: ' + pedal.down + '  up: ' + pedal.up + '  VR/XR: ' + pedal.immersive + '  last: ' + (pedal.lastInput ? new Date(pedal.lastInput).toLocaleTimeString() : '—'), 84, 876, 856);
+      }
     } else if (state.setting === 'NOTE') {
       ctx.textAlign = 'center'; ctx.fillStyle = '#c9ced8'; ctx.font = '23px Arial'; ctx.fillText('NOTE SYNC OFFSET (ms)', 512, 574);
       card(ctx, state, 'noteSync--1', 84, 611, 110, 72, false); card(ctx, state, 'noteSync-1', 830, 611, 110, 72, false);

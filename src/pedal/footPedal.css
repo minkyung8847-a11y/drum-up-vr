@@ -1,0 +1,9 @@
+.foot-pedal-settings { color: #e5e8ed; font-size: 11px; }
+.foot-pedal-settings > summary { cursor: pointer; padding: 8px; border: 1px solid #858b95; border-radius: 6px; background: linear-gradient(#40444c, #1c1e23); }
+.foot-pedal-settings > section { position: absolute; top: 60px; right: 12px; width: min(480px, calc(100vw - 40px)); max-height: 75vh; overflow: auto; padding: 20px; background: #202227; border: 1px solid #9da4af; border-radius: 12px; box-shadow: 0 12px 32px #000a; z-index: 20; font-size: 13px; }
+.foot-pedal-settings h3 { margin: 0 0 16px; letter-spacing: 2px; }
+.foot-pedal-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.foot-pedal-buttons button { color: #edf0f5; border: 1px solid #9098a4; border-radius: 5px; padding: 10px; background: linear-gradient(#555b65, #272b32, #414650); cursor: pointer; }
+.foot-pedal-settings i { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 50%; background: #4c515a; border: 1px solid #999; }
+.foot-pedal-settings i.pressed { background: #fff; box-shadow: 0 0 10px #fff8; }
+.foot-pedal-settings pre { white-space: pre-wrap; }

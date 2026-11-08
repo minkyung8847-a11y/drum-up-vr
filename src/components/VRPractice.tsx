@@ -1,3 +1,6 @@
+import { createFootPedal, createPedalGripGate } from '../pedal/footPedal';
+import type { FootPedalController, FootPedalState } from '../pedal/footPedal';
+import { FootPedalSettings } from '../pedal/FootPedalSettings';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { createRestoredVRDrumSet } from './restoredVRDrumSet';
@@ -43,6 +46,8 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
   const hiHatRef = useRef<(pressed: boolean) => boolean>(() => false);
   const unlockKickRef = useRef<() => Promise<boolean>>(async () => false);
   const controllerKick = useRef(true);
+  const footPedalRef = useRef<FootPedalController | null>(null);
+  const [footPedalState, setFootPedalState] = useState<FootPedalState | null>(null);
   const [audioStatus, setAudioStatus] = useState('Loading drum sounds…');
   const [xrSupported, setXRSupported] = useState(false);
   const [arSupported, setArSupported] = useState(false);
@@ -163,6 +168,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       }
       return played;
     };
+    const pedalGripGate = createPedalGripGate();
     const playPedalKick = (velocity: number) => hitDrum('kick', velocity);
     kickRef.current = velocity => {
       const session = renderer.xr.getSession();
@@ -213,6 +219,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     for (const hand of ['left', 'right'] as const) sticks.offsets[hand].rotation.x = THREE.MathUtils.degToRad(12);
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
     const unifiedPanel = createVRUnifiedPanel(scene, rig, kit.group, {
+      footPedal: () => footPedal,
       background: initialBackground.current,
       onBackground: id => { backgrounds.select(id); setBackground(id); },
       getVolume: () => drumSynth.getVolume(), setVolume: volume => drumSynth.setVolume(volume),
@@ -295,6 +302,19 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
           onResults: (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time),
         } : undefined, (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time));
     }
+    const footPedal = createFootPedal(window, {
+      active: () => {
+        const session = renderer.xr.getSession();
+        return !disposed && (session ? session.visibilityState === 'visible' : document.visibilityState === 'visible');
+      },
+      kick: () => {
+        const strike = () => pedalGripGate('pedal', () => kickRef.current(1));
+        if (drumSynth.isAudioRunning()) return strike();
+        return drumSynth.unlock().then(() => !disposed && strike());
+      },
+      changed: state => { unifiedPanel.setFootPedal(state); setFootPedalState(state); },
+    });
+    footPedalRef.current = footPedal;
     backgroundRef.current = id => { backgrounds.select(id); unifiedPanel.setBackground(id); };
     const collisions = createVRAssistedStrikes(kit.hitSurfaces, (id, hand, velocity) => {
       if (audioReady) hitDrum(id, velocity, previousTime ?? performance.now(), hand);
@@ -338,6 +358,8 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         : 'VR · 가상공간에서 드럼을 연주합니다.');
     };
     const startXR = () => {
+      footPedal.setImmersive(true);
+      renderer.domElement.tabIndex = -1; renderer.domElement.focus({ preventScroll: true });
       cancelLook();
       if (retainedRig) {
         rig.position.copy(retainedRig);
@@ -381,6 +403,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       setImmersive(true);
     };
     const endXR = () => {
+      footPedal.setImmersive(false);
       cancelLook();
       songCountdown.hide();
       kickDebug?.setImmersive(false);
@@ -669,7 +692,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         session?.addEventListener('selectstart', unlockControllerAudio);
         session?.addEventListener('squeezestart', unlockControllerAudio);
         detachKickInput = session ? attachXRKickInput(session, () => true,
-          (velocity, hand) => controllerKick.current && hitDrum('kick', velocity, performance.now(), hand), () => {},
+          (velocity, hand) => controllerKick.current && pedalGripGate('grip', () => hitDrum('kick', velocity, performance.now(), hand)), () => {},
           closed => interaction.setHiHatClosed(closed, false)) : () => {};
       }
       const reference = renderer.xr.getReferenceSpace();
@@ -681,6 +704,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       }
       if (renderer.xr.isPresenting && frame && reference) seating.update(frame, reference);
       const viewer = frame && reference ? frame.getViewerPose(reference) ?? null : null;
+      footPedal.tick(time);
       unifiedPanel.update(session, frame, reference, viewer, time);
       controllers.update(frame);
       if (renderer.xr.isPresenting && viewer) {
@@ -726,6 +750,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       const session = renderer.xr.getSession();
       if (session) void session.end().catch(() => {});
       controllers.dispose();
+      footPedal.dispose(); footPedalRef.current = null;
       unifiedPanel.dispose();
       poseRef.current = () => {};
       xrActionRef.current = async () => {};
@@ -778,6 +803,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         <a href="#/">Back to DRUM UP</a>
         <span>{xrMode === 'ar' || (!immersive && preferredMode === 'ar') ? 'AR' : 'VR'} PRACTICE · {immersive ? 'HEADSET VIEW' : 'DESKTOP VIEW'}</span>
         <div className="vr-practice-actions">
+          <FootPedalSettings state={footPedalState} controller={footPedalRef} />
           <VRPedalPanel onKick={velocity => kickRef.current(velocity)}
             onHiHat={pressed => hiHatRef.current(pressed)} unlock={() => unlockKickRef.current()}
             onButtonMode={enabled => { controllerKick.current = enabled; }} />
