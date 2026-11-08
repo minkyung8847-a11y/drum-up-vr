@@ -1,3 +1,4 @@
+import { createVRCymbalMotion } from './vrCymbalMotion';
 import { createVRDrumFeedback, DRUM_ACCENTS } from './vrDrumFeedback';
 import * as THREE from 'three';
 import type { DrumPadId } from '../types';
@@ -19,7 +20,9 @@ interface DrumKitScene {
 
 // Shared by real controller collisions and existing desktop clicks.
 export function createVRDrumInteraction(kit: DrumKitScene) {
-  const feedback = createVRDrumFeedback(kit.hitSurfaces,kit.tomVisuals);
+  const cymbalMotion = createVRCymbalMotion(kit.hitSurfaces,kit.hiHatLower);
+  const feedbackVisuals = new Map([...(kit.tomVisuals ?? []), ...cymbalMotion.visuals]);
+  const feedback = createVRDrumFeedback(kit.hitSurfaces,feedbackVisuals);
   // Animate only the existing local mechanism; snapshot the restored resting
   // transforms instead of calling the old full-kit deformation update().
   const mechanism = [kit.kickMechanism?.board, kit.kickMechanism?.beater]
@@ -27,12 +30,10 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
     .filter(target => target !== null);
   let kickAge = Infinity, kickVelocity = 1;
   let hiHatClosed = true;
-  const lowerHiHatRest = kit.hiHatLower?.position.y ?? -0.035;
-  const placeHiHat = () => { if (kit.hiHatLower) kit.hiHatLower.position.y = lowerHiHatRest - (hiHatClosed ? 0 : 0.035); };
-  placeHiHat();
   const states = kit.hitSurfaces.map(surface => {
     const tom = kit.tomVisuals?.get(surface.id);
-    const meshes = tom ? [tom.head] : surface.cymbal
+    const movingCymbal = cymbalMotion.visuals.get(surface.id);
+    const meshes = movingCymbal ? [movingCymbal.head] : tom ? [tom.head] : surface.cymbal
       ? surface.mesh.parent!.children.filter((object): object is THREE.Mesh =>
         object instanceof THREE.Mesh && (object.userData.drumType === surface.id || object.geometry.type === 'TorusGeometry'))
       : [surface.mesh];
@@ -58,6 +59,7 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
     drumSynth.trigger(partId === 'hihat' && !hiHatClosed ? 'hihat-open' : VR_SOUND_IDS[partId], velocity);
     if (state.tom) state.startScale = state.tom.group.scale.x;
     feedback.hit(partId, velocity);
+    cymbalMotion.hit(partId, THREE.MathUtils.clamp(velocity,0,1));
     state.age = 0;
     state.velocity = THREE.MathUtils.clamp(velocity, 0, 1);
     if (partId === 'kick') { kickAge = 0; kickVelocity = state.velocity; }
@@ -100,10 +102,10 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
       for (const target of state.targets) {
         target.mesh.position.copy(target.position);
         target.mesh.rotation.copy(target.rotation);
-        if (cymbal) {
+        if (cymbal && !cymbalMotion.visuals.has(state.id)) {
           target.mesh.rotation.x += response * (crash ? 0.09 : 0.025);
           target.mesh.rotation.z += response * (crash ? 0.045 : 0.012);
-        } else target.mesh.position.y -= response * 0.0025;
+        } else if (!cymbal) target.mesh.position.y -= response * 0.0025;
         for (const { material, color, emissive, intensity } of target.materials) {
           const glow = cymbal ? Math.max(0, 1 - age / 0.085) * velocity : 0;
           {
@@ -116,7 +118,7 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
       }
       if (age >= duration) state.age = Infinity;
     }
-    placeHiHat();
+    cymbalMotion.update(delta);
   }
 
   return {
@@ -124,7 +126,7 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
     setHiHatClosed(pressed: boolean, pedalSound = true) {
       if (hiHatClosed === pressed) return true;
       hiHatClosed = pressed;
-      placeHiHat();
+      cymbalMotion.setClosed(pressed);
       if (pressed) {
         if (pedalSound && drumSynth.isAudioRunning()) drumSynth.trigger('hihat-pedal');
         else drumSynth.chokeOpenHiHat();
@@ -138,6 +140,7 @@ export function createVRDrumInteraction(kit: DrumKitScene) {
         for (const material of Array.isArray(target.mesh.material) ? target.mesh.material : [target.mesh.material]) material.dispose();
         target.mesh.material = target.original;
       }
+      cymbalMotion.dispose();
     },
   };
 }
