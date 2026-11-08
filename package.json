@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "pedal:server": "npm --prefix server start",
     "test:pedal:server": "npm --prefix server test",
+    "test:vr:pedal-chords": "node scripts/check-vr-pedal-chords.mjs",
     "test:pedal:usb": "node scripts/check-foot-pedal.mjs",
     "test:pedal": "node scripts/check-pedal-integration.mjs",
     "test:pedal:regression": "node scripts/check-pedal-regression.mjs",

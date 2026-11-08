@@ -312,7 +312,13 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         if (drumSynth.isAudioRunning()) return strike();
         return drumSynth.unlock().then(() => !disposed && strike());
       },
-      changed: state => { unifiedPanel.setFootPedal(state); setFootPedalState(state); },
+      changed: state => {
+        unifiedPanel.setFootPedal(state);
+        // Keyboard events continue during immersive XR. Updating the hidden DOM
+        // here makes React/layout compete with controller hits and stereo rendering.
+        // The in-world panel reads the same live snapshot without a React commit.
+        if (!renderer.xr.isPresenting) setFootPedalState(state);
+      },
     });
     footPedalRef.current = footPedal;
     backgroundRef.current = id => { backgrounds.select(id); unifiedPanel.setBackground(id); };
@@ -404,6 +410,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     };
     const endXR = () => {
       footPedal.setImmersive(false);
+      if (!disposed) setFootPedalState({ ...footPedal.state });
       cancelLook();
       songCountdown.hide();
       kickDebug?.setImmersive(false);

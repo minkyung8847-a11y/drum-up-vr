@@ -94,7 +94,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   const dragWorld = new THREE.Matrix4(), dragPosition = new THREE.Vector3(), dragScale = new THREE.Vector3();
   let drag: { input: XRInputSource; relative: THREE.Matrix4 } | null = null;
   let session: XRSession | null = null, reference: XRReferenceSpace | null = null;
-  let placed = false, dirty = true, lastDraw = -Infinity, lastFrame = 0, pressedUntil = 0;
+  let placed = false, dirty = true, pedalDirty = false, lastDraw = -Infinity, lastFrame = 0, pressedUntil = 0;
   const coverLoaded = () => { dirty = true; };
   loveCover.addEventListener('load', coverLoaded);
   const held = new Set<XRInputSource>(), handledSelect = new Set<XRInputSource>();
@@ -104,7 +104,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   function redraw(now: number) {
     backing.visible = !state.minimized;
     unifiedPanelPoint(512, state.minimized ? 212 : 934, handle.position); handleHit.position.copy(handle.position);
-    drawUnifiedPanel(context, state); texture.needsUpdate = true; dirty = false; lastDraw = now;
+    drawUnifiedPanel(context, state); texture.needsUpdate = true; dirty = pedalDirty = false; lastDraw = now;
   }
   redraw(0);
   function savePose() {
@@ -255,7 +255,13 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   }
   return {
     mesh, state,
-    setFootPedal(value: FootPedalState) { state.footPedal = value; if (state.tab === 'SETTINGS') dirty = true; },
+    setFootPedal(value: FootPedalState) {
+      state.footPedal = value;
+      // Do not upload a 2560×2300 canvas (and regenerate its mipmaps) for each
+      // pedal edge while AUDIO/NOTE/GENERAL or a collapsed panel is displayed.
+      if (mesh.visible && !state.minimized && !state.songResults && state.tab === 'SETTINGS'
+        && state.setting === 'CONTROLLER' && state.footPedalOpen) pedalDirty = true;
+    },
     showSongResults(perfect: number, great: number, miss: number) {
       const total = perfect + great + miss;
       state.songResults = { perfect, great, miss, accuracy: total ? (perfect + great * .7) / total * 100 : 0 };
@@ -332,7 +338,9 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
       if (hover !== state.hover) { state.hover = hover; dirty = true; }
       handleMaterial.color.setHex(drag ? 0xf5f7ff : hover === 'move-0' ? 0xd9deea : 0x858c98);
       if (state.pressed && !held.size && now >= pressedUntil) { state.pressed = ''; dirty = true; }
-      if (dirty && now - lastDraw >= 32) redraw(now);
+      // Diagnostic counters may change at keyboard repeat speed. Coalesce them
+      // to 10 Hz; navigation and Trigger feedback keep their existing cadence.
+      if ((dirty && now - lastDraw >= 32) || (pedalDirty && now - lastDraw >= 100)) redraw(now);
     },
     dispose() {
       bind(null); mesh.removeFromParent(); geometry.dispose(); mesh.material.dispose(); texture.dispose();

@@ -56,8 +56,14 @@ export function createFootPedal(target: Window, options: {
     const now = performance.now();
     if (now - lastHit >= 35) {
       lastHit = now; const current = generation;
-      Promise.resolve(options.kick()).then(played => { if (generation === current) { state.played = played; publish(); } })
-        .catch(() => { if (generation === current) { state.played = false; publish(); } });
+      try {
+        const played = options.kick();
+        // An already unlocked kit plays synchronously: publish the edge/result
+        // together, without another microtask and UI invalidation per kick.
+        if (typeof played === 'boolean') state.played = played;
+        else played.then(result => { if (generation === current) { state.played = result; publish(); } })
+          .catch(() => { if (generation === current) { state.played = false; publish(); } });
+      } catch { state.played = false; }
     }
     publish();
   };
