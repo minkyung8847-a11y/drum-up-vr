@@ -12,7 +12,7 @@ export const LOVE_SONG = { key: 'love', title: '사랑으로 (love.)', artist: '
 export const ANTIFREEZE_SONG = { key: 'antifreeze', title: 'Antifreeze', artist: '검정치마 (The Black Skirts)', difficulty: 'Normal',
   stars: 2, genres: ['Rock', 'Band'], art: 9, bpm: 128, signature: '4/4', audio: `${ANTIFREEZE_ROOT}audio.mp3`,
   cover: `${ANTIFREEZE_ROOT}cover.jpg`, chart: `${ANTIFREEZE_ROOT}Antifreeze_opening_8_bars.json`,
-  review: 'DRUM CHART · OPENING 8 BARS', practiceBars: 8 } as const;
+  review: 'OPENING 8 BARS', practiceBars: 8 } as const;
 export type PlayableVRSong = typeof LOVE_SONG | typeof ANTIFREEZE_SONG;
 export type VRSongEntry = PlayableVRSong | { title: string; artist: string; difficulty: string };
 export const LOVE_COUNT_IN = 4 * 60 / 62;
