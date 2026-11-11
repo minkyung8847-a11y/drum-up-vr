@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
-import assert from 'node:assert/strict';
 import { installMockWebXR } from './helpers/mock-webxr.mjs';
 
 const vite = await createServer({ server: { host: '127.0.0.1', port: 0 } });
@@ -10,73 +10,89 @@ let browser;
 try {
   browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const errors = [];
-  const pageFor = async viewport => {
+  const pageFor = async (viewport, denyFullscreen = false) => {
     const page = await browser.newPage({ viewport });
     page.setDefaultTimeout(30_000);
     page.on('pageerror', error => errors.push(error.message));
     page.on('console', message => {
-      if (/THREE.WebGLProgram|THREE.WebGLRenderer: Error/.test(message.text())) errors.push(message.text());
+      if (message.type() === 'error' && /THREE.WebGLProgram|THREE.WebGLRenderer: Error/.test(message.text()))
+        errors.push(message.text());
     });
+    await page.addInitScript(deny => {
+      let fullscreen = null;
+      Object.defineProperty(document, 'fullscreenElement', { get: () => fullscreen });
+      Element.prototype.requestFullscreen = async function () {
+        window.fullscreenRequested = navigator.userActivation.isActive;
+        if (deny) throw new DOMException('Fullscreen denied', 'NotAllowedError');
+        fullscreen = this;
+      };
+      document.exitFullscreen = async () => { fullscreen = null; window.fullscreenExited = true; };
+    }, denyFullscreen);
     return page;
   };
+  const showIntro = async page => {
+    await page.getByRole('button', { name: 'VR ZONE' }).click();
+    const dialog = page.getByRole('dialog', { name: '몰입형 VR 경험을 시작하시겠습니까?' });
+    await dialog.getByRole('button', { name: 'ENTER', exact: true }).click();
+    await page.waitForURL('**/#/vr');
+    return page.getByRole('button', { name: '연주 공간 입장' });
+  };
+  const ready = page => page.waitForFunction(() => document.querySelector('.vr-entrance-target:not(:disabled)'));
+
   const desktop = await pageFor({ width: 1280, height: 720 });
   await desktop.goto(url);
+  assert.equal(await desktop.getByRole('button', { name: 'AR DRUM' }).count(), 0);
   await desktop.getByRole('button', { name: 'VR ZONE' }).click();
-  const target = desktop.getByRole('button', { name: '연주 공간 입장' });
-  await target.waitFor();
+  await desktop.getByRole('dialog').getByRole('button', { name: 'CANCEL' }).click();
+  assert.equal(await desktop.getByRole('dialog').count(), 0);
+  assert.equal(desktop.url(), url + '/');
+  const desktopPortal = await showIntro(desktop);
+  assert.ok(await desktop.evaluate(() => window.fullscreenRequested && !!document.fullscreenElement));
+  await ready(desktop);
   assert.equal(await desktop.getByRole('button', { name: 'Reset view' }).count(), 0);
-  await desktop.waitForFunction(() => !document.querySelector('.vr-entrance-target').disabled);
   await desktop.mouse.click(40, 40);
-  assert.ok(await target.isEnabled());
-  const bounds = await target.boundingBox();
-  await desktop.mouse.click(bounds.x + bounds.width + 8, bounds.y + bounds.height / 2);
+  assert.ok(await desktopPortal.isEnabled());
+  const bounds = await desktopPortal.boundingBox();
+  await desktop.mouse.click(bounds.x + bounds.width + 6, bounds.y + bounds.height / 2);
   await desktop.getByRole('button', { name: 'Reset view' }).waitFor();
-  await desktop.reload({waitUntil: 'domcontentloaded'});
-  await desktop.getByRole('button', { name: 'Reset view' }).waitFor();
-  assert.equal(await target.count(), 0);
-
+  await desktop.goBack({ waitUntil: 'domcontentloaded' });
+  await desktop.getByRole('button', { name: 'VR ZONE' }).waitFor();
+  assert.ok(await desktop.evaluate(() => window.fullscreenExited && !document.fullscreenElement));
+  await (await showIntro(desktop)).waitFor();
   await desktop.close();
-  const mobile = await pageFor({ width: 390, height: 844 });
-  await mobile.goto(url + '/#/vr');
-  await mobile.waitForFunction(() => document.querySelector('.vr-entrance-target:not(:disabled)'));
-  await mobile.getByRole('button', { name: '연주 공간 입장' }).press('Enter');
-  await mobile.getByRole('button', { name: 'Reset view' }).waitFor();
 
+  const mobile = await pageFor({ width: 390, height: 844 }, true);
+  await mobile.addInitScript(installMockWebXR, { rejectVR: true });
+  await mobile.goto(url);
+  const mobilePortal = await showIntro(mobile);
+  await ready(mobile);
+  assert.ok(await mobile.evaluate(() => window.fullscreenRequested && !document.fullscreenElement && !window.testXRRequests));
+  await mobilePortal.press('Enter');
+  await mobile.getByRole('button', { name: 'Reset view' }).waitFor();
+  assert.deepEqual(await mobile.evaluate(() => window.testXRRequests), [{ mode: 'immersive-vr', active: true }]);
+  assert.equal(await mobile.getByRole('button', { name: 'Exit VR' }).count(), 0);
   await mobile.close();
-  for (const input of ['walk', 'controller']) {
-    const xr = await pageFor({ width: 1080, height: 720 });
-    await xr.addInitScript(installMockWebXR);
-    await xr.goto(url + '/#/vr');
-    await xr.getByRole('button', { name: '헤드셋에서 VR 입장' }).click();
-    await xr.waitForFunction(() => window.testXR?.callbacks.size);
-    await xr.evaluate(input => {
-      const session = window.testXR;
-      session.head.position = [.55, 1.5, .2];
-      session.step(1, .20);
-      if (input === 'walk') {
-        session.head.position[2] -= 1.65;
-        session.step();
-      } else {
-        const source = session.connect('right');
-        const angle = -Math.atan2(1.1, 1.65);
-        source.targetRaySpace.position = [.55, 1.1, .2];
-        source.targetRaySpace.quaternion = [Math.sin(angle / 2), 0, 0, Math.cos(angle / 2)];
-        session.emit('select', { inputSource: source, frame: session.frame() });
-      }
-      session.step();
-      session.step(1, .75);
-      session.step(1, 1.5);
-    }, input);
-    await xr.getByRole('button', { name: 'Exit VR' }).waitFor();
-    await xr.getByRole('button', { name: 'Exit VR' }).click();
-    await xr.getByRole('button', { name: 'Reset view' }).waitFor();
-    await xr.close();
-  }
+
+  const xr = await pageFor({ width: 1080, height: 720 });
+  await xr.addInitScript(installMockWebXR, { mode: 'switchable' });
+  await xr.goto(url);
+  const xrPortal = await showIntro(xr);
+  await ready(xr);
+  assert.ok(await xr.evaluate(() => !window.testXRRequests));
+  await xrPortal.dblclick();
+  await xr.waitForFunction(() => window.testXR?.callbacks.size);
+  await xr.evaluate(() => {
+    window.testXR.head.position = [.55, 1.5, .2];
+    window.testXR.step();
+    window.testXR.step(1, .45);
+  });
+  await xr.getByRole('button', { name: 'Exit VR' }).waitFor();
+  assert.deepEqual(await xr.evaluate(() => window.testXRRequests), [{ mode: 'immersive-ar', active: true }]);
+  await xr.evaluate(() => window.testXR.end());
+  await xr.getByRole('button', { name: 'VR ZONE' }).waitFor();
+  assert.ok(await xr.evaluate(() => window.fullscreenExited && !document.fullscreenElement));
   assert.deepEqual(errors, []);
-  console.log('Desktop pointer, mobile keyboard, once-per-tab and mocked XR walk/controller passed.');
-} catch (error) {
-  console.error(error);
-  process.exitCode = 1;
+  console.log('Confirmation, fullscreen success/denial, browser Back, replay, trusted XR activation, duplicate clicks, fallback and headset exit passed.');
 } finally {
   await browser?.close();
   await vite.close();

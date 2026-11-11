@@ -6,6 +6,7 @@ import { installUnifiedPanelControls } from './helpers/unified-panel-controls.mj
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import { installMockWebXR } from './helpers/mock-webxr.mjs';
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 
 const server = await createServer({ server: { host: '127.0.0.1', port: 0 } });
 await server.listen();
@@ -17,7 +18,7 @@ try {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   const xrMode = process.env.FOOT_PEDAL_XR_MODE || 'immersive-vr';
   await page.addInitScript(installMockWebXR, { mode: 'switchable' });
-  await page.goto(`${origin}/#/${xrMode === 'immersive-ar' ? 'ar' : 'vr'}`);
+  await openVRPractice(page, `${origin}/#/vr`);
   await page.locator('.vr-practice-hint').filter({ hasText: 'Click to play' }).waitFor({ timeout: 30000 });
   await page.evaluate(async () => {
     const { drumSynth } = await import('/src/utils/synth.ts');
@@ -59,13 +60,17 @@ try {
   assert.match(await settings.innerText(), /CURRENT KEY: KeyF/);
   await settings.getByRole('button', { name: 'AUTO DETECT', exact: true }).click(); await page.keyboard.press('Space');
   await page.waitForTimeout(60);
-  await page.getByRole('button', { name: xrMode === 'immersive-ar' ? 'AR 패스스루 시작 →' : 'Enter VR', exact: true }).click();
+  await page.getByRole('button', { name: 'Enter VR', exact: true }).click();
   await page.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
   await page.evaluate(() => { window.right = window.testXR.connect('right'); window.left = window.testXR.connect('left'); window.testXR.step(3); });
   const initial = await page.evaluate(() => ({ ...window.scene.getObjectByName('vr-unified-panel').userData.panelState.footPedal }));
   assert.equal(initial.immersive, true); assert.equal(initial.status, 'WAITING FOR INPUT'); assert.equal(initial.lastInput, null);
   assert.equal(await page.evaluate(() => document.activeElement.tagName), 'CANVAS');
   await page.evaluate(installUnifiedPanelControls);
+  if (xrMode === 'immersive-ar') await page.evaluate(() => {
+    window.right.targetRaySpace = { ...window.right.gripSpace };
+    window.panelMode(window.right, 'ar');
+  });
   await page.evaluate(() => {
     window.right.targetRaySpace = { ...window.right.gripSpace };
     window.panelClick(window.right, 880, 106);

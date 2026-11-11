@@ -1762,3 +1762,38 @@ input::placeholder { color: var(--text-tertiary); }
 .volume-bottom-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; margin-top: -5px; border-radius: 50%; background: #FF6D2D; border: 0; }
 .volume-bottom-slider::-moz-range-track { height: 2px; background: transparent; }
 .volume-bottom-slider::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #FF6D2D; border: 0; }
+
+.vr-entry-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(460px, calc(100% - 32px));
+  max-width: none;
+  padding: clamp(26px, 6vw, 42px);
+  border: 1px solid #aeb0b8;
+  border-radius: 8px;
+  background: #08090b;
+  color: #f0f0f2;
+  text-align: center;
+  font-family: inherit;
+}
+.vr-entry-dialog::backdrop { background: #000c; }
+.vr-entry-dialog h2 { margin: 0; font-size: clamp(17px, 4.5vw, 22px); font-weight: 600; line-height: 1.45; }
+.vr-entry-dialog p { margin: 12px 0 27px; color: #b4b6be; font-size: 13px; line-height: 1.6; }
+.vr-entry-dialog-actions { display: flex; justify-content: center; gap: 12px; }
+.vr-entry-dialog-actions button {
+  min-width: 96px;
+  min-height: 44px;
+  border: 1px solid #777b85;
+  border-radius: 4px;
+  background: #08090b;
+  color: #f1f1f3;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+.vr-entry-dialog-actions button:last-child { background: #d8dae0; color: #090a0c; border-color: #d8dae0; }
+.vr-entry-dialog-actions button:hover { border-color: #fff; }
+.vr-entry-dialog-actions button:focus-visible { outline: 1px solid #fff; outline-offset: 3px; }
+.vr-entrance-loading { position: fixed; inset: 0; background: #000; }

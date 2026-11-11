@@ -4,6 +4,7 @@
 export function installMockWebXR(options = {}) {
   const arMode = options.mode === 'immersive-ar';
   const switchable = options.mode === 'switchable';
+  const rejectVR = options.rejectVR === true;
   let rejectAR = options.rejectFirstAR === true;
   localStorage.setItem('drumup_vr_environment', 'studio');
   const transform = (p, q = [0, 0, 0, 1]) => {
@@ -118,6 +119,10 @@ export function installMockWebXR(options = {}) {
   Object.defineProperty(navigator, 'xr', { configurable: true, value: {
     isSessionSupported: async mode => switchable ? ['immersive-vr', 'immersive-ar'].includes(mode) : mode === (arMode ? 'immersive-ar' : 'immersive-vr'),
     requestSession: async (mode, options) => {
+      (window.testXRRequests ??= []).push({ mode, active: navigator.userActivation.isActive });
+      if (rejectVR && mode === 'immersive-vr') {
+        throw new DOMException('VR request rejected by the device', 'NotAllowedError');
+      }
       if (!(switchable ? ['immersive-vr', 'immersive-ar'].includes(mode) : mode === (arMode ? 'immersive-ar' : 'immersive-vr'))
         || ((!arMode || switchable) && !options.requiredFeatures.includes('local-floor'))) throw Error('Incorrect XR request');
       if (mode === 'immersive-ar' && rejectAR) {
