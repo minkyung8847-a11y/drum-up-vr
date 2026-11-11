@@ -15,6 +15,39 @@
 .vr-practice.is-entrance .vr-practice-stage { inset: 0; }
 .vr-practice.is-entrance .vr-practice-controls { visibility: hidden; }
 .vr-practice.is-entrance canvas { cursor: default; }
+.vr-practice.is-tutorial .vr-practice-stage { inset: 0; }
+.vr-practice.is-tutorial .vr-practice-controls { visibility: hidden; }
+.vr-tutorial-desktop {
+  position: absolute;
+  inset: clamp(12px, 4vh, 36px) 0 auto;
+  width: min(620px, calc(100% - 24px));
+  margin-inline: auto;
+  padding: 16px 20px;
+  border: 1px solid #aab2bf75;
+  border-radius: 6px;
+  background: #17191eea;
+  text-align: center;
+  color: #fff;
+  animation: vr-tutorial-in .18s ease-out both;
+}
+.vr-tutorial-desktop h2 { margin: 0 0 9px; font-size: clamp(16px, 3vw, 23px); letter-spacing: .045em; }
+.vr-tutorial-desktop p { margin: 6px 0; line-height: 1.45; font-size: 15px; }
+.vr-tutorial-desktop .vr-tutorial-desktop-hint { color: #d3d8e0; font-size: 13px; }
+.vr-tutorial-desktop-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 9px; margin-top: 12px; }
+.vr-tutorial-desktop-actions button {
+  min-height: 40px;
+  padding: 6px 18px;
+  border: 1px solid #aab2bf;
+  border-radius: 4px;
+  background: linear-gradient(#f2f4f7, #aab2bf);
+  color: #17191e;
+  font: 600 14px Arial, sans-serif;
+  cursor: pointer;
+}
+.vr-tutorial-desktop-actions button + button { background: #373c46; color: #fff; }
+.vr-tutorial-desktop-actions button:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+@keyframes vr-tutorial-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .vr-tutorial-desktop { animation: none; } }
 .vr-practice-toolbar {
   position: absolute;
   inset: 0 0 auto;

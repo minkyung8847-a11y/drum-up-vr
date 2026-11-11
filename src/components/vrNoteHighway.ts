@@ -23,7 +23,7 @@ type ProgressCallback = (perfect: number, great: number, miss: number, scoreTime
 export type RhythmAudio = Pick<HTMLAudioElement, 'currentTime' | 'paused' | 'seeking' | 'play' | 'pause' | 'addEventListener' | 'removeEventListener'>;
 type ScoreMedia = { notes: readonly NoteEvent[]; audio: RhythmAudio; offset: number; windows: SongWindows;
   noteSyncMs?: number; timingDebug?: { contextAt: (timelineSeconds: number) => number; outputTime: () => number };
-  onResults?: ProgressCallback };
+  onResults?: ProgressCallback; fadeDistantNotes?: boolean; travelSeconds?: number };
 export function captureRhythmSurfaces(surfaces: DrumHitSurface[]): RhythmSurface[] {
   return surfaces.map(surface => ({ ...surface, world: surface.mesh.matrixWorld.clone() }));
 }
@@ -65,9 +65,9 @@ export function createVRNoteLanes(surfaces: RhythmSurface[], _eye: THREE.Vector3
     uvs.push(0,0,1,0,0,1,1,1);indices.push(base,base+1,base+2,base+2,base+1,base+3);
   }
   const ribbonGeometry=new THREE.BufferGeometry();ribbonGeometry.setAttribute('position',new THREE.Float32BufferAttribute(ribbonPositions,3));ribbonGeometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));ribbonGeometry.setIndex(indices);
-  const ribbonMaterial=new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,toneMapped:false,side:THREE.DoubleSide,uniforms:{arMode:{value:0}},
+  const ribbonMaterial=new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,toneMapped:false,side:THREE.DoubleSide,uniforms:{arMode:{value:0},opacity:{value:1}},
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader:'varying vec2 vUv;uniform float arMode;void main(){float d=abs(vUv.x-.5)*2.;float aa=min(.8,fwidth(d)*.65);float core=1.-smoothstep(.12-aa,.23+aa,d);float halo=exp(-d*d*9.)*.10;float alpha=mix(core*.66+halo,core*.84,arMode);gl_FragColor=vec4(mix(vec3(.94,.96,1.),vec3(.018,.022,.028),arMode),alpha*(1.-smoothstep(.45,1.,vUv.y)));\n#include <colorspace_fragment>\n}'});
+    fragmentShader:'varying vec2 vUv;uniform float arMode;uniform float opacity;void main(){float d=abs(vUv.x-.5)*2.;float aa=min(.8,fwidth(d)*.65);float core=1.-smoothstep(.12-aa,.23+aa,d);float halo=exp(-d*d*9.)*.10;float alpha=mix(core*.66+halo,core*.84,arMode);gl_FragColor=vec4(mix(vec3(.94,.96,1.),vec3(.018,.022,.028),arMode),alpha*opacity*(1.-smoothstep(.45,1.,vUv.y)));\n#include <colorspace_fragment>\n}'});
   const ribbons=new THREE.Mesh(ribbonGeometry,ribbonMaterial);ribbons.name='vr-lane-ribbons';ribbons.renderOrder=1;lines.add(ribbons);
   const markerGeometry=new THREE.RingGeometry(.017,VR_LANE_LAYOUT.markerRadius,40);
   const markers=VR_NEON_LANES.map((lane,index)=>{
@@ -76,13 +76,17 @@ export function createVRNoteLanes(surfaces: RhythmSurface[], _eye: THREE.Vector3
   });
   const lineGeometry = new THREE.PlaneGeometry(maxX - minX, VR_JUDGMENT_LINE.glowHeight);
   const lineMaterial = new THREE.ShaderMaterial({ transparent: true, depthTest: false, depthWrite: false, toneMapped: false,
-    uniforms: { core: { value: VR_JUDGMENT_LINE.thickness / VR_JUDGMENT_LINE.glowHeight },time:{value:0} },
+    uniforms: { core: { value: VR_JUDGMENT_LINE.thickness / VR_JUDGMENT_LINE.glowHeight },time:{value:0},opacity:{value:1} },
     vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: 'varying vec2 vUv; uniform float core;uniform float time; void main(){float y=abs(vUv.y-.5)*2.; float edge=smoothstep(0.,.07,vUv.x)*smoothstep(0.,.07,1.-vUv.x);float grid=vUv.x*96.;float cell=floor(grid),p=fract(grid)-.5;float h=fract(sin(cell*127.1)*43758.5453);float on=pow(max(0.,sin(time*.9+h*6.283185)),12.);float sy=(h-.5)*.65;float spark=exp(-p*p*190.-pow((vUv.y-.5-sy)*30.,2.))*on*.30;float a=min(.98,.90*(1.-smoothstep(core*.4,core,y))+.21*exp(-y*y*9.)+spark)*edge;gl_FragColor=vec4(.91,.94,1.,a);}' });
+    fragmentShader: 'varying vec2 vUv; uniform float core;uniform float time;uniform float opacity; void main(){float y=abs(vUv.y-.5)*2.; float edge=smoothstep(0.,.07,vUv.x)*smoothstep(0.,.07,1.-vUv.x);float grid=vUv.x*96.;float cell=floor(grid),p=fract(grid)-.5;float h=fract(sin(cell*127.1)*43758.5453);float on=pow(max(0.,sin(time*.9+h*6.283185)),12.);float sy=(h-.5)*.65;float spark=exp(-p*p*190.-pow((vUv.y-.5-sy)*30.,2.))*on*.30;float a=min(.98,.90*(1.-smoothstep(core*.4,core,y))+.21*exp(-y*y*9.)+spark)*edge;gl_FragColor=vec4(.91,.94,1.,a*opacity);}' });
   const judgmentLine = new THREE.Mesh(lineGeometry, lineMaterial); judgmentLine.name = 'vr-judgment-line';
   judgmentLine.position.set(layout.centreX, y, z); judgmentLine.renderOrder = 3; lines.add(judgmentLine);
   return { lines, paths, layout, judgmentLine,
     update(now:number) { if(lines.visible)lineMaterial.uniforms.time.value=(now*.001)%10000; },
+    setOpacity(opacity: number) {
+      ribbonMaterial.uniforms.opacity.value = lineMaterial.uniforms.opacity.value = opacity;
+      markers.forEach(marker => { marker.material.opacity = .8 * opacity; });
+    },
     shiftHeight(delta:number) { heightDelta+=delta;lines.position.y+=delta;layout.y+=delta;lines.updateWorldMatrix(true,true); },
     setPassthrough(enabled: boolean) { ribbonMaterial.uniforms.arMode.value=enabled?1:0;material.color.setHex(enabled?0x11151b:0xffffff); },
     dispose() { lines.removeFromParent(); geometry.dispose(); material.dispose(); ribbonGeometry.dispose();ribbonMaterial.dispose(); lineGeometry.dispose(); lineMaterial.dispose(); markerGeometry.dispose(); markers.forEach(marker=>marker.material.dispose()); } };
@@ -110,9 +114,9 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   const noteMaterials = new Set<THREE.ShaderMaterial>();
   const lanes = new Map(surfaces.map(({id}) => [id, { positionAt: paths.get(id)!, noteMaterial: new THREE.ShaderMaterial({
     transparent: true, depthTest: false, depthWrite: false, toneMapped: false,
-    uniforms: { tint: { value: softNeonColor(COLORS[id] ?? 0xffffff) }, fill: { value: 0 },ringAlpha:{value:NEON_STYLE.noteRingOpacity},fillMin:{value:NEON_STYLE.noteFillMin},fillMax:{value:NEON_STYLE.noteFillMax},glowAlpha:{value:NEON_STYLE.noteGlowOpacity} },
+    uniforms: { tint: { value: softNeonColor(COLORS[id] ?? 0xffffff) }, fill: { value: 0 },ringAlpha:{value:NEON_STYLE.noteRingOpacity},fillMin:{value:NEON_STYLE.noteFillMin},fillMax:{value:NEON_STYLE.noteFillMax},glowAlpha:{value:NEON_STYLE.noteGlowOpacity},visibility:{value:1} },
     vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: 'varying vec2 vUv;uniform vec3 tint;uniform float fill;uniform float ringAlpha;uniform float fillMin;uniform float fillMax;uniform float glowAlpha;void main(){float r=length((vUv-.5)*2.);float ring=smoothstep(.615,.65,r)*(1.-smoothstep(.69,.74,r));float halo=exp(-pow((r-.675)*17.,2.))*glowAlpha;float radius=.615*sqrt(clamp(fill,0.,1.));float disc=fill>.0001?1.-smoothstep(radius-.012,radius+.012,r):0.;float a=max(min(.80,ring*ringAlpha+halo),disc*mix(fillMin,fillMax,fill));gl_FragColor=vec4(tint,a);\n#include <colorspace_fragment>\n}'
+    fragmentShader: 'varying vec2 vUv;uniform vec3 tint;uniform float fill;uniform float ringAlpha;uniform float fillMin;uniform float fillMax;uniform float glowAlpha;uniform float visibility;void main(){float r=length((vUv-.5)*2.);float ring=smoothstep(.615,.65,r)*(1.-smoothstep(.69,.74,r));float halo=exp(-pow((r-.675)*17.,2.))*glowAlpha;float radius=.615*sqrt(clamp(fill,0.,1.));float disc=fill>.0001?1.-smoothstep(radius-.012,radius+.012,r):0.;float a=max(min(.80,ring*ringAlpha+halo),disc*mix(fillMin,fillMax,fill));gl_FragColor=vec4(tint,a*visibility);\n#include <colorspace_fragment>\n}'
   }), noteSize }]));
   const labelTextures = new Map<RhythmJudgment, THREE.CanvasTexture>();
   for (const text of ['Perfect','Great','Miss'] as const) {
@@ -133,7 +137,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
     return { group, ghost, ripple, flash, label, at: -Infinity, duration: 200, success: true, size: noteSize,
       origin: new THREE.Vector3(), target: new THREE.Vector3() };
   });
-  const travel = media ? NOTE_TRAVEL_TIME * 1000 : TRAVEL_MS;
+  const travel = media ? (media.travelSeconds ?? NOTE_TRAVEL_TIME) * 1000 : TRAVEL_MS;
   const perfectWindow = media?.windows.perfect ?? PERFECT_MS, greatWindow = media?.windows.great ?? GREAT_MS;
   const earlyWindow = media ? greatWindow : travel * .15;
   const events = media ? media.notes.map(note => ({ id: note.instrument ?? PAD_TO_INSTRUMENT[note.padId], arrival: note.time * 1000 }))
@@ -210,6 +214,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
   const onEnded = () => finish(0);
   media?.audio.addEventListener('seeked',onSeeked); media?.audio.addEventListener('ended',onEnded);
   return {
+    setVisible(visible: boolean) { anchor.visible = visible; },
     setNoteSyncMs(value: number) { if (!media) return; const delta = value-noteSyncMs; noteSyncMs=value; for (const note of notes) note.arrival+=delta; },
     restart, pause,
     shiftHeight(delta:number) {
@@ -247,6 +252,7 @@ export function createVRNoteHighway(scene: THREE.Scene, surfaces: RhythmSurface[
         if (note.resolved || remaining>travel || remaining < -greatWindow) { hideNote(note); continue; }
         const mesh=showNote(note); note.lane.positionAt(remaining/travel,mesh.position); mesh.scale.set(note.lane.noteSize,note.lane.noteSize/NEON_STYLE.noteAspect,1);
         mesh.userData.fill = THREE.MathUtils.clamp(1-remaining/travel,0,1); mesh.material.uniforms.fill.value = mesh.userData.fill;
+        if (media?.fadeDistantNotes) mesh.material.uniforms.visibility.value = .15 + .85 * mesh.userData.fill;
       }
       report(now);
     },

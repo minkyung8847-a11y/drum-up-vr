@@ -13,6 +13,12 @@ import { getNoteSyncMs, setNoteSyncMs } from './vrNoteSync';
 import type { UnifiedPanelState, PanelAction } from './vrUnifiedPanelDesign';
 import { RHYTHM_BPM } from './vrNoteHighway';
 import type { RhythmState } from './vrNoteHighway';
+import type { TutorialAction } from './vrTutorial';
+
+type TutorialOverlay = {
+  hit: (ray: THREE.Raycaster) => { hit: THREE.Intersection; action: TutorialAction } | null;
+  activate: (action: TutorialAction) => void;
+};
 
 const WIDTH = 1.26, HEIGHT = WIDTH * PANEL_SIZE.height / PANEL_SIZE.width, RADIUS = 5.5;
 export const PANEL_POSE_KEY = 'drumup.vr.panel-pose.v1';
@@ -36,6 +42,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   getDrumHeight?: () => number;
   onDrumHeight?: (height:number) => {height:number;saved:boolean};
   onNoteSync?: (milliseconds: number) => void;
+  onTutorial?: () => void;
 }) {
   const state: UnifiedPanelState = { tab: 'MUSIC', genre: 'All', song: 0, scroll: 0,
     practice: 'FREE PLAY', background: options.background, setting: 'AUDIO', volume: options.getVolume(), hover: '', pressed: '',
@@ -102,6 +109,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   const transforms = [panelTransform,...(options.player ? [options.player.transform] : [])];
   const draggingInput = () => panelTransform.input ?? options.player?.transform.input ?? null;
   let session: XRSession | null = null, reference: XRReferenceSpace | null = null;
+  let overlay: TutorialOverlay | null = null, visibleBeforeOverlay = false;
   let placed = false, dirty = true, pedalDirty = false, lastDraw = -Infinity, lastFrame = 0, pressedUntil = 0;
   const coverLoaded = () => { dirty = true; };
   musicCovers.forEach(cover => cover.addEventListener('load', coverLoaded));
@@ -128,13 +136,18 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     if (state.scroll !== next) { state.scroll = next; dirty = true; }
   }
   function cast(input: XRInputSource, frame: XRFrame) {
-    if (!mesh.visible || !placed || session?.visibilityState !== 'visible' || !reference || input.hand
+    if ((!overlay && (!mesh.visible || !placed)) || session?.visibilityState !== 'visible' || !reference || input.hand
       || !input.gripSpace || input.targetRayMode !== 'tracked-pointer') return null;
     const pose = frame.getPose(input.targetRaySpace, reference);
     if (!pose || pose.emulatedPosition) return null;
     rig.updateWorldMatrix(true, false); world.fromArray(pose.transform.matrix).premultiply(rig.matrixWorld);
     rotation.extractRotation(world); raycaster.ray.origin.setFromMatrixPosition(world);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
+    if (overlay) {
+      const target = overlay.hit(raycaster);
+      return target ? { hit: target.hit, action: { key: `overlay-${target.action}`, kind: 'overlay',
+        index: target.action === 'skip' ? 1 : 0 } as PanelAction, x: 0, y: 0 } : null;
+    }
     const playerHit = options.player?.hit(raycaster);
     if (playerHit) return { hit: playerHit.hit, action: { key: `player-${playerHit.index}`, kind: 'player', index: playerHit.index } as PanelAction, x: 0, y: 0 };
     const detailHit = detail.hit(raycaster);
@@ -150,6 +163,8 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     return action ? { hit, action, x, y } : null;
   }
   function activate(action: PanelAction) {
+    if (action.kind === 'overlay') { overlay?.activate(action.index ? 'skip' : 'next'); return; }
+    if (action.kind === 'tutorial') { options.onTutorial?.(); return; }
     if(action.kind==='drumHeight'){
       const next=action.index?(state.drumHeight??0)+action.index*DRUM_HEIGHT.step:DRUM_HEIGHT.default;
       const result=options.onDrumHeight?.(next);if(result){state.drumHeight=result.height;state.drumHeightSaved=result.saved;}dirty=true;return;
@@ -258,6 +273,19 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     },
     show() { mesh.visible = true; dirty = true; },
     hide() { mesh.visible = false; options.onSongPreviewStop?.(); resetInput(); pointers.forEach(({ line, dot }) => { line.visible = dot.visible = false; }); },
+    setTutorialOverlay(next: TutorialOverlay | null) {
+      if (next) {
+        visibleBeforeOverlay = mesh.visible;
+        mesh.visible = false;
+        detail.close();
+        gestures.clear();
+        transforms.forEach(transform => transform?.finish());
+      } else if (overlay) {
+        mesh.visible = visibleBeforeOverlay;
+        dirty = true;
+      }
+      overlay = next;
+    },
     setBackground(id: DrumEnvironmentId) { if (state.background !== id) { state.background = id; dirty = true; } },
     setViewMode(mode: 'vr' | 'ar', canAR: boolean) { state.viewMode = mode; state.canAR = canAR; dirty = true; },
     setRhythmStatus(status: RhythmState, judgment?: 'Perfect' | 'Great' | 'Miss') {
@@ -280,9 +308,9 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
       detail.update(now, mesh.visible && state.tab === 'MUSIC' && !state.minimized, options.getSongPreview?.() ?? { playing: false, progress: 0 });
       const delta = Math.min(.05, Math.max(0, (now - lastFrame) / 1000)); lastFrame = now;
       pointers.forEach(({ line, dot }) => { line.visible = dot.visible = false; }); pointing.clear();
-      if (!mesh.visible || !frame || !space || !viewer || next?.visibilityState !== 'visible') { resetInput(); return; }
+      if ((!mesh.visible && !overlay) || !frame || !space || !viewer || next?.visibilityState !== 'visible') { resetInput(); return; }
       rig.updateWorldMatrix(true, false); world.fromArray(viewer.transform.matrix).premultiply(rig.matrixWorld); eye.setFromMatrixPosition(world);
-      if (!placed && !loadPose()) placeDefault();
+      if (!overlay && !placed && !loadPose()) placeDefault();
       let hover = '';
       for (const input of next.inputSources) {
         if (input.hand || !input.gripSpace || input.targetRayMode !== 'tracked-pointer'
@@ -304,7 +332,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
         // Keep a faint tracked ray even when no panel is under its tip.
         const pointer = pointers[input.handedness === 'left' ? 0 : 1];
         const rayPose = frame.getPose(input.targetRaySpace,space);
-        if (rayPose && !rayPose.emulatedPosition) {
+        if (rayPose && !rayPose.emulatedPosition && (!overlay || target)) {
           pointer.line.position.copy(raycaster.ray.origin); pointer.line.quaternion.setFromUnitVectors(forward,raycaster.ray.direction);
           pointer.line.scale.z = target?.hit.distance ?? 1.6; pointer.line.visible = true;
           if (target) { pointer.dot.position.copy(target.hit.point); pointer.dot.visible = true; }
@@ -332,6 +360,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
         }
 
       }
+      if (overlay) return;
       if (hover !== state.hover) { state.hover = hover; dirty = true; }
       handleMaterial.color.setHex(panelTransform.input ? 0xf5f7ff : hover === 'move-0' ? 0xd9deea : 0x858c98);
       if (state.pressed && !held.size && now >= pressedUntil) { state.pressed = ''; dirty = true; }

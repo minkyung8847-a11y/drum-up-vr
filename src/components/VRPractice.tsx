@@ -37,6 +37,8 @@ import { createVRSongCountdown } from './vrSongDetail';
 import { getNoteSyncMs } from './vrNoteSync';
 import { createVREntrance, hasSeenVREntrance } from './vrEntrance';
 import { takeVREntranceSession } from './vrEntranceNavigation';
+import { createVRTutorial, hasSeenVRTutorial, tutorialContent } from './vrTutorial';
+import type { TutorialAction, TutorialView } from './vrTutorial';
 import './vrPractice.css';
 
 type XRMode = 'vr' | 'ar';
@@ -45,6 +47,10 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [entranceActive, setEntranceActive] = useState(() => !song && !hasSeenVREntrance());
   const resetRef = useRef<() => void>(() => {});
+  const tutorialOpenRef = useRef<() => void>(() => {});
+  const tutorialActionRef = useRef<(action: TutorialAction) => void>(() => {});
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialView, setTutorialView] = useState<TutorialView | null>(null);
   const kickRef = useRef<(velocity: number) => boolean>(() => false);
   const kickDebugRef = useRef<(state: PedalState) => void>(() => {});
   const updateKickDebug = useCallback((state: PedalState) => kickDebugRef.current(state), []);
@@ -169,9 +175,10 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     const hitDrum = (id: string, velocity = 1, now = performance.now(), hand?: StickHand) => {
       if (entrance) return false;
       const played = id === 'kick' ? triggerKick(velocity) : interaction.hit(id, velocity);
-      if (played && isVisibleXR()) {
-        if (hand) controllers.pulse(hand);
-        const judgment = highway?.strike(id, now);
+      if (played && (isVisibleXR() || tutorial.active)) {
+        if (hand && isVisibleXR()) controllers.pulse(hand);
+        if (id === 'kick' && tutorial.active) tutorial.kick();
+        const judgment = tutorial.active ? tutorial.strike(id, now) : highway?.strike(id, now);
         if (judgment === 'Perfect' || judgment === 'Great') {
           drumSynth.playRhythmSuccess(judgment === 'Perfect');
         }
@@ -191,6 +198,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       const session = renderer.xr.getSession();
       const visible = session ? session.visibilityState === 'visible' : document.visibilityState === 'visible';
       interaction.setHiHatClosed(visible && pressed);
+      tutorial.setClosed(visible && pressed);
       return visible;
     };
     unlockKickRef.current = async () => (await drumSynth.unlock()) && audioReady;
@@ -247,6 +255,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       getVolume: () => drumSynth.getVolume(), setVolume: volume => drumSynth.setVolume(volume),
       maxTextureSize: renderer.capabilities.maxTextureSize, maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
       getSongPreview: musicAudio.previewStatus,
+      onTutorial: () => openTutorial(),
       onNoteSync: milliseconds => { if (musicTransport) highway?.setNoteSyncMs(milliseconds); },
       onSongPreviewStop: () => { musicRequest++; musicAudio.stopPreview(); },
       onSongPreview: async selectedSong => {
@@ -322,6 +331,51 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
           onResults: (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time),
         } : undefined, (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time));
     }
+    let tutorialReturn: { resume: boolean; lanesVisible: boolean; session: XRSession | null; hiHatClosed: boolean } | null = null;
+    let tutorialSeen = hasSeenVRTutorial();
+    let tutorialPromptSession: XRSession | null = null;
+    let desktopHatPressed = false;
+    const tutorial = createVRTutorial(scene, kit.hitSurfaces, songCountdown, {
+      onView: (view, desktop) => {
+        setTutorialOpen(!!view);
+        if (desktop) setTutorialView(view);
+      },
+      onDemoHit: () => { if (audioReady) interaction.hit('hihat', .65); },
+      onClose: completed => {
+        tutorialSeen ||= completed;
+        if (desktopHatPressed) {
+          desktopHatPressed = false;
+          hiHatRef.current(false);
+        }
+        unifiedPanel.setTutorialOverlay(null);
+        const saved = tutorialReturn;
+        tutorialReturn = null;
+        if (saved && !saved.session) interaction.setHiHatClosed(saved.hiHatClosed, false);
+        highway?.setVisible(true);
+        if (noteLanes && saved) noteLanes.lines.visible = saved.lanesVisible;
+        if (completed && saved?.session && saved.session === renderer.xr.getSession() && isVisibleXR()) {
+          kickDebug?.setImmersive(sessionMode === 'vr');
+          if (saved.resume) highway?.toggle(performance.now());
+        }
+      },
+    });
+    function openTutorial() {
+      if (disposed || entrance || tutorial.active) return;
+      const session = renderer.xr.getSession();
+      tutorialReturn = { resume: highway?.pause(performance.now()) ?? false,
+        lanesVisible: !!noteLanes?.lines.visible, session, hiHatClosed: interaction.isHiHatClosed() };
+      if (!session) interaction.setHiHatClosed(false, false);
+      tutorial.setClosed(interaction.isHiHatClosed());
+      highway?.setVisible(false);
+      if (noteLanes) noteLanes.lines.visible = false;
+      musicPlayer.hide();
+      musicAudio.stopPreview();
+      kickDebug?.setImmersive(false);
+      unifiedPanel.setTutorialOverlay(tutorial.overlay);
+      tutorial.open(!session, sessionMode === 'ar' && !!session);
+    }
+    tutorialOpenRef.current = () => { void drumSynth.unlock(); openTutorial(); };
+    tutorialActionRef.current = action => { void drumSynth.unlock(); tutorial.activate(action); };
     const footPedal = createFootPedal(window, {
       active: () => {
         const session = renderer.xr.getSession();
@@ -376,8 +430,15 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     let resumeAfterSwitch = false;
     let viewTransition: { target: XRMode; start: number | null; applied: boolean } | null = null;
     const pauseHiddenRhythm = () => {
-      if (rhythmSession?.visibilityState !== 'visible') highway?.pause(performance.now());
+      if (rhythmSession?.visibilityState !== 'visible') {
+        highway?.pause(performance.now());
+        tutorial.suspend();
+      }
     };
+    const pauseHiddenDesktopTutorial = () => {
+      if (!renderer.xr.isPresenting && document.visibilityState !== 'visible') tutorial.suspend();
+    };
+    document.addEventListener('visibilitychange', pauseHiddenDesktopTutorial);
     const applyView = (mode: XRMode) => {
       sessionMode = mode;
       scene.background = mode === 'ar' ? null
@@ -392,6 +453,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
         : 'VR · 가상공간에서 드럼을 연주합니다.');
     };
     const startXR = () => {
+      if (tutorial.active) tutorial.close(false);
       footPedal.setImmersive(true);
       renderer.domElement.tabIndex = -1; renderer.domElement.focus({ preventScroll: true });
       cancelLook();
@@ -438,6 +500,8 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       setImmersive(true);
     };
     const endXR = () => {
+      if (tutorial.active) tutorial.close(false);
+      tutorialPromptSession = null;
       footPedal.setImmersive(false);
       if (!disposed) setFootPedalState({ ...footPedal.state });
       cancelLook();
@@ -602,7 +666,13 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       }
       yaw.rotation.y = savedYaw;
       pitch.rotation.x = savedPitch;
-      camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(tangent / 0.9));
+      const fittedFov = THREE.MathUtils.radToDeg(2 * Math.atan(tangent / 0.9));
+      // Near-camera hardware bounds can push the preview fit close to 180°.
+      // Keep the desktop lesson readable without changing the headset camera.
+      const tutorialFov = camera.aspect < 1
+        ? THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(52)) / camera.aspect))
+        : 76;
+      camera.fov = tutorial.active ? Math.min(fittedFov, tutorialFov) : fittedFov;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
     };
@@ -685,6 +755,11 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     canvas.addEventListener('lostpointercapture', up);
     const tomKeys: Record<string, string> = { KeyF: 'smallTom', KeyG: 'middleTom', KeyH: 'floorTom' };
     const hitTomKey = (event: KeyboardEvent) => {
+      if (!renderer.xr.isPresenting && tutorial.step === 'hat-grip' && event.code === 'KeyH' && !event.repeat) {
+        event.preventDefault();
+        desktopHatPressed = hiHatRef.current(true);
+        return;
+      }
       const part = tomKeys[event.code];
       const target = event.target;
       if (entrance || !part || event.repeat || event.altKey || event.ctrlKey || event.metaKey
@@ -692,7 +767,15 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       void drumSynth.unlock();
       if (audioReady) hitDrum(part);
     };
+    const releaseTutorialHat = (event?: KeyboardEvent) => {
+      if (!desktopHatPressed || (event && event.code !== 'KeyH')) return;
+      desktopHatPressed = false;
+      hiHatRef.current(false);
+    };
+    const blurTutorialHat = () => releaseTutorialHat();
     window.addEventListener('keydown', hitTomKey);
+    window.addEventListener('keyup', releaseTutorialHat);
+    window.addEventListener('blur', blurTutorialHat);
     window.addEventListener('blur', cancelLook);
     const observer = new ResizeObserver(resize);
     observer.observe(host);
@@ -754,7 +837,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
         session?.addEventListener('squeezestart', unlockControllerAudio);
         detachKickInput = session ? attachXRKickInput(session, () => true,
           (velocity, hand) => controllerKick.current && pedalGripGate('grip', () => hitDrum('kick', velocity, performance.now(), hand)), () => {},
-          closed => interaction.setHiHatClosed(closed, false)) : () => {};
+          closed => { interaction.setHiHatClosed(closed, false); tutorial.setClosed(closed); }) : () => {};
       }
       const reference = renderer.xr.getReferenceSpace();
       if (reference !== referenceSpace) {
@@ -766,21 +849,36 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       if (renderer.xr.isPresenting && frame && reference) seating.update(frame, reference);
       const viewer = frame && reference ? frame.getViewerPose(reference) ?? null : null;
       footPedal.tick(time);
-      musicPlayer.update(musicTransport, unifiedPanel.state.rhythm, renderer.xr.isPresenting && isVisibleXR(), time);
+      if (session && viewer && isVisibleXR() && sessionMode === 'vr' && !song && !tutorialSeen && tutorialPromptSession !== session) {
+        tutorialPromptSession = session;
+        openTutorial();
+      }
+      if (!tutorial.active) musicPlayer.update(musicTransport, unifiedPanel.state.rhythm, renderer.xr.isPresenting && isVisibleXR(), time);
       unifiedPanel.update(session, frame, reference, viewer, time);
       controllers.update(frame);
       if (renderer.xr.isPresenting && viewer) {
         const p = viewer.transform.position;
         headPosition.set(p.x, p.y, p.z).applyMatrix4(rig.matrixWorld);
-        if (!isVisibleXR()) highway?.pause(time);
-        noteLanes?.update(time);
-        highway?.update(time, headPosition);
-        if (musicTransport && isVisibleXR()) {
+        if (tutorial.active || (musicTransport && isVisibleXR())) {
           worldViewerQuaternion.setFromRotationMatrix(worldViewerMatrix.fromArray(viewer.transform.matrix).premultiply(rig.matrixWorld));
-          songCountdown.update(musicTransport.currentTime, headPosition, worldViewerQuaternion, musicTransport.preroll);
-        } else songCountdown.hide();
-        if (!musicTransport && song && scoreMedia) unifiedPanel.setRhythmBpm(songBpmAt(song.chart, scoreMedia.audio.currentTime - scoreMedia.offset));
-      }
+        }
+        if (tutorial.active) {
+          tutorial.update(time, delta, headPosition, worldViewerQuaternion, isVisibleXR(),
+            hand => controllers.tipSamples[hand].valid ? controllers.tipSamples[hand].grip : undefined);
+        } else {
+          if (!isVisibleXR()) highway?.pause(time);
+          noteLanes?.update(time);
+          highway?.update(time, headPosition);
+          if (musicTransport && isVisibleXR()) {
+            songCountdown.update(musicTransport.currentTime, headPosition, worldViewerQuaternion, musicTransport.preroll);
+          } else songCountdown.hide();
+          if (!musicTransport && song && scoreMedia) unifiedPanel.setRhythmBpm(songBpmAt(song.chart, scoreMedia.audio.currentTime - scoreMedia.offset));
+        }
+      } else if (!renderer.xr.isPresenting && tutorial.active) {
+        camera.getWorldPosition(headPosition);
+        camera.getWorldQuaternion(worldViewerQuaternion);
+        tutorial.update(time, delta, headPosition, worldViewerQuaternion, document.visibilityState === 'visible', () => undefined);
+      } else if (tutorial.active) tutorial.suspend();
       if (renderer.xr.isPresenting && frame && viewer && audioReady) {
         for (const hand of ['left', 'right'] as const) {
           const overPanel = unifiedPanel.isPointing(hand);
@@ -796,6 +894,9 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
 
     return () => {
       disposed = true;
+      tutorial.dispose();
+      tutorialOpenRef.current = () => {};
+      tutorialActionRef.current = () => {};
       kickRef.current = () => false;
       kickDebugRef.current = () => {};
       kickDebug?.dispose();
@@ -810,6 +911,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       renderer.xr.removeEventListener('sessionstart', startXR);
       renderer.xr.removeEventListener('sessionend', endXR);
       rhythmSession?.removeEventListener('visibilitychange', pauseHiddenRhythm);
+      document.removeEventListener('visibilitychange', pauseHiddenDesktopTutorial);
       const session = renderer.xr.getSession();
       if (session) void session.end().catch(() => {});
       controllers.dispose();
@@ -836,6 +938,8 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       canvas.removeEventListener('pointercancel', up);
       canvas.removeEventListener('lostpointercapture', up);
       window.removeEventListener('keydown', hitTomKey);
+      window.removeEventListener('keyup', releaseTutorialHat);
+      window.removeEventListener('blur', blurTutorialHat);
       const geometries = new Set<THREE.BufferGeometry>();
       const materials = new Set<THREE.Material>();
       const textures = new Set<THREE.Texture>();
@@ -860,10 +964,12 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     };
   }, []);
 
+  const tutorialCopy = tutorialView && tutorialContent(tutorialView);
   return (
-    <main className={`vr-practice${entranceActive ? ' is-entrance' : ''}`} aria-label={entranceActive ? 'DRUM UP VR ZONE' : 'First-person drum practice'}>
+    <main className={`vr-practice${entranceActive ? ' is-entrance' : ''}${tutorialOpen ? ' is-tutorial' : ''}`}
+      aria-label={entranceActive ? 'DRUM UP VR ZONE' : 'First-person drum practice'}>
       <div className="vr-practice-stage" ref={hostRef} aria-label={entranceActive ? 'DRUM UP' : 'Drum kit — click to strike, drag to look around; hold Shift to look without striking'} />
-      <div className="vr-practice-controls" inert={entranceActive}>
+      <div className="vr-practice-controls" inert={entranceActive || tutorialOpen}>
         <header className="vr-practice-toolbar">
           <a href="#/">Back to DRUM UP</a>
           <span>{xrMode === 'ar' ? 'AR' : 'VR'} PRACTICE · {immersive ? 'HEADSET VIEW' : 'DESKTOP VIEW'}</span>
@@ -875,6 +981,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
             {LOCAL_KICK_ENABLED && <LocalKickReceiver
               onKick={velocity => kickRef.current(velocity)} onStatus={updateKickDebug} />}
             <button onClick={() => resetRef.current()}>Reset view</button>
+            {!immersive && <button onClick={() => tutorialOpenRef.current()}>튜토리얼 다시 보기</button>}
             <button disabled={xrBusy || (!immersive && !(pendingMode === 'ar' ? arSupported : xrSupported))}
               title={xrMessage} onClick={() => { void xrActionRef.current(immersive ? 'exit' : pendingMode ?? 'vr'); }}>
               {xrBusy ? 'Connecting…' : immersive ? 'Exit VR' : pendingMode === 'ar' ? 'Enter AR' : xrSupported ? 'Enter VR' : 'VR unavailable'}
@@ -886,6 +993,19 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
         <p className="vr-xr-status">{xrMessage}</p>
         <p className="vr-practice-hint" role="status">{audioStatus}</p>
       </div>
+      {tutorialView && tutorialCopy && (
+        <section key={tutorialView.step} className="vr-tutorial-desktop" role="dialog" aria-labelledby="vr-tutorial-title">
+          <h2 id="vr-tutorial-title">{tutorialCopy.title}</h2>
+          <p>{tutorialCopy.lines.join(' ')}</p>
+          {tutorialView.step === 'hat-grip' && <p className="vr-tutorial-desktop-hint">H 키를 누르고 놓아 보세요.</p>}
+          {tutorialView.step === 'kick' && <p className="vr-tutorial-desktop-hint">킥드럼을 클릭하거나 연결된 페달을 밟아 보세요.</p>}
+          {tutorialCopy.hint && <p className="vr-tutorial-desktop-hint" role="status">{tutorialCopy.hint}</p>}
+          <div className="vr-tutorial-desktop-actions">
+            {tutorialCopy.next && <button onClick={() => tutorialActionRef.current('next')}>{tutorialCopy.next}</button>}
+            {tutorialView.step !== 'complete' && <button onClick={() => tutorialActionRef.current('skip')}>건너뛰기</button>}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

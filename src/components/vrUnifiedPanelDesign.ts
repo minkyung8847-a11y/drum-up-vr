@@ -45,7 +45,7 @@ export function filteredSongs(state: UnifiedPanelState) {
     .filter(song => state.genre === 'All' || (song.genres as readonly string[]).includes(state.genre));
 }
 export const maxSongScroll = (state: UnifiedPanelState) => Math.max(0, filteredSongs(state).length * SONG_LIST.row - SONG_LIST.height);
-export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move' | 'detail' | 'noteSync' | 'results' | 'pedal' | 'player' | 'drumHeight'; index: number };
+export type PanelAction = { key: string; kind: 'tab' | 'genre' | 'song' | 'practice' | 'background' | 'setting' | 'volume' | 'scrollbar' | 'panel' | 'rhythm' | 'view' | 'reset' | 'move' | 'detail' | 'noteSync' | 'results' | 'pedal' | 'player' | 'drumHeight' | 'tutorial' | 'overlay'; index: number };
 export function panelActionAt(state: UnifiedPanelState, x: number, y: number): PanelAction | null {
   for (let index = 0; index < 4; index++) {
     if (Math.hypot(x - [200, 432, 656, 880][index], y - 106) <= 86)
@@ -64,6 +64,8 @@ export function panelActionAt(state: UnifiedPanelState, x: number, y: number): P
     if (x >= 534 && x <= 964 && state.canAR) return action('view', 1);
   }
   if (state.tab === 'SETTINGS' && x >= 84 && x <= 940 && y >= 770 && y <= 828) return action('reset', 0);
+  if (state.tab === 'SETTINGS' && state.setting !== 'CONTROLLER' && x >= 84 && x <= 940 && y >= 840 && y <= 890)
+    return action('tutorial', 0);
   if (state.tab === 'MUSIC') {
     if (y >= 311 && y <= 365 && x >= 60 && x <= 976) {
       const index = Math.floor((x - 60) / 156);
@@ -376,5 +378,11 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
     }
     card(ctx, state, 'reset-0', 84, 770, 856, 58, false);
     ctx.textAlign = 'center'; ctx.fillStyle = '#e5eaf3'; ctx.font = '600 22px Arial'; ctx.fillText('RESET PANEL POSITION', 512, 807);
+    if (state.setting !== 'CONTROLLER') {
+      card(ctx, state, 'tutorial-0', 84, 840, 856, 50, false);
+      ctx.fillStyle = '#e5eaf3';
+      ctx.font = '600 22px "Malgun Gothic", Arial, sans-serif';
+      ctx.fillText('튜토리얼 다시 보기', 512, 873);
+    }
   }
 }

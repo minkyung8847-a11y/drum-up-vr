@@ -79,7 +79,9 @@ try {
     window.testXR.step();
     window.testXR.step(1, .45);
   });
-  await xr.getByRole('button', { name: 'Exit VR' }).waitFor();
+  await xr.locator('.vr-practice-toolbar button').filter({ hasText: 'Exit VR' }).waitFor({ state: 'attached' });
+  await xr.evaluate(() => window.testXR.step(22));
+  await xr.locator('.vr-practice.is-tutorial').waitFor();
   assert.equal(await xr.evaluate(() => window.testXRRequests.length), 1);
   assert.ok(await xr.evaluate(() => window.testXRRequests[0].active));
   await xr.evaluate(() => window.testXR.end());

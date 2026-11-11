@@ -93,11 +93,11 @@ export function createVRSongCountdown(scene:THREE.Scene) {
   const mesh=new THREE.Mesh(new THREE.PlaneGeometry(.48,.48),material);mesh.name='vr-song-countdown';mesh.visible=false;mesh.renderOrder=1010;scene.add(mesh);
   let previous='';
   return {
-    update(time:number,eye:THREE.Vector3,quaternion:THREE.Quaternion,preroll:number) {
+    update(time:number,eye:THREE.Vector3,quaternion:THREE.Quaternion,preroll:number,goLabel = 'GO') {
       const beat = time * 4 / preroll;
       const index=Math.floor(beat);mesh.visible=time>=0&&index<4;
       if(!mesh.visible)return;
-      const label=['3','2','1','GO'][index];mesh.userData.label=label;
+      const label=['3','2','1',goLabel][index];mesh.userData.label=label;
       if(label!==previous){ctx.clearRect(0,0,512,512);ctx.font='700 230px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=8;ctx.strokeStyle='#101318';ctx.strokeText(label,256,256);ctx.fillStyle='#f5f7ff';ctx.fillText(label,256,256);texture.needsUpdate=true;previous=label;}
       mesh.position.set(0,0,-1.7).applyQuaternion(quaternion).add(eye);mesh.quaternion.copy(quaternion);
       const beatPhase=beat-index;mesh.scale.setScalar(1+.12*Math.max(0,1-beatPhase*4));
