@@ -262,7 +262,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
         await musicAudio.unlock();
         const chart = await loadVRMusicChart(selectedSong);
         if (disposed || request !== musicRequest || !isVisibleXR() || !noteLanes) return false;
-        const transport = await musicAudio.transport(selectedSong, chartOffsetSeconds);
+        const transport = await musicAudio.transport(selectedSong);
         try {
           if (disposed || request !== musicRequest || !isVisibleXR() || !noteLanes) { transport.dispose(); return false; }
           const notes = chart.map(note => ({ ...note, time: note.time + chartOffsetSeconds }));

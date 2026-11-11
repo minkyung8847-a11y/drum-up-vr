@@ -12,7 +12,7 @@ export const LOVE_SONG = { key: 'love', title: '사랑으로 (love.)', artist: '
 export const ANTIFREEZE_SONG = { key: 'antifreeze', title: 'Antifreeze', artist: '검정치마 (The Black Skirts)', difficulty: 'Normal',
   stars: 2, genres: ['Rock', 'Band'], art: 9, bpm: 128, signature: '4/4', audio: `${ANTIFREEZE_ROOT}audio.mp3`,
   cover: `${ANTIFREEZE_ROOT}cover.jpg`, chart: `${ANTIFREEZE_ROOT}Antifreeze_opening_8_bars.json`,
-  review: 'OPENING 8 BARS', practiceBars: 8 } as const;
+  review: 'DRUM CHART · OPENING 8 BARS', practiceBars: 8 } as const;
 export type PlayableVRSong = typeof LOVE_SONG | typeof ANTIFREEZE_SONG;
 export type VRSongEntry = PlayableVRSong | { title: string; artist: string; difficulty: string };
 export const LOVE_COUNT_IN = 4 * 60 / 62;
@@ -115,15 +115,14 @@ export class VRMusicTransport extends EventTarget implements RhythmAudio {
   readonly context: AudioContext;
   readonly buffer: AudioBuffer;
   readonly preroll: number;
-  readonly duration: number;
   readonly song: PlayableVRSong;
   constructor(context: AudioContext, buffer: AudioBuffer, preroll = LOVE_COUNT_IN,
-    song: PlayableVRSong = LOVE_SONG, duration = buffer.duration) {
+    song: PlayableVRSong = LOVE_SONG) {
     super(); this.context = context; this.buffer = buffer; this.preroll = preroll;
     this.song = song;
-    this.duration = Math.min(duration, buffer.duration);
     this.gain = context.createGain(); this.gain.gain.value = .65; this.gain.connect(context.destination);
   }
+  get duration() { return this.buffer.duration; }
   get currentTime() {
     if (this.paused) return this.position;
     const outputTime = outputAudioTime(this.context);
@@ -149,8 +148,7 @@ export class VRMusicTransport extends EventTarget implements RhythmAudio {
     const wait = Math.max(0, this.preroll - this.position), offset = Math.max(0, this.position - this.preroll);
     if (offset >= this.duration) { this.paused = true; return; }
     this.mp3StartContextTime = this.epoch + wait;
-    if (this.duration < this.buffer.duration) source.start(this.mp3StartContextTime, offset, this.duration - offset);
-    else source.start(this.mp3StartContextTime, offset);
+    source.start(this.mp3StartContextTime, offset);
     console.info('[DRUM UP SYNC] MP3 scheduled', { contextSeconds: this.mp3StartContextTime, bufferOffsetSeconds: offset,
       countdownEndContextSeconds: this.epoch + this.preroll - this.position,
       countInSeconds: this.preroll, outputLatencySeconds: this.context.outputLatency ?? 0 });
@@ -224,11 +222,9 @@ export function createVRMusicAudio() {
     },
     stopPreview,
     previewStatus: () => ({ playing: !!preview, progress: Math.min(1, (previewPosition + (preview && context ? context.currentTime - previewAt : 0)) / 20) }),
-    async transport(song: PlayableVRSong, chartOffset: number) {
+    async transport(song: PlayableVRSong) {
       const buffer = await load(song);
-      const beat = 60 / song.bpm;
-      const duration = song.key === 'antifreeze' ? chartOffset + song.practiceBars * 4 * beat : buffer.duration;
-      return new VRMusicTransport(getContext(), buffer, 4 * beat, song, duration);
+      return new VRMusicTransport(getContext(), buffer, 4 * 60 / song.bpm, song);
     },
     dispose() { alive = false; stopPreview(); buffers.clear(); if (context) void context.close(); },
   };
