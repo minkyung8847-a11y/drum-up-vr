@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import { DRUM_ENVIRONMENTS } from './drumEnvironments';
 import type { DrumEnvironmentId } from './drumEnvironments';
 import type { StickHand } from './virtualDrumsticks';
-import { PANEL_SIZE, PANEL_TABS, PANEL_GENRES, SONG_LIST, DEMO_SONGS, loveCover, drawUnifiedPanel, maxSongScroll, panelActionAt } from './vrUnifiedPanelDesign';
+import { PANEL_SIZE, PANEL_TABS, PANEL_GENRES, SONG_LIST, DEMO_SONGS, musicCovers, drawUnifiedPanel, maxSongScroll, panelActionAt } from './vrUnifiedPanelDesign';
+import type { PlayableVRSong } from './vrMusicSong';
 import { createVRSongDetail } from './vrSongDetail';
 import { getNoteSyncMs, setNoteSyncMs } from './vrNoteSync';
 import type { UnifiedPanelState, PanelAction } from './vrUnifiedPanelDesign';
@@ -26,8 +27,8 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   onRhythm: (action: 'start' | 'pause' | 'restart' | 'free') => void;
   onViewMode: (mode: 'vr' | 'ar') => void;
   maxTextureSize?: number; maxAnisotropy?: number;
-  onSongStart?: (offset: number) => Promise<boolean | void>;
-  onSongPreview?: () => Promise<void>;
+  onSongStart?: (song: PlayableVRSong, offset: number) => Promise<boolean | void>;
+  onSongPreview?: (song: PlayableVRSong) => Promise<void>;
   onSongPreviewStop?: () => void;
   getSongPreview?: () => { playing: boolean; progress: number };
   footPedal?: () => FootPedalController;
@@ -59,8 +60,8 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   mesh.name = 'vr-unified-panel'; mesh.renderOrder = 1000; mesh.visible = false; scene.add(mesh);
   mesh.userData.panelState = state;
   const detail = createVRSongDetail(mesh, {
-    onStart: async offset => { const started = await options.onSongStart?.(offset); if (started === false) return false; state.songResults = undefined; state.minimized = true; dirty = true; return true; },
-    onPreview: async () => { await options.onSongPreview?.(); },
+    onStart: async (song, offset) => { const started = await options.onSongStart?.(song, offset); if (started === false) return false; state.songResults = undefined; state.minimized = true; dirty = true; return true; },
+    onPreview: async song => { await options.onSongPreview?.(song); },
     onClose: () => options.onSongPreviewStop?.(),
   });
   // Opaque geometry, independent of the alpha-textured navigation and controls.
@@ -103,7 +104,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
   let session: XRSession | null = null, reference: XRReferenceSpace | null = null;
   let placed = false, dirty = true, pedalDirty = false, lastDraw = -Infinity, lastFrame = 0, pressedUntil = 0;
   const coverLoaded = () => { dirty = true; };
-  loveCover.addEventListener('load', coverLoaded);
+  musicCovers.forEach(cover => cover.addEventListener('load', coverLoaded));
   const held = new Set<XRInputSource>(), handledSelect = new Set<XRInputSource>();
   const down = new Map<XRInputSource, boolean>();
   type Gesture = { action: PanelAction; y: number; scroll: number; dragging: boolean };
@@ -340,7 +341,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     },
     dispose() {
       bind(null); mesh.removeFromParent(); geometry.dispose(); mesh.material.dispose(); texture.dispose();
-      detail.dispose(); loveCover.removeEventListener('load', coverLoaded);
+      detail.dispose(); musicCovers.forEach(cover => cover.removeEventListener('load', coverLoaded));
       backingGeometry.dispose(); backing.material.dispose(); handleGeometry.dispose(); handleHitGeometry.dispose(); handleMaterial.dispose();
       pointers.forEach(({ line, dot }) => { line.removeFromParent(); dot.removeFromParent(); });
       pointerGeometry.dispose(); pointerMaterial.dispose(); dotGeometry.dispose(); dotMaterial.dispose();

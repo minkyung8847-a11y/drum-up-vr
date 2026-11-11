@@ -31,7 +31,7 @@ import { attachXRKickInput } from '../pedal/xrKickInput';
 import { createVRUnifiedPanel } from './vrUnifiedPanel';
 import { createSongMedia, songBpmAt } from './songPlayback';
 import type { SongPlayback } from './songPlayback';
-import { createVRMusicAudio, LOVE_ROOT, LOVE_COUNT_IN, validateLoveFullChart } from './vrMusicSong';
+import { createVRMusicAudio, loadVRMusicChart } from './vrMusicSong';
 import type { VRMusicTransport } from './vrMusicSong';
 import { createVRSongCountdown } from './vrSongDetail';
 import { getNoteSyncMs } from './vrNoteSync';
@@ -163,7 +163,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     let highway: ReturnType<typeof createVRNoteHighway> | null = null;
     const musicAudio = createVRMusicAudio();
     const songCountdown = createVRSongCountdown(scene);
-    let loveTransport: VRMusicTransport | null = null;
+    let musicTransport: VRMusicTransport | null = null;
     let musicRequest = 0;
     let scoreMedia: { audio: HTMLAudioElement; url: string; offset: number } | undefined;
     const releaseScoreMedia = () => {
@@ -243,11 +243,11 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     for (const hand of ['left', 'right'] as const) sticks.offsets[hand].rotation.x = THREE.MathUtils.degToRad(12);
     const controllers = createXRDrumstickControllers(renderer.xr, rig);
     const musicPlayer = createVRMusicPlayer(scene, rig, {
-      onToggle: () => { if (loveTransport && isVisibleXR()) highway?.toggle(performance.now()); },
+      onToggle: () => { if (musicTransport && isVisibleXR()) highway?.toggle(performance.now()); },
       onSeek: delta => {
-        if (!loveTransport || !isVisibleXR()) return;
-        const position = THREE.MathUtils.clamp(loveTransport.currentTime-loveTransport.preroll+delta,0,loveTransport.buffer.duration-.02);
-        highway?.seekTo(loveTransport.preroll+position,performance.now());
+        if (!musicTransport || !isVisibleXR()) return;
+        const position = THREE.MathUtils.clamp(musicTransport.currentTime-musicTransport.preroll+delta,0,musicTransport.duration-.02);
+        highway?.seekTo(musicTransport.preroll+position,performance.now());
       },
     });
     const unifiedPanel = createVRUnifiedPanel(scene, rig, kit.group, {
@@ -260,31 +260,29 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       getVolume: () => drumSynth.getVolume(), setVolume: volume => drumSynth.setVolume(volume),
       maxTextureSize: renderer.capabilities.maxTextureSize, maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
       getSongPreview: musicAudio.previewStatus,
-      onNoteSync: milliseconds => { if (loveTransport) highway?.setNoteSyncMs(milliseconds); },
+      onNoteSync: milliseconds => { if (musicTransport) highway?.setNoteSyncMs(milliseconds); },
       onSongPreviewStop: () => { musicRequest++; musicAudio.stopPreview(); },
-      onSongPreview: async () => {
+      onSongPreview: async selectedSong => {
         musicRequest++;
         highway?.stop();
         if (noteLanes) noteLanes.lines.visible = false;
-        await musicAudio.togglePreview();
+        await musicAudio.togglePreview(selectedSong);
       },
-      onSongStart: async chartOffsetSeconds => {
+      onSongStart: async (selectedSong, chartOffsetSeconds) => {
         const request = ++musicRequest;
         musicAudio.stopPreview();
         // Resume synchronously from the actual XR Trigger activation, before fetching.
         await musicAudio.unlock();
-        const [transport, response, openingResponse] = await Promise.all([musicAudio.transport(),
-          fetch(`${LOVE_ROOT}love_full_75_bars_DRAFT.json`), fetch(`${LOVE_ROOT}love_first_4_bars.json`)]);
+        const chart = await loadVRMusicChart(selectedSong);
+        if (disposed || request !== musicRequest || !isVisibleXR() || !noteLanes) return false;
+        const transport = await musicAudio.transport(selectedSong, chartOffsetSeconds);
         try {
-          if (!response.ok) throw Error(`Chart HTTP ${response.status}`);
-          if (!openingResponse.ok) throw Error(`Opening chart HTTP ${openingResponse.status}`);
-          const fullChart = await response.json();
-          const notes = validateLoveFullChart(fullChart, await openingResponse.json()).map(note => ({ ...note, time: note.time + chartOffsetSeconds }));
           if (disposed || request !== musicRequest || !isVisibleXR() || !noteLanes) { transport.dispose(); return false; }
-          highway?.dispose(); loveTransport?.dispose(); loveTransport = transport;
+          const notes = chart.map(note => ({ ...note, time: note.time + chartOffsetSeconds }));
+          highway?.dispose(); musicTransport?.dispose(); musicTransport = transport;
           highway = createVRNoteHighway(scene, rhythmSurfaces, noteLanes.paths,
             (state, judgment) => unifiedPanel.setRhythmStatus(state, judgment), {
-              notes, audio: transport, offset: LOVE_COUNT_IN, windows: { perfect: 50, great: 120 },
+              notes, audio: transport, offset: transport.preroll, windows: { perfect: 50, great: 120 },
               noteSyncMs: getNoteSyncMs(), timingDebug: {
                 contextAt: time => transport.contextTimeAt(time), outputTime: () => transport.outputTime(),
               },
@@ -297,12 +295,12 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
               },
             });
           noteLanes.lines.visible = true;
-          unifiedPanel.setRhythmBpm(62);
-          console.info('[DRUM UP VR MUSIC] love. full score', { notes: notes.length, bars: fullChart.bars, chartOffsetSeconds, transcriptionStatus: fullChart.transcriptionStatus });
+          unifiedPanel.setRhythmBpm(selectedSong.bpm);
+          console.info('[DRUM UP VR MUSIC] Chart loaded', { song: selectedSong.key, notes: notes.length, chartOffsetSeconds });
           console.table(notes.map(note => ({ instrument: note.instrument, chartOffsetSeconds, noteSyncMs: getNoteSyncMs(),
             targetMP3Seconds: note.time + getNoteSyncMs() / 1000,
-            spawnSecondsFromStart: LOVE_COUNT_IN + note.time + getNoteSyncMs() / 1000 - 3,
-            arrivalSecondsFromStart: LOVE_COUNT_IN + note.time + getNoteSyncMs() / 1000 })));
+            spawnSecondsFromStart: Math.max(0, transport.preroll + note.time + getNoteSyncMs() / 1000 - 3),
+            arrivalSecondsFromStart: transport.preroll + note.time + getNoteSyncMs() / 1000 })));
           highway.restart(performance.now());
           return true;
         } catch (error) { transport.dispose(); throw error; }
@@ -312,8 +310,8 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
         if (!isVisibleXR()) return;
         musicRequest++;
         const now = performance.now();
-        if (loveTransport) {
-          musicRequest++; highway?.dispose(); loveTransport.dispose(); loveTransport = null; songCountdown.hide();
+        if (musicTransport) {
+          musicRequest++; highway?.dispose(); musicTransport.dispose(); musicTransport = null; songCountdown.hide();
           highway = createDefaultHighway();
           unifiedPanel.setRhythmBpm(song ? songBpmAt(song.chart, 0) : RHYTHM_BPM);
         }
@@ -464,7 +462,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       viewTransition = null;
       viewFade.visible = false;
       if (!retainedRig) {
-        musicRequest++; loveTransport?.dispose(); loveTransport = null; songCountdown.hide();
+        musicRequest++; musicTransport?.dispose(); musicTransport = null; songCountdown.hide();
         highway?.stop();
         highway?.dispose();
         highway = null;
@@ -794,7 +792,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       if (renderer.xr.isPresenting && frame && reference) seating.update(frame, reference);
       const viewer = frame && reference ? frame.getViewerPose(reference) ?? null : null;
       footPedal.tick(time);
-      musicPlayer.update(loveTransport, unifiedPanel.state.rhythm, renderer.xr.isPresenting && isVisibleXR(), time);
+      musicPlayer.update(musicTransport, unifiedPanel.state.rhythm, renderer.xr.isPresenting && isVisibleXR(), time);
       unifiedPanel.update(session, frame, reference, viewer, time);
       controllers.update(frame);
       if (renderer.xr.isPresenting && viewer) {
@@ -803,11 +801,11 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
         if (!isVisibleXR()) highway?.pause(time);
         noteLanes?.update(time);
         highway?.update(time, headPosition);
-        if (loveTransport && isVisibleXR()) {
+        if (musicTransport && isVisibleXR()) {
           worldViewerQuaternion.setFromRotationMatrix(worldViewerMatrix.fromArray(viewer.transform.matrix).premultiply(rig.matrixWorld));
-          songCountdown.update(loveTransport.currentTime, headPosition, worldViewerQuaternion);
+          songCountdown.update(musicTransport.currentTime, headPosition, worldViewerQuaternion, musicTransport.preroll);
         } else songCountdown.hide();
-        if (song && scoreMedia) unifiedPanel.setRhythmBpm(songBpmAt(song.chart, scoreMedia.audio.currentTime - scoreMedia.offset));
+        if (!musicTransport && song && scoreMedia) unifiedPanel.setRhythmBpm(songBpmAt(song.chart, scoreMedia.audio.currentTime - scoreMedia.offset));
       }
       if (renderer.xr.isPresenting && frame && viewer && audioReady) {
         for (const hand of ['left', 'right'] as const) {
@@ -849,7 +847,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       interaction.dispose();
       hardware.dispose();
       highway?.dispose();
-      musicRequest++; loveTransport?.dispose(); musicAudio.dispose(); songCountdown.dispose();
+      musicRequest++; musicTransport?.dispose(); musicAudio.dispose(); songCountdown.dispose();
       releaseScoreMedia();
       noteLanes?.dispose();
       renderer.setAnimationLoop(null);

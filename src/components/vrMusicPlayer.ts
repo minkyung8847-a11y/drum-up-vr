@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { VRMusicTransport } from './vrMusicSong';
-import { LOVE_ROOT } from './vrMusicSong';
+import type { PlayableVRSong } from './vrMusicSong';
 import type { RhythmState, createVRNoteLanes } from './vrNoteHighway';
 import {createWorldPanelTransform} from './vrWorldPanel';
 export const PLAYER_POSE_KEY='drumup.vr.music-player-pose.v1';
@@ -14,14 +14,14 @@ export function createVRMusicPlayer(scene:THREE.Scene,rig:THREE.Group,options:{o
  const geometry=new THREE.PlaneGeometry(VR_MUSIC_PLAYER.width,VR_MUSIC_PLAYER.height),material=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthTest:false,depthWrite:false,toneMapped:false,side:THREE.DoubleSide});
  const mesh=new THREE.Mesh(geometry,material);mesh.name='vr-music-player';mesh.renderOrder=1004;mesh.visible=false;scene.add(mesh);
  const transform=createWorldPanelTransform(mesh,rig,PLAYER_POSE_KEY);let lastDraw=-Infinity,signature='',dirty=true;
- const cover=new Image();cover.src=`${LOVE_ROOT}cover.jpg`;cover.onload=()=>{dirty=true;};
+ const cover=new Image();cover.onload=()=>{dirty=true;};
  function triangle(x:number,y:number,direction:number){ctx.beginPath();ctx.moveTo(x-12*direction,y-18);ctx.lineTo(x-12*direction,y+18);ctx.lineTo(x+14*direction,y);ctx.closePath();ctx.fill();}
- function draw(position:number,duration:number,paused:boolean){
+ function draw(song:PlayableVRSong,position:number,duration:number,paused:boolean){
   ctx.clearRect(0,0,1152,320);ctx.beginPath();ctx.roundRect(2,2,1148,316,18);ctx.fillStyle='rgba(21,24,33,.68)';ctx.fill();ctx.strokeStyle='rgba(187,195,211,.56)';ctx.lineWidth=2;ctx.stroke();
   const sheen=ctx.createLinearGradient(0,0,0,95);sheen.addColorStop(0,'#b8c5e312');sheen.addColorStop(1,'#b8c5e300');ctx.fillStyle=sheen;ctx.fill();
   ctx.fillStyle='#ffffff12';ctx.fillRect(30,30,94,94);if(cover.complete&&cover.naturalWidth)ctx.drawImage(cover,30,30,94,94);
-  ctx.textAlign='left';ctx.fillStyle='#f1f3f8';ctx.font='600 34px Arial, "Malgun Gothic", sans-serif';ctx.fillText('사랑으로 (love.)',150,70,920);
-  ctx.font='25px Arial';ctx.fillStyle='#bdc4d1';ctx.fillText('wave to earth',150,109);
+  ctx.textAlign='left';ctx.fillStyle='#f1f3f8';ctx.font='600 34px Arial, "Malgun Gothic", sans-serif';ctx.fillText(song.title,150,70,920);
+  ctx.font='25px Arial, "Malgun Gothic", sans-serif';ctx.fillStyle='#bdc4d1';ctx.fillText(song.artist,150,109);
   ctx.font='23px Arial';ctx.fillStyle='#d5dbe5';ctx.fillText(clock(position),44,151);ctx.textAlign='right';ctx.fillText(clock(duration),1108,151);
   ctx.beginPath();ctx.roundRect(44,166,1064,7,3);ctx.fillStyle='#b8c0d02b';ctx.fill();
   const progress=duration>0?THREE.MathUtils.clamp(position/duration,0,1):0;if(progress>0){ctx.beginPath();ctx.roundRect(44,166,Math.max(2,1064*progress),7,3);ctx.fillStyle='#dce2ec';ctx.fill();}
@@ -35,8 +35,9 @@ export function createVRMusicPlayer(scene:THREE.Scene,rig:THREE.Group,options:{o
   place(layout:ReturnType<typeof createVRNoteLanes>['layout']){const eye=new THREE.Vector3(0,1.35,1);if(!transform.load(eye)){mesh.position.set(layout.centreX,layout.y+.60,layout.z+.12);mesh.quaternion.identity();mesh.scale.setScalar(1);}mesh.updateWorldMatrix(true,true);},
   update(transport:VRMusicTransport|null,state:RhythmState,immersive:boolean,now:number){
    if(!transport||!immersive||!['playing','paused'].includes(state)||transport.currentTime<transport.preroll){mesh.visible=false;transform.finish();return;}mesh.visible=true;
-   const position=THREE.MathUtils.clamp(transport.currentTime-transport.preroll,0,transport.buffer.duration),paused=state==='paused'||transport.paused;
-   const next=`${Math.floor(position*10)}:${paused}:${transport.buffer.duration}:${!!transform.input}`;if((dirty||next!==signature)&&now-lastDraw>=100){draw(position,transport.buffer.duration,paused);signature=next;lastDraw=now;}
+   if(cover.getAttribute('src')!==transport.song.cover)cover.src=transport.song.cover;
+   const position=THREE.MathUtils.clamp(transport.currentTime-transport.preroll,0,transport.duration),paused=state==='paused'||transport.paused;
+   const next=`${transport.song.key}:${Math.floor(position*10)}:${paused}:${transport.duration}:${!!transform.input}`;if((dirty||next!==signature)&&now-lastDraw>=100){draw(transport.song,position,transport.duration,paused);signature=next;lastDraw=now;}
   },
   hit(ray:THREE.Raycaster){if(!mesh.visible)return null;mesh.updateWorldMatrix(true,false);const hit=ray.intersectObject(mesh,false)[0];if(!hit?.uv)return null;
    const x=hit.uv.x*1152,y=(1-hit.uv.y)*320,index=PLAYER_BUTTONS.findIndex(b=>x>=b.x&&x<=b.x+b.width&&y>=b.y&&y<=b.y+b.height);return index>=0?{hit,index}:null;

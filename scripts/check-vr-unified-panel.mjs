@@ -95,18 +95,18 @@ try {
     const hitsBefore = window.hits.length;
     click(204, 338); const all = state.genre === 'All';
     click(308, 338); const pop = state.genre === 'Pop';
-    click(350, 510); const selectedPop = state.song === 4;
+    click(350, 510); const selectedPop = state.song === 5;
     click(130, 338); aim(400, 650);
     inputs[1].gamepad.axes[3] = 1; session.step(100); inputs[1].gamepad.axes[3] = 0;
-    const stickScroll = state.scroll === 240;
-    click(340, 818); const lastSong = state.song === 8;
+    const stickScroll = state.scroll === 320;
+    click(340, 818); const lastSong = state.song === 9;
     // Drag upward to scroll, using the left controller's front Trigger.
     click(432, 106); const practiceTab = state.tab === 'PRACTICE';
     click(700, 450); const rudiment = state.practice === 'RUDIMENT';
     click(200, 106); aim(400, 500, inputs[0]);
     inputs[0].gamepad.buttons[0].pressed = true; inputs[0].gamepad.buttons[0].value = 1; session.step();
     aim(400, 760, inputs[0]); inputs[0].gamepad.buttons[0].pressed = false; inputs[0].gamepad.buttons[0].value = 0; session.step();
-    const dragScroll = state.scroll < 40 && state.song === 8;
+    const dragScroll = state.scroll < 80 && state.song === 9;
     click(656, 106); click(180, 480);
     const concert = state.background === 'concert' && get('concert-stage-environment').visible;
     click(490, 480);

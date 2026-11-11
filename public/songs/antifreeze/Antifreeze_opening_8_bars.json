@@ -1,0 +1,822 @@
+{
+  "id": "antifreeze_the_black_skirts",
+  "title": "Antifreeze",
+  "artist": "검정치마 (The Black Skirts)",
+  "bpm": 128,
+  "timeSignature": "4/4",
+  "difficulty": 2,
+  "audio": "audio.mp3",
+  "cover": "cover.jpg",
+  "sourceScore": "Antifreeze - 악보바다.pdf",
+  "audioOffsetMs": 740,
+  "status": "opening_practice",
+  "transcription": {
+    "scope": "opening_8_bars_only",
+    "accuracy": "Opening eight bars reviewed against page 1 of the source score",
+    "remainingBars": "not transcribed",
+    "repeatSigns": "not expanded"
+  },
+  "noteTimeUnit": "seconds",
+  "notes": [
+    {
+      "timeSec": 0,
+      "bar": 1,
+      "beat": 1,
+      "lane": "hihat",
+      "instrument": "open_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 0,
+      "bar": 1,
+      "beat": 1,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 0.234375,
+      "bar": 1,
+      "beat": 1.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 0.46875,
+      "bar": 1,
+      "beat": 2,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 0.46875,
+      "bar": 1,
+      "beat": 2,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 0.703125,
+      "bar": 1,
+      "beat": 2.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 0.9375,
+      "bar": 1,
+      "beat": 3,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 1.171875,
+      "bar": 1,
+      "beat": 3.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 1.171875,
+      "bar": 1,
+      "beat": 3.5,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 1.40625,
+      "bar": 1,
+      "beat": 4,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 1.40625,
+      "bar": 1,
+      "beat": 4,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 1.640625,
+      "bar": 1,
+      "beat": 4.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 1.875,
+      "bar": 2,
+      "beat": 1,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 1.875,
+      "bar": 2,
+      "beat": 1,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 2.109375,
+      "bar": 2,
+      "beat": 1.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 2.109375,
+      "bar": 2,
+      "beat": 1.5,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 2.34375,
+      "bar": 2,
+      "beat": 2,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 2.34375,
+      "bar": 2,
+      "beat": 2,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 2.578125,
+      "bar": 2,
+      "beat": 2.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 2.8125,
+      "bar": 2,
+      "beat": 3,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 3.046875,
+      "bar": 2,
+      "beat": 3.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 3.046875,
+      "bar": 2,
+      "beat": 3.5,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 3.28125,
+      "bar": 2,
+      "beat": 4,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 3.28125,
+      "bar": 2,
+      "beat": 4,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 3.515625,
+      "bar": 2,
+      "beat": 4.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 3.75,
+      "bar": 3,
+      "beat": 1,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 3.75,
+      "bar": 3,
+      "beat": 1,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 3.984375,
+      "bar": 3,
+      "beat": 1.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 4.21875,
+      "bar": 3,
+      "beat": 2,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 4.21875,
+      "bar": 3,
+      "beat": 2,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 4.453125,
+      "bar": 3,
+      "beat": 2.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 4.6875,
+      "bar": 3,
+      "beat": 3,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 4.921875,
+      "bar": 3,
+      "beat": 3.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 4.921875,
+      "bar": 3,
+      "beat": 3.5,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 5.15625,
+      "bar": 3,
+      "beat": 4,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 5.15625,
+      "bar": 3,
+      "beat": 4,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 5.390625,
+      "bar": 3,
+      "beat": 4.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 5.625,
+      "bar": 4,
+      "beat": 1,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 5.625,
+      "bar": 4,
+      "beat": 1,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 5.859375,
+      "bar": 4,
+      "beat": 1.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 5.859375,
+      "bar": 4,
+      "beat": 1.5,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 6.09375,
+      "bar": 4,
+      "beat": 2,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 6.09375,
+      "bar": 4,
+      "beat": 2,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 6.328125,
+      "bar": 4,
+      "beat": 2.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 6.5625,
+      "bar": 4,
+      "beat": 3,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 6.796875,
+      "bar": 4,
+      "beat": 3.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 6.796875,
+      "bar": 4,
+      "beat": 3.5,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 7.03125,
+      "bar": 4,
+      "beat": 4,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 7.03125,
+      "bar": 4,
+      "beat": 4,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 7.265625,
+      "bar": 4,
+      "beat": 4.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 7.5,
+      "bar": 5,
+      "beat": 1,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 7.5,
+      "bar": 5,
+      "beat": 1,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 7.734375,
+      "bar": 5,
+      "beat": 1.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 7.96875,
+      "bar": 5,
+      "beat": 2,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 7.96875,
+      "bar": 5,
+      "beat": 2,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 8.203125,
+      "bar": 5,
+      "beat": 2.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 8.4375,
+      "bar": 5,
+      "beat": 3,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 8.671875,
+      "bar": 5,
+      "beat": 3.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 8.671875,
+      "bar": 5,
+      "beat": 3.5,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 8.90625,
+      "bar": 5,
+      "beat": 4,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 8.90625,
+      "bar": 5,
+      "beat": 4,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 9.140625,
+      "bar": 5,
+      "beat": 4.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 9.375,
+      "bar": 6,
+      "beat": 1,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 9.375,
+      "bar": 6,
+      "beat": 1,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 9.609375,
+      "bar": 6,
+      "beat": 1.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 9.609375,
+      "bar": 6,
+      "beat": 1.5,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 9.84375,
+      "bar": 6,
+      "beat": 2,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 9.84375,
+      "bar": 6,
+      "beat": 2,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 10.078125,
+      "bar": 6,
+      "beat": 2.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 10.3125,
+      "bar": 6,
+      "beat": 3,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 10.546875,
+      "bar": 6,
+      "beat": 3.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 10.546875,
+      "bar": 6,
+      "beat": 3.5,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 10.78125,
+      "bar": 6,
+      "beat": 4,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 10.78125,
+      "bar": 6,
+      "beat": 4,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 11.015625,
+      "bar": 6,
+      "beat": 4.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 11.25,
+      "bar": 7,
+      "beat": 1,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 11.25,
+      "bar": 7,
+      "beat": 1,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 11.484375,
+      "bar": 7,
+      "beat": 1.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 11.71875,
+      "bar": 7,
+      "beat": 2,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 11.71875,
+      "bar": 7,
+      "beat": 2,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 11.953125,
+      "bar": 7,
+      "beat": 2.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 12.1875,
+      "bar": 7,
+      "beat": 3,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 12.421875,
+      "bar": 7,
+      "beat": 3.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 12.421875,
+      "bar": 7,
+      "beat": 3.5,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 12.65625,
+      "bar": 7,
+      "beat": 4,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 12.65625,
+      "bar": 7,
+      "beat": 4,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 12.890625,
+      "bar": 7,
+      "beat": 4.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 13.125,
+      "bar": 8,
+      "beat": 1,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 13.125,
+      "bar": 8,
+      "beat": 1,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 13.359375,
+      "bar": 8,
+      "beat": 1.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 13.359375,
+      "bar": 8,
+      "beat": 1.5,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 13.59375,
+      "bar": 8,
+      "beat": 2,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 13.59375,
+      "bar": 8,
+      "beat": 2,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 13.828125,
+      "bar": 8,
+      "beat": 2.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 14.0625,
+      "bar": 8,
+      "beat": 3,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 14.296875,
+      "bar": 8,
+      "beat": 3.5,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 14.296875,
+      "bar": 8,
+      "beat": 3.5,
+      "lane": "kick",
+      "instrument": "kick",
+      "velocity": 95
+    },
+    {
+      "timeSec": 14.53125,
+      "bar": 8,
+      "beat": 4,
+      "lane": "hihat",
+      "instrument": "closed_hihat",
+      "velocity": 75
+    },
+    {
+      "timeSec": 14.53125,
+      "bar": 8,
+      "beat": 4,
+      "lane": "snare",
+      "instrument": "snare",
+      "velocity": 90
+    },
+    {
+      "timeSec": 14.765625,
+      "bar": 8,
+      "beat": 4.5,
+      "lane": "hihat",
+      "instrument": "open_hihat",
+      "velocity": 75
+    }
+  ]
+}

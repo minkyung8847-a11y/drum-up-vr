@@ -3,7 +3,7 @@ import {DRUM_HEIGHT} from './vrDrumHeight';
 import type { FootPedalState } from '../pedal/footPedal';
 import { DRUM_ENVIRONMENTS } from './drumEnvironments';
 import type { DrumEnvironmentId } from './drumEnvironments';
-import { LOVE_ROOT, LOVE_SONG } from './vrMusicSong';
+import { ANTIFREEZE_SONG, LOVE_SONG } from './vrMusicSong';
 
 // Canvas drawing and UV raycasting share these bounds.
 export const FOOT_PEDAL_LAYOUT = {
@@ -17,6 +17,7 @@ export const PANEL_GENRES = ['All', 'Pop', 'Rock', 'Band', 'K-Pop', 'My Song'] a
 export const SONG_LIST = { x: 50, y: 388, width: 922, height: 480, row: 80 };
 export const DEMO_SONGS = [
   LOVE_SONG,
+  ANTIFREEZE_SONG,
   { title: 'Shape of You', artist: 'Ed Sheeran', difficulty: 'Normal', stars: 4, genres: ['Pop'], art: 0 },
   { title: 'Believer', artist: 'Imagine Dragons', difficulty: 'Hard', stars: 3, genres: ['Rock', 'Band'], art: 1 },
   { title: 'Back In Black', artist: 'AC/DC', difficulty: 'Hard', stars: 2, genres: ['Rock', 'Band'], art: 2 },
@@ -188,8 +189,12 @@ function album(index: number) {
   return canvas;
 }
 const albumCache: HTMLCanvasElement[] = [];
-export const loveCover = new Image();
-loveCover.src = `${LOVE_ROOT}cover.jpg`;
+const songCovers = new Map([LOVE_SONG, ANTIFREEZE_SONG].map(song => {
+  const cover = new Image();
+  cover.src = song.cover;
+  return [song.key, cover] as const;
+}));
+export const musicCovers = Array.from(songCovers.values());
 function card(ctx: CanvasRenderingContext2D, state: UnifiedPanelState, key: string, x: number, y: number, w: number, h: number, selected: boolean, radius = 15) {
   rounded(ctx, x, y, w, h, radius); ctx.fillStyle = metal(ctx, y, h, selected); ctx.fill();
   ctx.strokeStyle = selected ? '#edf0f8' : state.hover === key ? '#aeb6c5' : '#666c7855'; ctx.lineWidth = selected ? 1.5 : 1; ctx.stroke();
@@ -260,9 +265,10 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
       } else if (state.hover === `song-${song.id}`) { ctx.fillStyle = '#ffffff08'; ctx.fillRect(51, y, 920, 80); }
       if (!albumCache[song.art]) albumCache[song.art] = album(song.art % 8);
       ctx.save(); rounded(ctx, 88, y + 4, 72, 72, 9); ctx.clip();
-      ctx.drawImage(song.art === 8 && loveCover.complete && loveCover.naturalWidth ? loveCover : albumCache[song.art], 88, y + 4, 72, 72); ctx.restore();
+      const cover = 'key' in song ? songCovers.get(song.key) : undefined;
+      ctx.drawImage(cover?.complete && cover.naturalWidth ? cover : albumCache[song.art], 88, y + 4, 72, 72); ctx.restore();
       ctx.textAlign = 'left'; ctx.fillStyle = '#f2f3f6'; ctx.font = '600 24px Arial'; ctx.fillText(song.title, 204, y + 32, 430);
-      ctx.fillStyle = '#c1c4ce'; ctx.font = '400 21px Arial'; ctx.fillText(song.artist, 204, y + 62, 430);
+      ctx.fillStyle = '#c1c4ce'; ctx.font = '400 21px Arial, "Malgun Gothic", sans-serif'; ctx.fillText(song.artist, 204, y + 62, 430);
       ctx.textAlign = 'center'; ctx.fillStyle = '#e0e2e8'; ctx.font = '400 21px Arial'; ctx.fillText(song.difficulty, 692, y + 47);
       stars(ctx, song.stars, y + 42);
       if (!selected) { const line = ctx.createLinearGradient(90, 0, 966, 0); line.addColorStop(0, '#bcc5db00'); line.addColorStop(.4, '#a6aec044'); line.addColorStop(1, '#bcc5db00'); ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(90, y + 79.5); ctx.lineTo(966, y + 79.5); ctx.stroke(); }
