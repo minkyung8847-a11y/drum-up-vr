@@ -4,25 +4,30 @@ import type { StickHand } from '../components/virtualDrumsticks';
 // not a second gamepad poller, so each press has one input path.
 export function attachXRKickInput(session: XRSession, enabled: () => boolean,
   trigger: (velocity: number, hand?: StickHand) => boolean, pulse: (hand: StickHand, velocity: number) => void,
-  setHiHatClosed: (closed: boolean) => void = () => {}) {
+  setHiHatClosed: (closed: boolean) => void = () => {},
+  interceptGrip?: (event: XRInputSourceEvent, phase: 'start' | 'end') => boolean) {
   const held = new Set<XRInputSource>();
+  const intercepted = new Set<XRInputSource>();
   setHiHatClosed(false);
   const press = (event: XRInputSourceEvent) => {
     const source = event.inputSource;
     if (!enabled() || source.hand || !source.gripSpace || source.targetRayMode !== 'tracked-pointer'
       || session.visibilityState !== 'visible' || (source.handedness !== 'left' && source.handedness !== 'right')) return;
-    if (held.has(source)) return;
+    if (held.has(source) || intercepted.has(source)) return;
+    if (interceptGrip?.(event, 'start')) { intercepted.add(source); return; }
     held.add(source);
     if (source.handedness === 'left') setHiHatClosed(true);
     else if (trigger(1, 'right')) pulse('right', 1);
   };
   const release = (event: XRInputSourceEvent) => {
+    if (intercepted.delete(event.inputSource)) { interceptGrip?.(event, 'end'); return; }
     if (held.delete(event.inputSource) && event.inputSource.handedness === 'left') setHiHatClosed(false);
   };
-  const reset = () => { held.clear(); setHiHatClosed(false); };
+  const reset = () => { held.clear(); intercepted.clear(); setHiHatClosed(false); };
   const visibility = () => { if (session.visibilityState !== 'visible') reset(); };
   const sourcesChanged = (event: XRInputSourcesChangeEvent) => {
     for (const source of event.removed) {
+      intercepted.delete(source);
       if (held.delete(source) && source.handedness === 'left') setHiHatClosed(false);
     }
   };

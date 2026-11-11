@@ -64,6 +64,9 @@ try {
   await page.getByRole('button', { name: 'Enter VR', exact: true }).click();
   await page.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
   await page.evaluate(installUnifiedPanelControls);
+  await page.evaluate(() => window.testXR.step(15));
+  await page.waitForFunction(() => ['left', 'right'].every(hand =>
+    window.scene.getObjectByName(`vr-tutorial-controller-${hand}`)?.children.length));
   const result = await page.evaluate(() => {
     const { T, scene, testXR: session } = window;
     const left = session.connect('left'), right = session.connect('right');
@@ -79,13 +82,15 @@ try {
       try { performance.now = () => session.time; session.step(count, 30); }
       finally { performance.now = actual; }
     };
-    const click = x => {
-      const { width, height } = panel.geometry.parameters;
-      const point = panel.localToWorld(new T.Vector3((x / 1200 - .5) * width, (.5 - 343 / 403) * height, 0));
+    const aim = point => {
       const origin = new T.Vector3(.25, 1.15, .86);
       right.targetRaySpace.position = rig.worldToLocal(origin.clone()).toArray();
       right.targetRaySpace.quaternion = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 0, -1), point.sub(origin).normalize()).toArray();
       frame(2);
+    };
+    const click = x => {
+      const { width, height } = panel.geometry.parameters;
+      aim(panel.localToWorld(new T.Vector3((x / 1200 - .5) * width, (.5 - 343 / 403) * height, 0)));
       right.gamepad.buttons[0].pressed = true;
       right.gamepad.buttons[0].value = 1;
       frame();
@@ -105,14 +110,27 @@ try {
     click(445); steps.push(panel.userData.step);
     click(445); steps.push(panel.userData.step);
     const hatRing = highlighted('hihat');
+    const rightModel = scene.getObjectByName('vr-tutorial-controller-right');
+    const leftModel = scene.getObjectByName('vr-tutorial-controller-left');
+    const rightGuide = rightModel.visible && !leftModel.visible && scene.getObjectByName('vr-tutorial-guide-line-right').visible;
     click(445); steps.push(panel.userData.step);
     const snareRing = highlighted('snare');
+    const leftGuide = leftModel.visible && !rightModel.visible && scene.getObjectByName('vr-tutorial-guide-line-left').visible;
     click(445); steps.push(panel.userData.step);
     const tomRing = highlighted('smallTom');
+    const bothGuides = leftModel.visible && rightModel.visible;
     frame(31);
     const nextTom = highlighted('middleTom');
     click(445); steps.push(panel.userData.step);
     let demoPerfect = false, demoStick = false;
+    const eye = rig.localToWorld(new T.Vector3(...session.head.position));
+    const elevation = point => {
+      point.sub(eye);
+      return Math.atan2(point.y, Math.hypot(point.x, point.z));
+    };
+    const line = scene.getObjectByName('vr-tutorial-lanes').getObjectByName('vr-judgment-line');
+    const panelBottom = panel.localToWorld(new T.Vector3(0, -panel.geometry.parameters.height / 2, 0));
+    const lineUncovered = elevation(panelBottom) > elevation(line.getWorldPosition(new T.Vector3())) + .07;
     for (let i = 0; i < 29; i++) {
       frame(4);
       demoPerfect ||= feedback() === 'Perfect';
@@ -121,9 +139,16 @@ try {
     click(445); steps.push(panel.userData.step);
     const lift = scene.getObjectByName('cymbal-lift-hihat');
     const open = lift.position.y;
+    frame(21);
+    const automaticHatClosed = lift.position.y < open - .02;
+    frame(26);
+    const automaticHatOpened = Math.abs(lift.position.y - open) < .001;
     window.panelEmit('squeezestart', left);
     frame(7);
     const closed = lift.position.y;
+    const pressedGrip = leftModel.getObjectByName('xr_standard_squeeze_pressed_value');
+    const maxGrip = leftModel.getObjectByName('xr_standard_squeeze_pressed_max');
+    const nativeGripPressed = pressedGrip.quaternion.angleTo(maxGrip.quaternion) < .001;
     window.panelEmit('squeezeend', left);
     frame(7);
     const reopened = lift.position.y;
@@ -131,6 +156,10 @@ try {
     click(445); steps.push(panel.userData.step);
     const kickRing = highlighted('kick');
     const beater = scene.getObjectByName('kick-beater');
+    const beforeAutomaticKick = window.tutorialSounds.filter(sound => sound === 'kick').length;
+    frame(19);
+    const automaticKick = window.tutorialSounds.filter(sound => sound === 'kick').length === beforeAutomaticKick + 1;
+    frame(7);
     const restBeater = beater.quaternion.clone();
     const beforeKick = window.tutorialSounds.filter(sound => sound === 'kick').length;
     window.panelEmit('squeezestart', right);
@@ -147,8 +176,35 @@ try {
     } finally { performance.now = actual; }
     frame(4);
     const pedalKickCount = window.tutorialSounds.filter(sound => sound === 'kick').length - beforeKick - kickCount;
+    const beforeDrag = panel.position.clone();
+    const handle = scene.getObjectByName('vr-tutorial-drag-handle');
+    aim(handle.getWorldPosition(new T.Vector3()));
+    const handleHovered = handle.material.opacity > .9;
+    const kicksBeforeDrag = window.tutorialSounds.filter(sound => sound === 'kick').length;
+    window.panelEmit('squeezestart', right);
+    const [gripX, gripY, gripZ] = right.gripSpace.position;
+    right.gripSpace.position = [gripX + 4, gripY + 4, gripZ + 4];
+    frame(2);
+    const bounded = panel.position.clone().sub(eye);
+    const boundedDrag = -bounded.z >= 1.03 && bounded.x <= -.49 * bounded.z && bounded.y <= -.51 * bounded.z;
+    right.gripSpace.position = [gripX + .17, gripY - .14, gripZ];
+    frame(5);
+    const moved = panel.position.clone();
+    const movedDuringDrag = moved.distanceTo(beforeDrag) > .19;
+    try {
+      performance.now = () => session.time;
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', cancelable: true }));
+      window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', cancelable: true }));
+    } finally { performance.now = actual; }
+    window.panelEmit('squeezeend', right);
+    right.gripSpace.position = [gripX, gripY, gripZ];
+    frame(4);
+    const retainedPosition = panel.position.distanceTo(moved) < .001;
+    const noKickOnDrag = window.tutorialSounds.filter(sound => sound === 'kick').length === kicksBeforeDrag;
     click(445); steps.push(panel.userData.step);
+    const retainedNextStep = panel.position.distanceTo(moved) < .001;
     click(445); steps.push(panel.userData.step);
+    const practiceClear = !leftModel.visible && !rightModel.visible && panel.scale.x < 1;
     const labels = new Set(), notes = new Set();
     let sawMiss = false, earlyNote = false;
     for (let i = 0; i < 112; i++) {
@@ -172,8 +228,10 @@ try {
     const reopenedFromSettings = panel.visible && !hub.visible && panel.userData.step === 'welcome';
     click(750);
     const skipped = hub.visible && !panel.visible && !session.ended;
-    return { firstPrompt, steps, hatRing, snareRing, tomRing, nextTom, demoPerfect, demoStick,
-      closed, open, reopened, gripMarker, kickRing, beaterMoved, kickCount, pedalKickCount, labels: [...labels], notes: [...notes],
+    return { firstPrompt, steps, hatRing, snareRing, tomRing, nextTom, demoPerfect, demoStick, lineUncovered, rightGuide, leftGuide, bothGuides,
+      closed, open, reopened, gripMarker, nativeGripPressed, kickRing, beaterMoved, kickCount, pedalKickCount,
+      automaticHatClosed, automaticHatOpened, automaticKick, handleHovered, boundedDrag, movedDuringDrag,
+      retainedPosition, retainedNextStep, noKickOnDrag, practiceClear, labels: [...labels], notes: [...notes],
       sawMiss, earlyNote, complete, lanesCleared, restored, persisted, reopenedFromSettings, skipped, longAudio: window.longAudio };
   });
   assert.deepEqual(result.steps, ['intro', 'hihat', 'snare', 'other', 'timing', 'hat-grip', 'kick', 'ready', 'practice']);
@@ -187,8 +245,10 @@ try {
   assert.equal(result.pedalKickCount, 1);
   assert.equal(result.longAudio, 0);
   assert.equal(result.earlyNote, false);
-  for (const key of ['firstPrompt', 'hatRing', 'snareRing', 'tomRing', 'nextTom', 'demoPerfect', 'demoStick',
-    'gripMarker', 'kickRing', 'beaterMoved', 'sawMiss', 'complete', 'lanesCleared', 'restored', 'persisted', 'reopenedFromSettings', 'skipped']) {
+  for (const key of ['firstPrompt', 'hatRing', 'snareRing', 'tomRing', 'nextTom', 'demoPerfect', 'demoStick', 'lineUncovered', 'rightGuide', 'leftGuide',
+    'bothGuides', 'gripMarker', 'nativeGripPressed', 'kickRing', 'beaterMoved', 'automaticHatClosed', 'automaticHatOpened', 'automaticKick',
+    'handleHovered', 'boundedDrag', 'movedDuringDrag', 'retainedPosition',
+    'retainedNextStep', 'noKickOnDrag', 'practiceClear', 'sawMiss', 'complete', 'lanesCleared', 'restored', 'persisted', 'reopenedFromSettings', 'skipped']) {
     assert(result[key], `${key}: ${JSON.stringify(result)}`);
   }
   await page.evaluate(() => window.testXR.end());

@@ -13,11 +13,12 @@ import { getNoteSyncMs, setNoteSyncMs } from './vrNoteSync';
 import type { UnifiedPanelState, PanelAction } from './vrUnifiedPanelDesign';
 import { RHYTHM_BPM } from './vrNoteHighway';
 import type { RhythmState } from './vrNoteHighway';
-import type { TutorialAction } from './vrTutorial';
+import type { TutorialAction, TutorialHitAction } from './vrTutorial';
 
 type TutorialOverlay = {
-  hit: (ray: THREE.Raycaster) => { hit: THREE.Intersection; action: TutorialAction } | null;
+  hit: (ray: THREE.Raycaster) => { hit: THREE.Intersection; action: TutorialHitAction } | null;
   activate: (action: TutorialAction) => void;
+  hoverHandle: (hover: boolean) => void;
 };
 
 const WIDTH = 1.26, HEIGHT = WIDTH * PANEL_SIZE.height / PANEL_SIZE.width, RADIUS = 5.5;
@@ -146,7 +147,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     if (overlay) {
       const target = overlay.hit(raycaster);
       return target ? { hit: target.hit, action: { key: `overlay-${target.action}`, kind: 'overlay',
-        index: target.action === 'skip' ? 1 : 0 } as PanelAction, x: 0, y: 0 } : null;
+        index: target.action === 'handle' ? 2 : target.action === 'skip' ? 1 : 0 } as PanelAction, x: 0, y: 0 } : null;
     }
     const playerHit = options.player?.hit(raycaster);
     if (playerHit) return { hit: playerHit.hit, action: { key: `player-${playerHit.index}`, kind: 'player', index: playerHit.index } as PanelAction, x: 0, y: 0 };
@@ -163,7 +164,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     return action ? { hit, action, x, y } : null;
   }
   function activate(action: PanelAction) {
-    if (action.kind === 'overlay') { overlay?.activate(action.index ? 'skip' : 'next'); return; }
+    if (action.kind === 'overlay') { if (action.index !== 2) overlay?.activate(action.index ? 'skip' : 'next'); return; }
     if (action.kind === 'tutorial') { options.onTutorial?.(); return; }
     if(action.kind==='drumHeight'){
       const next=action.index?(state.drumHeight??0)+action.index*DRUM_HEIGHT.step:DRUM_HEIGHT.default;
@@ -303,6 +304,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
       }
     },
     isPointing(hand: StickHand) { return pointing.has(hand); },
+    isTutorialHandle(input: XRInputSource, frame: XRFrame) { return cast(input, frame)?.action.key === 'overlay-handle'; },
     update(next: XRSession | null, frame: XRFrame | undefined, space: XRReferenceSpace | null, viewer: XRViewerPose | null, now: number) {
       bind(next); reference = space;
       detail.update(now, mesh.visible && state.tab === 'MUSIC' && !state.minimized, options.getSongPreview?.() ?? { playing: false, progress: 0 });
@@ -311,7 +313,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
       if ((!mesh.visible && !overlay) || !frame || !space || !viewer || next?.visibilityState !== 'visible') { resetInput(); return; }
       rig.updateWorldMatrix(true, false); world.fromArray(viewer.transform.matrix).premultiply(rig.matrixWorld); eye.setFromMatrixPosition(world);
       if (!overlay && !placed && !loadPose()) placeDefault();
-      let hover = '';
+      let hover = '', handleHovered = false;
       for (const input of next.inputSources) {
         if (input.hand || !input.gripSpace || input.targetRayMode !== 'tracked-pointer'
           || (input.handedness !== 'left' && input.handedness !== 'right')) continue;
@@ -348,6 +350,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
         }
         if (input.handedness === 'left' || input.handedness === 'right') pointing.add(input.handedness);
         hover = target.action.key;
+        handleHovered ||= hover === 'overlay-handle';
         if (gesture && state.tab === 'MUSIC') {
           if (gesture.action.kind === 'scrollbar') setScroll((target.y - 437 - 72) / 226 * maxSongScroll(state));
           else if (Math.abs(target.y - gesture.y) > 10 || gesture.dragging) {
@@ -360,7 +363,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
         }
 
       }
-      if (overlay) return;
+      if (overlay) { overlay.hoverHandle(handleHovered); return; }
       if (hover !== state.hover) { state.hover = hover; dirty = true; }
       handleMaterial.color.setHex(panelTransform.input ? 0xf5f7ff : hover === 'move-0' ? 0xd9deea : 0x858c98);
       if (state.pressed && !held.size && now >= pressedUntil) { state.pressed = ''; dirty = true; }

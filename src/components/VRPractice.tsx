@@ -173,7 +173,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     const triggerKick = createKickTrigger(() => audioReady && drumSynth.isAudioRunning() && !disposed,
       (id, velocity) => interaction.hit(id, velocity));
     const hitDrum = (id: string, velocity = 1, now = performance.now(), hand?: StickHand) => {
-      if (entrance) return false;
+      if (entrance || tutorial.dragging) return false;
       const played = id === 'kick' ? triggerKick(velocity) : interaction.hit(id, velocity);
       if (played && (isVisibleXR() || tutorial.active)) {
         if (hand && isVisibleXR()) controllers.pulse(hand);
@@ -335,12 +335,14 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     let tutorialSeen = hasSeenVRTutorial();
     let tutorialPromptSession: XRSession | null = null;
     let desktopHatPressed = false;
-    const tutorial = createVRTutorial(scene, kit.hitSurfaces, songCountdown, {
+    const tutorial = createVRTutorial(scene, rig, kit.hitSurfaces, songCountdown, {
       onView: (view, desktop) => {
         setTutorialOpen(!!view);
         if (desktop) setTutorialView(view);
       },
       onDemoHit: () => { if (audioReady) interaction.hit('hihat', .65); },
+      onDemoKick: () => { if (audioReady) interaction.hit('kick', .55); },
+      onHiHatPreview: closed => { interaction.setHiHatClosed(closed, false); },
       onClose: completed => {
         tutorialSeen ||= completed;
         if (desktopHatPressed) {
@@ -837,7 +839,19 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
         session?.addEventListener('squeezestart', unlockControllerAudio);
         detachKickInput = session ? attachXRKickInput(session, () => true,
           (velocity, hand) => controllerKick.current && pedalGripGate('grip', () => hitDrum('kick', velocity, performance.now(), hand)), () => {},
-          closed => { interaction.setHiHatClosed(closed, false); tutorial.setClosed(closed); }) : () => {};
+          closed => { interaction.setHiHatClosed(closed, false); tutorial.setClosed(closed); },
+          (event, edge) => {
+            if (edge === 'end') {
+              if (tutorial.dragging) controllers.resetSamples();
+              tutorial.endGrab(event.inputSource);
+              return true;
+            }
+            if (tutorial.dragging) return true;
+            if (!tutorial.active || !unifiedPanel.isTutorialHandle(event.inputSource, event.frame)) return false;
+            tutorial.beginGrab(event.inputSource, event.frame, renderer.xr.getReferenceSpace());
+            controllers.resetSamples();
+            return true;
+          }) : () => {};
       }
       const reference = renderer.xr.getReferenceSpace();
       if (reference !== referenceSpace) {
@@ -863,8 +877,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
           worldViewerQuaternion.setFromRotationMatrix(worldViewerMatrix.fromArray(viewer.transform.matrix).premultiply(rig.matrixWorld));
         }
         if (tutorial.active) {
-          tutorial.update(time, delta, headPosition, worldViewerQuaternion, isVisibleXR(),
-            hand => controllers.tipSamples[hand].valid ? controllers.tipSamples[hand].grip : undefined);
+          tutorial.update(time, delta, headPosition, worldViewerQuaternion, isVisibleXR(), frame, reference);
         } else {
           if (!isVisibleXR()) highway?.pause(time);
           noteLanes?.update(time);
@@ -877,11 +890,11 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       } else if (!renderer.xr.isPresenting && tutorial.active) {
         camera.getWorldPosition(headPosition);
         camera.getWorldQuaternion(worldViewerQuaternion);
-        tutorial.update(time, delta, headPosition, worldViewerQuaternion, document.visibilityState === 'visible', () => undefined);
+        tutorial.update(time, delta, headPosition, worldViewerQuaternion, document.visibilityState === 'visible');
       } else if (tutorial.active) tutorial.suspend();
       if (renderer.xr.isPresenting && frame && viewer && audioReady) {
         for (const hand of ['left', 'right'] as const) {
-          const overPanel = unifiedPanel.isPointing(hand);
+          const overPanel = tutorial.dragging || unifiedPanel.isPointing(hand);
           if (overPanel !== panelPointerWasActive[hand]) collisions.reset(hand);
           panelPointerWasActive[hand] = overPanel;
           if (overPanel) { collisions.suspend(hand); continue; }

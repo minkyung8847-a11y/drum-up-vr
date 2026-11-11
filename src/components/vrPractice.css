@@ -19,21 +19,21 @@
 .vr-practice.is-tutorial .vr-practice-controls { visibility: hidden; }
 .vr-tutorial-desktop {
   position: absolute;
-  inset: clamp(12px, 4vh, 36px) 0 auto;
-  width: min(620px, calc(100% - 24px));
+  inset: clamp(8px, 2vh, 18px) 0 auto;
+  width: min(440px, calc(100% - 24px));
   margin-inline: auto;
-  padding: 16px 20px;
+  padding: 10px 14px;
   border: 1px solid #aab2bf75;
   border-radius: 6px;
-  background: #17191eea;
+  background: #21242be8;
   text-align: center;
   color: #fff;
   animation: vr-tutorial-in .18s ease-out both;
 }
-.vr-tutorial-desktop h2 { margin: 0 0 9px; font-size: clamp(16px, 3vw, 23px); letter-spacing: .045em; }
-.vr-tutorial-desktop p { margin: 6px 0; line-height: 1.45; font-size: 15px; }
+.vr-tutorial-desktop h2 { margin: 0 0 5px; font-size: clamp(16px, 3vw, 22px); letter-spacing: .045em; }
+.vr-tutorial-desktop p { margin: 4px 0; line-height: 1.4; font-size: 15px; }
 .vr-tutorial-desktop .vr-tutorial-desktop-hint { color: #d3d8e0; font-size: 13px; }
-.vr-tutorial-desktop-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 9px; margin-top: 12px; }
+.vr-tutorial-desktop-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .vr-tutorial-desktop-actions button {
   min-height: 40px;
   padding: 6px 18px;
