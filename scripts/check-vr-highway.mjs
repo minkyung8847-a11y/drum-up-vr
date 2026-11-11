@@ -1,3 +1,4 @@
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
@@ -17,7 +18,7 @@ try {
     version: 1, instruments: Object.fromEntries(['kick', 'snare', 'hihat', 'smallTom', 'middleTom', 'floorTom', 'crash', 'ride']
       .map(id => [id, { position: [9, 9, 9], quaternion: [0, 0, 0, 1] }])),
   })));
-  await page.goto(`${vite.resolvedUrls.local[0]}#/vr`);
+  await openVRPractice(page, `${vite.resolvedUrls.local[0]}#/vr`);
   await page.getByRole('status').filter({ hasText: 'Click to play' }).waitFor();
   await page.evaluate(async () => {
     const url = performance.getEntriesByType('resource').find(entry => /\/three\.js\?/.test(entry.name)).name;

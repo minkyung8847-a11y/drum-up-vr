@@ -1,3 +1,4 @@
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 import assert from 'node:assert/strict';
 import { preview } from 'vite';
 import { chromium } from 'playwright';
@@ -14,7 +15,7 @@ try {
   const vr = await browser.newPage(), laptop = await browser.newPage();
   const errors = [];
   for (const page of [vr, laptop]) { page.setDefaultTimeout(30_000); page.on('pageerror', error => errors.push(error.message)); }
-  await vr.goto(`${origin}/drum-up-vr/#/vr`);
+  await openVRPractice(vr, `${origin}/drum-up-vr/#/vr`);
   await vr.getByRole('status').filter({ hasText: 'Click to play' }).waitFor();
   await vr.getByRole('button', { name: 'VR pedals', exact: true }).click();
   await vr.getByLabel('릴레이 서버 주소', { exact: true }).fill(endpoint);

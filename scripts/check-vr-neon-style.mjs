@@ -1,7 +1,8 @@
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 import assert from 'node:assert/strict';import {chromium} from 'playwright';import {createServer} from 'vite';import {writeFile} from 'node:fs/promises';import {join} from 'node:path';import {tmpdir} from 'node:os';
 const vite=await createServer({server:{host:'127.0.0.1',port:0}});await vite.listen();let browser;
 try{
- browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});await page.goto(`${vite.resolvedUrls.local[0]}#/vr`);await page.locator('.vr-practice-hint').filter({hasText:'Click to play'}).waitFor({timeout:30000});
+ browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});await openVRPractice(page, `${vite.resolvedUrls.local[0]}#/vr`);await page.locator('.vr-practice-hint').filter({hasText:'Click to play'}).waitFor({timeout:30000});
  const result=await page.evaluate(async()=>{
   const T=await import(performance.getEntriesByType('resource').find(e=>/\/three\.js\?/.test(e.name)).name),{createRestoredVRDrumSet}=await import('/src/components/restoredVRDrumSet.ts'),{createVRDrumInteraction}=await import('/src/components/vrDrumInteraction.ts'),{captureRhythmSurfaces,createVRNoteLanes}=await import('/src/components/vrNoteHighway.ts'),{DRUM_ACCENTS}=await import('/src/components/vrLaneConfig.ts'),{softNeonColor}=await import('/src/components/vrNeonStyle.ts');
   const scene=new T.Scene(),kit=createRestoredVRDrumSet(scene),surfaces=captureRhythmSurfaces(kit.hitSurfaces),before=kit.group.position.toArray(),feedback=createVRDrumInteraction(kit),lanes=createVRNoteLanes(surfaces,new T.Vector3(0,1.35,1));scene.add(lanes.lines);

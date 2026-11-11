@@ -1,3 +1,4 @@
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 
@@ -8,7 +9,7 @@ try {
   await page.addInitScript(() => localStorage.setItem('drumup_vr_environment', 'studio'));
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto(`${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);
+  await openVRPractice(page, `${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);
   await page.locator('.vr-practice-stage canvas').waitFor();
   if (await page.getByRole('button', { name: 'Pause demo', exact: true }).count()) await page.getByRole('button', { name: 'Pause demo', exact: true }).click();
   await page.getByText('Stick setup', { exact: true }).click();
@@ -114,7 +115,7 @@ try {
       requestSession: async () => { throw new Error('Test headset unavailable'); },
     } });
   });
-  await denied.goto(`${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);
+  await openVRPractice(denied, `${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);
   await denied.getByRole('button', { name: 'Enter VR', exact: true }).click();
   await denied.getByText('Could not enter VR: Test headset unavailable', { exact: true }).waitFor();
   assert(await denied.getByRole('button', { name: 'Enter VR', exact: true }).isEnabled(), 'Rejected sessions remain retryable');

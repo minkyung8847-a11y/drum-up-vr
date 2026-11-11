@@ -35,12 +35,20 @@ import { createVRMusicAudio, LOVE_ROOT, LOVE_COUNT_IN, validateLoveFullChart } f
 import type { VRMusicTransport } from './vrMusicSong';
 import { createVRSongCountdown } from './vrSongDetail';
 import { getNoteSyncMs } from './vrNoteSync';
+import { Glasses } from 'lucide-react';
+import { createVREntrance, hasSeenVREntrance } from './vrEntrance';
 import './vrPractice.css';
 
 type XRMode = 'vr' | 'ar';
 
 export default function VRPractice({ preferredMode = 'vr', song }: { preferredMode?: XRMode; song?: SongPlayback }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const portalButton = useRef<HTMLButtonElement>(null);
+  const enterPortal = useRef<() => void>(() => {});
+  const highlightPortal = useRef<(highlighted: boolean) => void>(() => {});
+  const [entranceActive, setEntranceActive] = useState(() => preferredMode === 'vr' && !song && !hasSeenVREntrance());
+  const [portalReady, setPortalReady] = useState(false);
+  const [portalMoving, setPortalMoving] = useState(false);
   const resetRef = useRef<() => void>(() => {});
   const kickRef = useRef<(velocity: number) => boolean>(() => false);
   const kickDebugRef = useRef<(state: PedalState) => void>(() => {});
@@ -69,6 +77,16 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     if (!host) return;
 
     const scene = new THREE.Scene();
+    let entrance = preferredMode === 'vr' && !song && !hasSeenVREntrance() ? createVREntrance(scene, () => {
+      void drumSynth.unlock();
+      setPortalReady(false);
+      setPortalMoving(true);
+    }) : null;
+    enterPortal.current = () => entrance?.enter();
+    highlightPortal.current = highlighted => {
+      if (highlighted) entrance?.highlightPointer();
+      else entrance?.clearPointer();
+    };
     const kickDebug = LOCAL_KICK_ENABLED && preferredMode === 'vr' ? createLocalKickDebug(scene) : null;
     if (kickDebug) kickDebugRef.current = kickDebug.update;
     const vrBackground = new THREE.Color(0x101114);
@@ -162,6 +180,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     const triggerKick = createKickTrigger(() => audioReady && drumSynth.isAudioRunning() && !disposed,
       (id, velocity) => interaction.hit(id, velocity));
     const hitDrum = (id: string, velocity = 1, now = performance.now(), hand?: StickHand) => {
+      if (entrance) return false;
       const played = id === 'kick' ? triggerKick(velocity) : interaction.hit(id, velocity);
       if (played && isVisibleXR()) {
         if (hand) controllers.pulse(hand);
@@ -181,6 +200,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       return visible && playPedalKick(velocity);
     };
     hiHatRef.current = pressed => {
+      if (entrance) return false;
       const session = renderer.xr.getSession();
       const visible = session ? session.visibilityState === 'visible' : document.visibilityState === 'visible';
       interaction.setHiHatClosed(visible && pressed);
@@ -320,7 +340,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     const footPedal = createFootPedal(window, {
       active: () => {
         const session = renderer.xr.getSession();
-        return !disposed && (session ? session.visibilityState === 'visible' : document.visibilityState === 'visible');
+        return !disposed && !entrance && (session ? session.visibilityState === 'visible' : document.visibilityState === 'visible');
       },
       kick: () => {
         const strike = () => pedalGripGate('pedal', () => kickRef.current(1));
@@ -387,6 +407,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         : 'VR · 가상공간에서 드럼을 연주합니다.');
     };
     const startXR = () => {
+      renderer.xr.getSession()?.addEventListener('select', selectPortal);
       footPedal.setImmersive(true);
       renderer.domElement.tabIndex = -1; renderer.domElement.focus({ preventScroll: true });
       cancelLook();
@@ -433,6 +454,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       setImmersive(true);
     };
     const endXR = () => {
+      rhythmSession?.removeEventListener('select', selectPortal);
       footPedal.setImmersive(false);
       if (!disposed) setFootPedalState({ ...footPedal.state });
       cancelLook();
@@ -474,6 +496,9 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
         resize();
       }
     };
+    function selectPortal(event: XRInputSourceEvent) {
+      entrance?.select(event, renderer.xr.getReferenceSpace());
+    }
     renderer.xr.addEventListener('sessionstart', startXR);
     renderer.xr.addEventListener('sessionend', endXR);
     void (async () => {
@@ -567,6 +592,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       if (renderer.xr.isPresenting) return;
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
+      entrance?.resize(width, height);
       camera.aspect = width / height;
       // Fit the original playing view, independently of the current look direction.
       let tangent = 0;
@@ -621,6 +647,10 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     };
     const down = (event: PointerEvent) => {
       if (renderer.xr.isPresenting) return;
+      if (entrance) {
+        if (!sessionBusy && event.button === 0 && entrance.point(event.clientX, event.clientY, canvas.getBoundingClientRect())) entrance.enter();
+        return;
+      }
       void drumSynth.unlock();
       if (event.button !== 0 && event.button !== 2) return;
       if (!event.shiftKey) {
@@ -634,6 +664,10 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       canvas.setPointerCapture(event.pointerId);
     };
     const move = (event: PointerEvent) => {
+      if (entrance && !renderer.xr.isPresenting) {
+        canvas.classList.toggle('is-portal-target', entrance.point(event.clientX, event.clientY, canvas.getBoundingClientRect()));
+        return;
+      }
       if (renderer.xr.isPresenting || event.pointerId !== pointerId) return;
       if (!looking && Math.hypot(event.clientX - startX, event.clientY - startY) < 4) return;
       looking = true;
@@ -662,9 +696,14 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       targetPitch = seatedPitch;
     };
     const preventContextMenu = (event: Event) => event.preventDefault();
+    const leavePortal = () => {
+      entrance?.clearPointer();
+      canvas.classList.remove('is-portal-target');
+    };
     canvas.addEventListener('contextmenu', preventContextMenu);
     canvas.addEventListener('pointerdown', down);
     canvas.addEventListener('pointermove', move);
+    canvas.addEventListener('pointerleave', leavePortal);
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('lostpointercapture', up);
@@ -672,7 +711,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     const hitTomKey = (event: KeyboardEvent) => {
       const part = tomKeys[event.code];
       const target = event.target;
-      if (!part || event.repeat || event.altKey || event.ctrlKey || event.metaKey
+      if (entrance || !part || event.repeat || event.altKey || event.ctrlKey || event.metaKey
         || (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName)))) return;
       void drumSynth.unlock();
       if (audioReady) hitDrum(part);
@@ -694,10 +733,32 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
     let referenceSpace: XRReferenceSpace | null = null;
     let audioSession: XRSession | null = null;
     const panelPointerWasActive = { left: false, right: false };
+    let wasPortalReady = false;
     renderer.setAnimationLoop((time, frame) => {
       const frameDelta = previousTime === null ? 0 : (time - previousTime) / 1000;
       const delta = Math.min(frameDelta, 0.05);
       previousTime = time;
+      if (entrance) {
+        const xr = renderer.xr.isPresenting;
+        const reference = renderer.xr.getReferenceSpace();
+        const view = entrance.update(time, Math.max(0, delta), xr, frame, reference);
+        if (wasPortalReady !== entrance.ready) {
+          wasPortalReady = entrance.ready;
+          setPortalReady(wasPortalReady);
+          if (wasPortalReady) setPortalMoving(false);
+        }
+        if (!xr && portalButton.current) portalButton.current.style.top = entrance.desktopTargetY();
+        if (!entrance.active) {
+          entrance.dispose();
+          entrance = null;
+          leavePortal();
+          setEntranceActive(false);
+        } else {
+          if (view.showPlayScene && xr && frame && reference) seating.update(frame, reference);
+          renderer.render(view.showPlayScene ? scene : view.scene, view.showPlayScene ? camera : view.camera);
+          return;
+        }
+      }
       if (viewTransition) {
         viewTransition.start ??= time;
         const progress = THREE.MathUtils.clamp((time - viewTransition.start) / 240, 0, 1);
@@ -781,6 +842,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       renderer.xr.removeEventListener('sessionstart', startXR);
       renderer.xr.removeEventListener('sessionend', endXR);
       rhythmSession?.removeEventListener('visibilitychange', pauseHiddenRhythm);
+      rhythmSession?.removeEventListener('select', selectPortal);
       const session = renderer.xr.getSession();
       if (session) void session.end().catch(() => {});
       controllers.dispose();
@@ -803,6 +865,7 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       canvas.removeEventListener('contextmenu', preventContextMenu);
       canvas.removeEventListener('pointerdown', down);
       canvas.removeEventListener('pointermove', move);
+      canvas.removeEventListener('pointerleave', leavePortal);
       canvas.removeEventListener('pointerup', up);
       canvas.removeEventListener('pointercancel', up);
       canvas.removeEventListener('lostpointercapture', up);
@@ -823,6 +886,9 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
       materials.forEach(material => material.dispose());
       textures.forEach(texture => texture.dispose());
       opaqueBackground.dispose();
+      entrance?.dispose();
+      enterPortal.current = () => {};
+      highlightPortal.current = () => {};
       environment.dispose();
       renderer.dispose();
       canvas.remove();
@@ -831,35 +897,46 @@ export default function VRPractice({ preferredMode = 'vr', song }: { preferredMo
   }, []);
 
   return (
-    <main className="vr-practice" aria-label="First-person drum practice">
-      <div className="vr-practice-stage" ref={hostRef} aria-label="Drum kit — click to strike, drag to look around; hold Shift to look without striking" />
-      <header className="vr-practice-toolbar">
-        <a href="#/">Back to DRUM UP</a>
-        <span>{xrMode === 'ar' || (!immersive && preferredMode === 'ar') ? 'AR' : 'VR'} PRACTICE · {immersive ? 'HEADSET VIEW' : 'DESKTOP VIEW'}</span>
-        <div className="vr-practice-actions">
-          <FootPedalSettings state={footPedalState} controller={footPedalRef} />
-          <VRPedalPanel onKick={velocity => kickRef.current(velocity)}
-            onHiHat={pressed => hiHatRef.current(pressed)} unlock={() => unlockKickRef.current()}
-            onButtonMode={enabled => { controllerKick.current = enabled; }} />
-          {LOCAL_KICK_ENABLED && preferredMode === 'vr' && <LocalKickReceiver
-            onKick={velocity => kickRef.current(velocity)} onStatus={updateKickDebug} />}
-          <button onClick={() => resetRef.current()}>Reset view</button>
-          <button disabled={xrBusy || (!immersive && !(pendingMode === 'ar' ? arSupported : xrSupported))}
-            title={xrMessage} onClick={() => { void xrActionRef.current(immersive ? 'exit' : pendingMode ?? 'vr'); }}>
-            {xrBusy ? 'Connecting…' : immersive ? 'Exit VR' : pendingMode === 'ar' ? 'Enter AR' : xrSupported ? 'Enter VR' : 'VR unavailable'}
-          </button>
-          {xrMode !== 'ar' && <EnvironmentSwitcher selected={background} onSelect={id => { backgroundRef.current(id); setBackground(id); }} />}
-        </div>
-      </header>
-      {!immersive && <aside className="vr-ar-mode-window" aria-label="AR mode selection">
-        <span>VIEW MODE</span>
-        <strong>실제 배경에서 연주하기</strong>
-        <p>VR과 같은 드럼 위치와 타격 방식으로 연주하며, 가상 배경만 숨깁니다.</p>
-        <button disabled={!arSupported || xrBusy} onClick={() => { void xrActionRef.current('ar'); }}>{xrBusy ? '전환 중…' : arSupported ? 'AR 패스스루 시작 →' : 'AR 미지원 기기'}</button>
-      </aside>}
-      <StickControllerPanel immersive={immersive} onChange={(mode, hand, pose) => poseRef.current(mode, hand, pose)} />
-      <p className="vr-xr-status">{xrMessage}</p>
-      <p className="vr-practice-hint" role="status">{audioStatus}</p>
+    <main className={`vr-practice${entranceActive ? ' is-entrance' : ''}`} aria-label={entranceActive ? 'DRUM UP VR ZONE' : 'First-person drum practice'}>
+      <div className="vr-practice-stage" ref={hostRef} aria-label={entranceActive ? 'DRUM UP' : 'Drum kit — click to strike, drag to look around; hold Shift to look without striking'} />
+      {entranceActive && !immersive && <>
+        <button className="vr-entrance-target" type="button" ref={portalButton} aria-label="연주 공간 입장"
+          onPointerEnter={() => highlightPortal.current(true)} onPointerLeave={() => highlightPortal.current(false)}
+          disabled={!portalReady || xrBusy} onClick={() => enterPortal.current()} />
+        {xrSupported && !portalMoving && <button className="vr-entrance-headset" type="button"
+          aria-label="헤드셋에서 VR 입장" title={xrMessage.startsWith('XR:') ? xrMessage : '헤드셋에서 VR 입장'}
+          disabled={xrBusy} onClick={() => { void xrActionRef.current('vr'); }}><Glasses size={22} aria-hidden="true" /></button>}
+        {xrMessage.startsWith('XR:') && <p className="vr-entrance-error" role="status">{xrMessage}</p>}
+      </>}
+      <div className="vr-practice-controls" inert={entranceActive}>
+        <header className="vr-practice-toolbar">
+          <a href="#/">Back to DRUM UP</a>
+          <span>{xrMode === 'ar' || (!immersive && preferredMode === 'ar') ? 'AR' : 'VR'} PRACTICE · {immersive ? 'HEADSET VIEW' : 'DESKTOP VIEW'}</span>
+          <div className="vr-practice-actions">
+            <FootPedalSettings state={footPedalState} controller={footPedalRef} />
+            <VRPedalPanel onKick={velocity => kickRef.current(velocity)}
+              onHiHat={pressed => hiHatRef.current(pressed)} unlock={() => unlockKickRef.current()}
+              onButtonMode={enabled => { controllerKick.current = enabled; }} />
+            {LOCAL_KICK_ENABLED && preferredMode === 'vr' && <LocalKickReceiver
+              onKick={velocity => kickRef.current(velocity)} onStatus={updateKickDebug} />}
+            <button onClick={() => resetRef.current()}>Reset view</button>
+            <button disabled={xrBusy || (!immersive && !(pendingMode === 'ar' ? arSupported : xrSupported))}
+              title={xrMessage} onClick={() => { void xrActionRef.current(immersive ? 'exit' : pendingMode ?? 'vr'); }}>
+              {xrBusy ? 'Connecting…' : immersive ? 'Exit VR' : pendingMode === 'ar' ? 'Enter AR' : xrSupported ? 'Enter VR' : 'VR unavailable'}
+            </button>
+            {xrMode !== 'ar' && <EnvironmentSwitcher selected={background} onSelect={id => { backgroundRef.current(id); setBackground(id); }} />}
+          </div>
+        </header>
+        {!immersive && <aside className="vr-ar-mode-window" aria-label="AR mode selection">
+          <span>VIEW MODE</span>
+          <strong>실제 배경에서 연주하기</strong>
+          <p>VR과 같은 드럼 위치와 타격 방식으로 연주하며, 가상 배경만 숨깁니다.</p>
+          <button disabled={!arSupported || xrBusy} onClick={() => { void xrActionRef.current('ar'); }}>{xrBusy ? '전환 중…' : arSupported ? 'AR 패스스루 시작 →' : 'AR 미지원 기기'}</button>
+        </aside>}
+        <StickControllerPanel immersive={immersive} onChange={(mode, hand, pose) => poseRef.current(mode, hand, pose)} />
+        <p className="vr-xr-status">{xrMessage}</p>
+        <p className="vr-practice-hint" role="status">{audioStatus}</p>
+      </div>
     </main>
   );
 }

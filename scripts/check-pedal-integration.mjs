@@ -1,3 +1,4 @@
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
@@ -22,7 +23,7 @@ try {
   const vr = await vrContext.newPage(), laptop = await laptopContext.newPage();
   for (const page of [vr, laptop]) page.setDefaultTimeout(20_000);
   for (const page of [vr, laptop]) page.on('pageerror', error => errors.push(error.message));
-  await vr.goto(`${origin}/#/vr`); await vr.locator('canvas').waitFor();
+  await openVRPractice(vr, `${origin}/#/vr`); await vr.locator('canvas').waitFor();
   await vr.getByRole('status').filter({ hasText: 'Click to play' }).waitFor({ timeout: 30_000 });
   await vr.getByRole('button', { name: 'VR pedals', exact: true }).click();
   await vr.getByLabel('릴레이 서버 주소', { exact: true }).fill(endpoint);

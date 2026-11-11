@@ -1,3 +1,4 @@
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 import assert from 'node:assert/strict';
 import { request } from 'node:http';
 import { chromium } from 'playwright';
@@ -37,7 +38,7 @@ try {
       }
     };
   });
-  await headset.goto(`${origin}/#/vr`, { waitUntil: 'domcontentloaded' });
+  await openVRPractice(headset, `${origin}/#/vr`, { waitUntil: 'domcontentloaded' });
   await headset.getByRole('status').filter({ hasText: 'Click to play' }).waitFor();
   await headset.evaluate(async () => {
     const { drumSynth } = await import('/src/utils/synth.ts');

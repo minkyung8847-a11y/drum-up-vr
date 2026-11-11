@@ -1,3 +1,4 @@
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
@@ -9,7 +10,7 @@ import {installUnifiedPanelControls} from './helpers/unified-panel-controls.mjs'
 const vite=await createServer({server:{host:'127.0.0.1',port:0}});await vite.listen();let browser;
 try{
  browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1600,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
- await page.addInitScript(installMockWebXR,{mode:'switchable'});await page.goto(`${vite.resolvedUrls.local[0]}#/vr`);
+ await page.addInitScript(installMockWebXR,{mode:'switchable'});await openVRPractice(page, `${vite.resolvedUrls.local[0]}#/vr`);
  await page.locator('.vr-practice-hint').filter({hasText:'Click to play'}).waitFor({timeout:30000});
  const unit=await page.evaluate(async()=>{
   const url=performance.getEntriesByType('resource').find(e=>/\/three\.js\?/.test(e.name)).name;

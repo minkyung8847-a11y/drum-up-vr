@@ -95,7 +95,7 @@
   .showroom-header-space { height: 76px; }
   .app-container > .showroom-header-space { height: 116px; }
   .showroom-logo { width: 112px; margin-top: 6px; }
-  .showroom-navigation { top: 66px; gap: 28px; }
+  .showroom-navigation { top: 66px; gap: clamp(12px, 3vw, 28px); }
   .showroom-navigation button { font-size: 6.5px; letter-spacing: 1px; }
   .showroom-header-tools { gap: 31px; }
   .showroom-header-tools svg { width: 19px; }

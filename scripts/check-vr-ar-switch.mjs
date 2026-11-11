@@ -1,3 +1,4 @@
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
@@ -13,7 +14,7 @@ async function setup(options) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(installMockWebXR, { mode: 'switchable', ...options });
-  await page.goto(`${origin}#/vr`, { waitUntil: 'domcontentloaded' });
+  await openVRPractice(page, `${origin}#/vr`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('status').filter({ hasText: 'Click to play' }).waitFor();
   await page.evaluate(async () => {
     const url = performance.getEntriesByType('resource').find(entry => /\/three\.js\?/.test(entry.name)).name;

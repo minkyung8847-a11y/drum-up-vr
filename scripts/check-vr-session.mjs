@@ -1,3 +1,4 @@
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
@@ -23,7 +24,7 @@ try {
     page.on('pageerror', error => errors.push(error.message));
   }
   await vr.addInitScript(installMockWebXR);
-  await vr.goto(`${origin}/#/vr`);
+  await openVRPractice(vr, `${origin}/#/vr`);
   await vr.getByRole('status').filter({ hasText: 'Click to play' }).waitFor();
   await vr.evaluate(async () => {
     const url = performance.getEntriesByType('resource').find(entry => /\/three\.js\?/.test(entry.name)).name;

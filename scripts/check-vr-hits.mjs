@@ -1,3 +1,4 @@
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 
@@ -7,7 +8,7 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') console.log('Browser:', message.text()); });
-  await page.goto(`${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);
+  await openVRPractice(page, `${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);
   const canvas = page.locator('.vr-practice-stage canvas');
   await canvas.waitFor();
   if (await page.getByRole('button', { name: 'Pause demo', exact: true }).count()) await page.getByRole('button', { name: 'Pause demo', exact: true }).click();

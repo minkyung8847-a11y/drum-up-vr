@@ -1,3 +1,4 @@
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 
@@ -9,7 +10,7 @@ try {
   page.on('console', message => {
     if (message.type() === 'error' && /Shader Error|VALIDATE_STATUS/.test(message.text())) errors.push(message.text());
   });
-  await page.goto(`${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);
+  await openVRPractice(page, `${process.env.VR_TEST_URL || 'http://127.0.0.1:5175/'}#/vr`);
   await page.getByRole('status').filter({ hasText: 'Click to play' }).waitFor({ timeout: 60000 });
   await page.evaluate(async () => {
     const url = performance.getEntriesByType('resource').find(entry => /\/three\.js\?/.test(entry.name)).name;

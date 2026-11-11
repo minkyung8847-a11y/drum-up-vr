@@ -1,3 +1,4 @@
+import { openVRPractice } from './helpers/open-vr-practice.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
@@ -132,7 +133,7 @@ try {
     'Left pedal opens hi-hat on release and closes it while pressed');
   assert.deepEqual(result.hiHat.sounds, ['hihat-closed', 'hihat-open', 'hihat-closed'],
     'Stick hits follow the held pedal state');
-  await page.goto(`${origin}#/vr`);
+  await openVRPractice(page, `${origin}#/vr`);
   await page.getByRole('status').filter({ hasText: 'Click to play' }).waitFor();
   await page.evaluate(async () => {
     const url = performance.getEntriesByType('resource').find(entry => /\/three\.js\?/.test(entry.name)).name;

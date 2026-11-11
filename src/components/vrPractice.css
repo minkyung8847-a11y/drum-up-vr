@@ -10,6 +10,46 @@
 .vr-practice-stage { position: absolute; inset: 64px 0 44px; }
 .vr-practice-stage canvas { display: block; cursor: grab; touch-action: none; }
 .vr-practice-stage canvas.is-looking { cursor: grabbing; }
+.vr-practice-controls { display: contents; }
+.vr-practice.is-entrance { background: #000; }
+.vr-practice.is-entrance .vr-practice-stage { inset: 0; }
+.vr-practice.is-entrance .vr-practice-controls { visibility: hidden; }
+.vr-practice.is-entrance canvas { cursor: default; }
+.vr-practice.is-entrance canvas.is-portal-target { cursor: pointer; }
+.vr-entrance-target {
+  position: absolute;
+  left: 50%;
+  width: 52px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.vr-entrance-target:disabled { pointer-events: none; }
+.vr-entrance-target:hover, .vr-entrance-target:focus-visible {
+  background: radial-gradient(ellipse, #dce7ff24, transparent 70%);
+}
+.vr-entrance-headset {
+  position: absolute;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid #cbd2dc52;
+  border-radius: 50%;
+  background: #090a0c;
+  color: #cbd2dc;
+  cursor: pointer;
+}
+.vr-entrance-headset:hover { border-color: #dbe1eb; color: #fff; }
+.vr-entrance-target:focus-visible, .vr-entrance-headset:focus-visible { outline: 1px solid #fff; outline-offset: 4px; }
+.vr-entrance-error { position: absolute; right: 76px; bottom: 24px; max-width: calc(100% - 96px); margin: 0; font-size: 12px; }
 .vr-practice-toolbar {
   position: absolute;
   inset: 0 0 auto;
