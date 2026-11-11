@@ -1,18 +1,16 @@
 import * as THREE from 'three';
-import { BRAND_LOGO_URL } from './brand/BrandLogo';
 import { VR_ENTRANCE_SESSION_KEY } from './vrEntranceNavigation';
 
 const PORTAL_Z = -1.65;
 const PORTAL_RADIUS = 1.02;
-const INTRO_MS = 4000;
-const TRANSITION_MS = 1800;
+const TRANSITION_MS = 1300;
 const SWAP_AT = 0.7;
 
 export function hasSeenVREntrance() {
   try { return sessionStorage.getItem(VR_ENTRANCE_SESSION_KEY) === '1'; } catch { return false; }
 }
 
-export function createVREntrance(playScene: THREE.Scene, onEnter: () => void) {
+export function createVREntrance(playScene: THREE.Scene) {
   const scene = new THREE.Scene();
   const stage = new THREE.Group();
   scene.add(stage);
@@ -123,8 +121,7 @@ export function createVREntrance(playScene: THREE.Scene, onEnter: () => void) {
   }));
   stage.add(particles);
   const arcMaterial = silver();
-  // Each half starts at floor level and grows toward the crown.
-  const arcs = [-1, 1].map(side => {
+  for (const side of [-1, 1]) {
     const segments = 64;
     const points = Array.from({ length: segments + 1 }, (_, index) => {
       const angle = index / segments * Math.PI / 2;
@@ -133,43 +130,7 @@ export function createVREntrance(playScene: THREE.Scene, onEnter: () => void) {
     const geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), segments, .006, 5, false);
     const arc = new THREE.Mesh(geometry, arcMaterial);
     stage.add(arc);
-    return { geometry, segments };
-  });
-
-  let disposed = false;
-  let logoReady = false;
-  const logoMap = new THREE.TextureLoader().load(BRAND_LOGO_URL,
-    () => { if (!disposed) logoReady = true; },
-    undefined, () => { logoReady = true; });
-  logoMap.colorSpace = THREE.SRGBColorSpace;
-  const logo = new THREE.Mesh(new THREE.PlaneGeometry(3.18, 3.18 * 114 / 621), new THREE.ShaderMaterial({
-    uniforms: { mark: { value: logoMap }, opacity: { value: 0 }, sweep: { value: -1 } },
-    transparent: true, depthWrite: false,
-    vertexShader: `
-      varying vec2 markUV;
-      void main() {
-        markUV = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
-      }`,
-    fragmentShader: `
-      uniform sampler2D mark;
-      uniform float opacity, sweep;
-      varying vec2 markUV;
-      void main() {
-        vec2 uv = (vec2(103., 243.) + markUV * vec2(621., 114.)) / vec2(842., 596.);
-        vec4 source = texture2D(mark, uv);
-        float metal = mix(.19, .93, dot(source.rgb, vec3(.2126, .7152, .0722)));
-        float edge = max(0., source.a - min(
-          texture2D(mark, uv + vec2(.0024, .0033)).a,
-          texture2D(mark, uv - vec2(.0024, .0033)).a));
-        float offset = (markUV.x + markUV.y * .13 - sweep) * 9.;
-        float glint = exp(-offset * offset);
-        gl_FragColor = vec4(vec3(metal + glint * (.12 + edge * .5)), source.a * opacity);
-        #include <colorspace_fragment>
-      }`,
-  }));
-  logo.position.set(0, 1.45, -3.46);
-  stage.add(logo);
+  }
 
   const trailsMaterial = new THREE.LineBasicMaterial({
     color: 0xe1e7ef, transparent: true, opacity: 0, depthWrite: false, toneMapped: false,
@@ -206,60 +167,25 @@ export function createVREntrance(playScene: THREE.Scene, onEnter: () => void) {
   flash.visible = false;
   scene.add(flash);
 
-  const ray = new THREE.Raycaster();
-  const pointer = new THREE.Vector2();
   const direction = new THREE.Vector3();
-  const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0));
-  const hit = new THREE.Vector3();
-  const projectedTarget = new THREE.Vector3();
   const rotation = new THREE.Quaternion();
   let anchorReady = false;
-  let startTime: number | null = null;
-  let reveal = 0;
   let previousTransitionTime: number | null = null;
   let transitionElapsed = 0;
   let heldForXR = false;
-  let transitioning = false;
   let swapped = false;
   let done = false;
-  let hover = false;
-  let brightness = 0;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  function pointsAtPortal() {
-    return !!ray.ray.intersectPlane(floorPlane, hit) &&
-      Math.hypot(hit.x, hit.z - PORTAL_Z) <= PORTAL_RADIUS * 1.19;
-  }
-
-  function enter() {
-    if (reveal < INTRO_MS || transitioning || done) return;
-    transitioning = true;
-    onEnter();
-  }
 
   return {
     get active() { return !done; },
-    get ready() { return reveal >= INTRO_MS && !transitioning && !done; },
     resize(width: number, height: number) {
       desktop.aspect = width / height;
       const tangent = Math.max(Math.tan(THREE.MathUtils.degToRad(18.5)), .39 / desktop.aspect);
       desktop.fov = THREE.MathUtils.radToDeg(2 * Math.atan(tangent));
       desktop.updateProjectionMatrix();
     },
-    point(clientX: number, clientY: number, bounds: DOMRect) {
-      pointer.set((clientX - bounds.left) / bounds.width * 2 - 1, 1 - (clientY - bounds.top) / bounds.height * 2);
-      ray.setFromCamera(pointer, desktop);
-      hover = reveal >= INTRO_MS && !transitioning && pointsAtPortal();
-      return hover;
-    },
-    highlightPointer() { hover = true; },
-    clearPointer() { hover = false; },
-    desktopTargetY() {
-      projectedTarget.set(0, 0, PORTAL_Z).project(desktop);
-      return `${(1 - projectedTarget.y) * 50}%`;
-    },
-    enter,
-    update(time: number, delta: number, xr: boolean, waitingForSession: boolean, frame?: XRFrame, reference?: XRReferenceSpace | null) {
+    update(time: number, xr: boolean, waitingForSession: boolean, frame?: XRFrame, reference?: XRReferenceSpace | null) {
       const viewer = xr && !anchorReady && frame && reference ? frame.getViewerPose(reference) : null;
       if (viewer) {
         const { position, orientation } = viewer.transform;
@@ -270,47 +196,34 @@ export function createVREntrance(playScene: THREE.Scene, onEnter: () => void) {
         anchorReady = true;
       }
 
-      startTime ??= time;
-      if (logoReady || time - startTime >= 1000) reveal = Math.max(reveal, time - startTime);
-      const floorLight = ease(reveal, 2500, INTRO_MS);
-      const arcProgress = ease(reveal, 1500, 3000);
-      for (const { geometry, segments } of arcs)
-        geometry.setDrawRange(0, Math.floor(arcProgress * segments) * 30);
-      if (transitioning) {
-        transitionElapsed += Math.max(0, time - (previousTransitionTime ?? time));
-        previousTransitionTime = time;
-        // Keep the cut covered if headset permission outlasts the camera move.
-        if (waitingForSession && transitionElapsed >= TRANSITION_MS * SWAP_AT) {
-          transitionElapsed = TRANSITION_MS * SWAP_AT;
-          heldForXR = true;
-        }
+      transitionElapsed += Math.max(0, time - (previousTransitionTime ?? time));
+      previousTransitionTime = time;
+      // Keep the cut covered if headset permission outlasts the camera move.
+      if (waitingForSession && transitionElapsed >= TRANSITION_MS * SWAP_AT) {
+        transitionElapsed = TRANSITION_MS * SWAP_AT;
+        heldForXR = true;
       }
       const progress = Math.min(transitionElapsed / TRANSITION_MS, 1);
-      const darken = 1 - ease(progress, .05, .64);
-      brightness = THREE.MathUtils.damp(brightness, Number(hover), 7, delta);
-      const ringScale = Math.max(.001, floorLight * (1 - ease(progress, 0, .52)));
-      const idleLight = ease(reveal, 3450, INTRO_MS) * (1 - ease(progress, .03, .35));
-      const pulse = reducedMotion ? .5 : .5 + .5 * Math.sin((reveal - INTRO_MS) / 550);
-      const ignition = transitioning ? ease(progress, 0, .075) * (1 - ease(progress, .08, .36)) : 0;
-      floor.material.uniforms.light.value = floorLight * darken;
-      backdrop.material.uniforms.light.value = ease(reveal, 900, INTRO_MS) * darken;
+      const darken = 1 - ease(progress, .10, .65);
+      const ringScale = Math.max(.001, 1 - ease(progress, .08, .60));
+      const portalLight = 1 - ease(progress, .12, .56);
+      const ignition = ease(progress, 0, .09) * (1 - ease(progress, .10, .42));
+      floor.material.uniforms.light.value = darken;
+      backdrop.material.uniforms.light.value = darken;
       floor.material.uniforms.ringScale.value = ringScale;
-      floor.material.uniforms.rimLight.value = floorLight * darken * (.7 + brightness * .3);
-      floor.material.uniforms.core.value = idleLight * (.15 + pulse * .045 + brightness * .12) + ignition * .55;
-      floor.material.uniforms.wave.value = reducedMotion ? 0 : Math.max(0, (reveal - INTRO_MS) / 2400) % 1;
-      particles.visible = !reducedMotion && idleLight > 0 && !xr;
-      particles.material.uniforms.time.value = reveal / 1000;
-      particles.material.uniforms.opacity.value = idleLight * (.42 + brightness * .26);
+      floor.material.uniforms.rimLight.value = darken;
+      floor.material.uniforms.core.value = portalLight * .25 + ignition * .64;
+      floor.material.uniforms.wave.value = reducedMotion ? 0 : progress;
+      particles.visible = !reducedMotion && portalLight > 0 && !xr;
+      particles.material.uniforms.time.value = transitionElapsed / 1000;
+      particles.material.uniforms.opacity.value = portalLight * .65;
       ring.scale.setScalar(ringScale);
-      ring.material.opacity = Math.min(1, floorLight * darken * (.65 + brightness * .24 + pulse * .09) + ignition * .36);
-      arcMaterial.opacity = .76 * ease(reveal, 1500, 1800) * darken;
-      logo.material.uniforms.opacity.value = ease(reveal, 0, 1500) * darken;
-      logo.material.uniforms.sweep.value = THREE.MathUtils.lerp(-.3, 1.4, ease(reveal, 120, 1480));
+      ring.material.opacity = Math.min(1, darken * .83 + ignition * .40);
+      arcMaterial.opacity = .66 * darken;
 
       if (!xr) {
-        const push = reducedMotion ? 0 : ease(progress, .13, SWAP_AT);
-        const dolly = reducedMotion ? 0 : .18 * floorLight;
-        desktop.position.set(0, 1.43 - .99 * push, 5.03 - dolly - 6.19 * push);
+        const push = reducedMotion ? 0 : ease(progress, .06, SWAP_AT);
+        desktop.position.set(0, 1.43 - .99 * push, 4.85 - 6.19 * push);
         desktop.lookAt(0, 1.19 - 1.16 * push, -2.7 + 1.05 * push);
         desktop.updateMatrixWorld();
         trails.visible = !reducedMotion && progress > .18;
@@ -334,7 +247,6 @@ export function createVREntrance(playScene: THREE.Scene, onEnter: () => void) {
       return { scene, camera: xr ? headset : desktop, showPlayScene: swapped };
     },
     dispose() {
-      disposed = true;
       flash.removeFromParent();
       flash.geometry.dispose();
       flash.material.dispose();
@@ -345,7 +257,6 @@ export function createVREntrance(playScene: THREE.Scene, onEnter: () => void) {
         }
       });
       arcMaterial.dispose();
-      logoMap.dispose();
       black.dispose();
     },
   };

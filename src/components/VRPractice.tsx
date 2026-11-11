@@ -36,17 +36,14 @@ import type { VRMusicTransport } from './vrMusicSong';
 import { createVRSongCountdown } from './vrSongDetail';
 import { getNoteSyncMs } from './vrNoteSync';
 import { createVREntrance, hasSeenVREntrance } from './vrEntrance';
+import { takeVREntranceSession } from './vrEntranceNavigation';
 import './vrPractice.css';
 
 type XRMode = 'vr' | 'ar';
 
 export default function VRPractice({ song }: { song?: SongPlayback }) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const portalButton = useRef<HTMLButtonElement>(null);
-  const enterPortal = useRef<() => void>(() => {});
-  const highlightPortal = useRef<(highlighted: boolean) => void>(() => {});
   const [entranceActive, setEntranceActive] = useState(() => !song && !hasSeenVREntrance());
-  const [portalReady, setPortalReady] = useState(false);
   const resetRef = useRef<() => void>(() => {});
   const kickRef = useRef<(velocity: number) => boolean>(() => false);
   const kickDebugRef = useRef<(state: PedalState) => void>(() => {});
@@ -75,18 +72,8 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     if (!host) return;
 
     const scene = new THREE.Scene();
-    let canStartXR = window.isSecureContext && !!navigator.xr;
-    let entrance = !song && !hasSeenVREntrance() ? createVREntrance(scene, () => {
-      setPortalReady(false);
-      if (canStartXR) void xrActionRef.current('vr');
-      else void drumSynth.unlock();
-    }) : null;
+    let entrance = !song && !hasSeenVREntrance() ? createVREntrance(scene) : null;
     const openedThroughEntrance = !!entrance;
-    enterPortal.current = () => entrance?.enter();
-    highlightPortal.current = highlighted => {
-      if (highlighted) entrance?.highlightPointer();
-      else entrance?.clearPointer();
-    };
     const kickDebug = LOCAL_KICK_ENABLED ? createLocalKickDebug(scene) : null;
     if (kickDebug) kickDebugRef.current = kickDebug.update;
     const vrBackground = new THREE.Color(0x101114);
@@ -500,7 +487,6 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
         const supported = window.isSecureContext && !!navigator.xr && await navigator.xr.isSessionSupported('immersive-vr');
         arAvailable = window.isSecureContext && !!navigator.xr && await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);
         preferSharedSession = arAvailable;
-        canStartXR = supported || arAvailable;
         if (!disposed) {
           setXRSupported(supported || arAvailable);
           setArSupported(arAvailable);
@@ -511,7 +497,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
         if (!disposed) setXRMessage('VR availability check failed · Desktop preview remains available.');
       }
     })();
-    xrActionRef.current = async target => {
+    const enterXR = async (target: XRMode | 'exit', pending?: NonNullable<ReturnType<typeof takeVREntranceSession>>) => {
       if (sessionBusy || disposed) return;
       // Resume in this button's user gesture, before awaiting XR permission.
       void drumSynth.unlock();
@@ -533,14 +519,14 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       sessionBusy = true;
       setXRBusy(true);
       let requested: XRSession | null = null;
-      const tryAR = target === 'ar' || (target === 'vr' && preferSharedSession);
+      const tryAR = pending ? pending.mode === 'immersive-ar' : target === 'ar' || (target === 'vr' && preferSharedSession);
       try {
         if (current) {
           await current.end();
         } else if (target !== 'exit' && navigator.xr) {
-          requested = await navigator.xr.requestSession(tryAR ? 'immersive-ar' : 'immersive-vr', {
+          requested = await (pending?.request ?? navigator.xr.requestSession(tryAR ? 'immersive-ar' : 'immersive-vr', {
             requiredFeatures: ['local-floor'],
-          });
+          }));
           if (tryAR && requested.environmentBlendMode !== 'alpha-blend') {
             throw new Error('이 세션은 카메라 패스스루 합성을 제공하지 않습니다.');
           }
@@ -562,6 +548,14 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
         if (!disposed) setXRBusy(false);
       }
     };
+
+    xrActionRef.current = enterXR;
+    // Claim only after the development StrictMode setup/cleanup replay.
+    queueMicrotask(() => {
+      if (disposed || !openedThroughEntrance) return;
+      const pending = takeVREntranceSession();
+      if (pending) void enterXR('vr', pending);
+    });
 
     const corners: THREE.Vector3[] = [];
     kit.group.updateMatrixWorld(true);
@@ -655,10 +649,6 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       canvas.setPointerCapture(event.pointerId);
     };
     const move = (event: PointerEvent) => {
-      if (entrance && !renderer.xr.isPresenting) {
-        canvas.classList.toggle('is-portal-target', entrance.point(event.clientX, event.clientY, canvas.getBoundingClientRect()));
-        return;
-      }
       if (renderer.xr.isPresenting || event.pointerId !== pointerId) return;
       if (!looking && Math.hypot(event.clientX - startX, event.clientY - startY) < 4) return;
       looking = true;
@@ -687,18 +677,9 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       targetPitch = seatedPitch;
     };
     const preventContextMenu = (event: Event) => event.preventDefault();
-    const clickPortal = (event: MouseEvent) => {
-      if (entrance?.point(event.clientX, event.clientY, canvas.getBoundingClientRect())) entrance.enter();
-    };
-    const leavePortal = () => {
-      entrance?.clearPointer();
-      canvas.classList.remove('is-portal-target');
-    };
     canvas.addEventListener('contextmenu', preventContextMenu);
-    canvas.addEventListener('click', clickPortal);
     canvas.addEventListener('pointerdown', down);
     canvas.addEventListener('pointermove', move);
-    canvas.addEventListener('pointerleave', leavePortal);
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('lostpointercapture', up);
@@ -728,7 +709,6 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     let referenceSpace: XRReferenceSpace | null = null;
     let audioSession: XRSession | null = null;
     const panelPointerWasActive = { left: false, right: false };
-    let wasPortalReady = false;
     renderer.setAnimationLoop((time, frame) => {
       const frameDelta = previousTime === null ? 0 : (time - previousTime) / 1000;
       const delta = Math.min(frameDelta, 0.05);
@@ -736,16 +716,10 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       if (entrance) {
         const xr = renderer.xr.isPresenting;
         const reference = renderer.xr.getReferenceSpace();
-        const view = entrance.update(time, Math.max(0, delta), xr, sessionBusy, frame, reference);
-        if (wasPortalReady !== entrance.ready) {
-          wasPortalReady = entrance.ready;
-          setPortalReady(wasPortalReady);
-        }
-        if (!xr && portalButton.current) portalButton.current.style.top = entrance.desktopTargetY();
+        const view = entrance.update(time, xr, sessionBusy, frame, reference);
         if (!entrance.active) {
           entrance.dispose();
           entrance = null;
-          leavePortal();
           setEntranceActive(false);
         } else {
           if (view.showPlayScene && xr && frame && reference) seating.update(frame, reference);
@@ -856,10 +830,8 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       cancelLook();
       window.removeEventListener('blur', cancelLook);
       canvas.removeEventListener('contextmenu', preventContextMenu);
-      canvas.removeEventListener('click', clickPortal);
       canvas.removeEventListener('pointerdown', down);
       canvas.removeEventListener('pointermove', move);
-      canvas.removeEventListener('pointerleave', leavePortal);
       canvas.removeEventListener('pointerup', up);
       canvas.removeEventListener('pointercancel', up);
       canvas.removeEventListener('lostpointercapture', up);
@@ -881,8 +853,6 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       textures.forEach(texture => texture.dispose());
       opaqueBackground.dispose();
       entrance?.dispose();
-      enterPortal.current = () => {};
-      highlightPortal.current = () => {};
       environment.dispose();
       renderer.dispose();
       canvas.remove();
@@ -893,11 +863,6 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
   return (
     <main className={`vr-practice${entranceActive ? ' is-entrance' : ''}`} aria-label={entranceActive ? 'DRUM UP VR ZONE' : 'First-person drum practice'}>
       <div className="vr-practice-stage" ref={hostRef} aria-label={entranceActive ? 'DRUM UP' : 'Drum kit — click to strike, drag to look around; hold Shift to look without striking'} />
-      {entranceActive && !immersive &&
-        <button className="vr-entrance-target" type="button" ref={portalButton} aria-label="연주 공간 입장"
-          onPointerEnter={() => highlightPortal.current(true)} onPointerLeave={() => highlightPortal.current(false)}
-          disabled={!portalReady || xrBusy} onClick={() => enterPortal.current()} />
-      }
       <div className="vr-practice-controls" inert={entranceActive}>
         <header className="vr-practice-toolbar">
           <a href="#/">Back to DRUM UP</a>
