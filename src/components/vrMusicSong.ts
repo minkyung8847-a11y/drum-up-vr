@@ -11,8 +11,8 @@ export const LOVE_SONG = { key: 'love', title: '사랑으로 (love.)', artist: '
   chart: `${LOVE_ROOT}love_full_75_bars_DRAFT.json`, review: 'FULL SCORE · PARTIAL SHEET REVIEW' } as const;
 export const ANTIFREEZE_SONG = { key: 'antifreeze', title: 'Antifreeze', artist: '검정치마 (The Black Skirts)', difficulty: 'Normal',
   stars: 2, genres: ['Rock', 'Band'], art: 9, bpm: 128, signature: '4/4', audio: `${ANTIFREEZE_ROOT}audio.mp3`,
-  cover: `${ANTIFREEZE_ROOT}cover.jpg`, chart: `${ANTIFREEZE_ROOT}Antifreeze_opening_8_bars.json`,
-  review: 'OPENING 8 BARS', practiceBars: 8 } as const;
+  cover: `${ANTIFREEZE_ROOT}cover.jpg`, chart: `${ANTIFREEZE_ROOT}Antifreeze_full.json`,
+  review: 'FULL DRUM SCORE' } as const;
 export type PlayableVRSong = typeof LOVE_SONG | typeof ANTIFREEZE_SONG;
 export type VRSongEntry = PlayableVRSong | { title: string; artist: string; difficulty: string };
 export const LOVE_COUNT_IN = 4 * 60 / 62;
@@ -52,8 +52,9 @@ export async function loadVRMusicChart(song: PlayableVRSong): Promise<NoteEvent[
     if (!opening.ok) throw Error(`Opening chart HTTP ${opening.status}`);
     return validateLoveFullChart(chart, await opening.json());
   }
-  const bars = song.practiceBars;
-  if (chart?.bpm !== song.bpm || chart.timeSignature !== song.signature || !Array.isArray(chart.notes) || !chart.notes.length)
+  const bars = chart?.bars;
+  if (chart?.bpm !== song.bpm || chart.timeSignature !== song.signature || !Number.isInteger(bars)
+    || bars < 1 || !Array.isArray(chart.notes) || !chart.notes.length)
     throw Error('Invalid Antifreeze chart');
   return parseChartNotes(chart.notes.map((note: { timeSec: number; instrument: string; bar: number; beat: number; velocity: number }) => ({
     time: note.timeSec, instrument: note.instrument === 'closed_hihat' ? 'hihat-closed'

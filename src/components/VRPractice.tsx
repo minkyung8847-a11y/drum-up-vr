@@ -284,7 +284,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
           noteLanes.lines.visible = true;
           unifiedPanel.setRhythmBpm(selectedSong.bpm);
           console.info('[DRUM UP VR MUSIC] Chart loaded', { song: selectedSong.key, notes: notes.length, chartOffsetSeconds });
-          console.table(notes.map(note => ({ instrument: note.instrument, chartOffsetSeconds, noteSyncMs: getNoteSyncMs(),
+          console.table(notes.slice(0, 16).map(note => ({ instrument: note.instrument, chartOffsetSeconds, noteSyncMs: getNoteSyncMs(),
             targetMP3Seconds: note.time + getNoteSyncMs() / 1000,
             spawnSecondsFromStart: Math.max(0, transport.preroll + note.time + getNoteSyncMs() / 1000 - 3),
             arrivalSecondsFromStart: transport.preroll + note.time + getNoteSyncMs() / 1000 })));
