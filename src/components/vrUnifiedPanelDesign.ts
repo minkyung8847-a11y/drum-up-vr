@@ -3,7 +3,7 @@ import {DRUM_HEIGHT} from './vrDrumHeight';
 import type { FootPedalState } from '../pedal/footPedal';
 import { DRUM_ENVIRONMENTS } from './drumEnvironments';
 import type { DrumEnvironmentId } from './drumEnvironments';
-import { ANTIFREEZE_SONG, LOVE_SONG } from './vrMusicSong';
+import { ANTIFREEZE_SONG, LOVE_SONG, SEVEN_NATION_ARMY_SONG } from './vrMusicSong';
 
 // Canvas drawing and UV raycasting share these bounds.
 export const FOOT_PEDAL_LAYOUT = {
@@ -25,7 +25,7 @@ export const DEMO_SONGS = [
   { title: 'I Was Made For Loving You', artist: 'KISS', difficulty: 'Expert', stars: 3, genres: ['Rock', 'Band'], art: 4 },
   { title: 'Radioactive', artist: 'Imagine Dragons', difficulty: 'Normal', stars: 4, genres: ['Rock', 'Band'], art: 5 },
   { title: 'Hysteria', artist: 'Muse', difficulty: 'Expert', stars: 5, genres: ['Rock', 'Band'], art: 6 },
-  { title: 'Seven Nation Army', artist: 'The White Stripes', difficulty: 'Hard', stars: 3, genres: ['Rock', 'Band'], art: 7 },
+  SEVEN_NATION_ARMY_SONG,
 ] as const;
 export interface UnifiedPanelState {
   tab: typeof PANEL_TABS[number]; genre: string; song: number; scroll: number;
@@ -191,7 +191,7 @@ function album(index: number) {
   return canvas;
 }
 const albumCache: HTMLCanvasElement[] = [];
-const songCovers = new Map([LOVE_SONG, ANTIFREEZE_SONG].map(song => {
+const songCovers = new Map(DEMO_SONGS.filter(song => 'key' in song).map(song => {
   const cover = new Image();
   cover.src = song.cover;
   return [song.key, cover] as const;

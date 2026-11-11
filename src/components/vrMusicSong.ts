@@ -6,6 +6,7 @@ import type { DrumPadId } from '../types';
 
 export const LOVE_ROOT = `${import.meta.env.BASE_URL}songs/love/`;
 const ANTIFREEZE_ROOT = `${import.meta.env.BASE_URL}songs/antifreeze/`;
+const SEVEN_NATION_ARMY_ROOT = `${import.meta.env.BASE_URL}songs/seven-nation-army/`;
 export const LOVE_SONG = { key: 'love', title: '사랑으로 (love.)', artist: 'wave to earth', difficulty: 'Easy', stars: 1,
   genres: ['Band'], art: 8, bpm: 62, signature: '4/4', audio: `${LOVE_ROOT}love.mp3`, cover: `${LOVE_ROOT}cover.jpg`,
   chart: `${LOVE_ROOT}love_full_75_bars_DRAFT.json`, review: 'FULL SCORE · PARTIAL SHEET REVIEW' } as const;
@@ -13,7 +14,11 @@ export const ANTIFREEZE_SONG = { key: 'antifreeze', title: 'Antifreeze', artist:
   stars: 2, genres: ['Rock', 'Band'], art: 9, bpm: 128, signature: '4/4', audio: `${ANTIFREEZE_ROOT}audio.mp3`,
   cover: `${ANTIFREEZE_ROOT}cover.jpg`, chart: `${ANTIFREEZE_ROOT}Antifreeze_full.json`,
   review: 'FULL DRUM SCORE' } as const;
-export type PlayableVRSong = typeof LOVE_SONG | typeof ANTIFREEZE_SONG;
+export const SEVEN_NATION_ARMY_SONG = { key: 'seven-nation-army', title: 'Seven Nation Army', artist: 'The White Stripes',
+  difficulty: 'Hard', stars: 3, genres: ['Rock', 'Band'], art: 7, bpm: 124, signature: '4/4',
+  audio: `${SEVEN_NATION_ARMY_ROOT}audio.mp3`, cover: `${SEVEN_NATION_ARMY_ROOT}cover.jpg`,
+  chart: `${SEVEN_NATION_ARMY_ROOT}seven_nation_army_drumup_notes.json`, review: 'DRAFT · AUTO-QUANTIZED' } as const;
+export type PlayableVRSong = typeof LOVE_SONG | typeof ANTIFREEZE_SONG | typeof SEVEN_NATION_ARMY_SONG;
 export type VRSongEntry = PlayableVRSong | { title: string; artist: string; difficulty: string };
 export const LOVE_COUNT_IN = 4 * 60 / 62;
 const OFFSET_KEY = 'drumup.vr.love.chart-offset.v2';
@@ -30,17 +35,17 @@ export const loveChartOffset = () => savedLoveOffset() ?? LOVE_CHART_OFFSET_SECO
 export function songChartOffset(song: PlayableVRSong) {
   if (song.key === 'love') return loveChartOffset();
   try {
-    const saved = localStorage.getItem('drumup.vr.antifreeze.chart-offset.v1');
+    const saved = localStorage.getItem(`drumup.vr.${song.key}.chart-offset.v1`);
     const offset = Number(saved);
     if (saved !== null && Number.isFinite(offset) && offset >= 0 && offset <= 120) return offset;
   } catch { /* Optional persistence. */ }
-  // First downbeat measured against the supplied recording's kick attacks.
-  return .74;
+  // Antifreeze starts at its first downbeat. Seven Nation Army uses audio hit times.
+  return song.key === 'antifreeze' ? .74 : 0;
 }
 
 export function saveSongChartOffset(song: PlayableVRSong, value: number) {
   if (song.key === 'love') return saveLoveOffset(value);
-  try { localStorage.setItem('drumup.vr.antifreeze.chart-offset.v1', String(value)); } catch { /* Optional persistence. */ }
+  try { localStorage.setItem(`drumup.vr.${song.key}.chart-offset.v1`, String(value)); } catch { /* Optional persistence. */ }
 }
 
 export async function loadVRMusicChart(song: PlayableVRSong): Promise<NoteEvent[]> {
@@ -51,6 +56,18 @@ export async function loadVRMusicChart(song: PlayableVRSong): Promise<NoteEvent[
     const opening = await fetch(`${LOVE_ROOT}love_first_4_bars.json`);
     if (!opening.ok) throw Error(`Opening chart HTTP ${opening.status}`);
     return validateLoveFullChart(chart, await opening.json());
+  }
+  if (song.key === 'seven-nation-army') {
+    if (chart?.bpm !== song.bpm || chart.timeSignature !== song.signature
+      || !Number.isFinite(chart.duration) || chart.duration <= 0 || !Array.isArray(chart.notes) || !chart.notes.length)
+      throw Error('Invalid Seven Nation Army chart');
+    const secondsPerBeat = 60 / song.bpm;
+    const bars = Math.ceil(chart.duration / (4 * secondsPerBeat));
+    return parseChartNotes(chart.notes.map((note: { time: number; lane: string; velocity: number }) => {
+      const beats = note.time / secondsPerBeat;
+      const instrument = note.lane === 'tom1' ? 'smallTom' : note.lane === 'tom2' ? 'middleTom' : note.lane;
+      return { time: note.time, instrument, bar: Math.floor(beats / 4) + 1, beat: beats % 4 + 1, velocity: note.velocity };
+    }), bars, song.bpm);
   }
   const bars = chart?.bars;
   if (chart?.bpm !== song.bpm || chart.timeSignature !== song.signature || !Number.isInteger(bars)
