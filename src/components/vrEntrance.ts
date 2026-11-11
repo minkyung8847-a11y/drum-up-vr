@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BRAND_LOGO_URL } from './brand/BrandLogo';
 import { VR_ENTRANCE_SESSION_KEY } from './vrEntranceNavigation';
 
 const PORTAL_Z = -1.65;
@@ -132,6 +133,38 @@ export function createVREntrance(playScene: THREE.Scene) {
     stage.add(arc);
   }
 
+  const logoMap = new THREE.TextureLoader().load(BRAND_LOGO_URL, () => { logo.visible = true; });
+  logoMap.colorSpace = THREE.SRGBColorSpace;
+  const logo = new THREE.Mesh(new THREE.PlaneGeometry(3.18, 3.18 * 114 / 621), new THREE.ShaderMaterial({
+    uniforms: { mark: { value: logoMap }, opacity: { value: 0 }, sweep: { value: -1 } },
+    transparent: true, depthWrite: false,
+    vertexShader: `
+      varying vec2 markUV;
+      void main() {
+        markUV = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+      }`,
+    fragmentShader: `
+      uniform sampler2D mark;
+      uniform float opacity, sweep;
+      varying vec2 markUV;
+      void main() {
+        vec2 uv = (vec2(103., 243.) + markUV * vec2(621., 114.)) / vec2(842., 596.);
+        vec4 source = texture2D(mark, uv);
+        float metal = mix(.19, .93, dot(source.rgb, vec3(.2126, .7152, .0722)));
+        float edge = max(0., source.a - min(
+          texture2D(mark, uv + vec2(.0024, .0033)).a,
+          texture2D(mark, uv - vec2(.0024, .0033)).a));
+        float offset = (markUV.x + markUV.y * .13 - sweep) * 9.;
+        float glint = exp(-offset * offset);
+        gl_FragColor = vec4(vec3(metal + glint * (.12 + edge * .5)), source.a * opacity);
+        #include <colorspace_fragment>
+      }`,
+  }));
+  logo.position.set(0, 1.45, -3.46);
+  logo.visible = false;
+  stage.add(logo);
+
   const trailsMaterial = new THREE.LineBasicMaterial({
     color: 0xe1e7ef, transparent: true, opacity: 0, depthWrite: false, toneMapped: false,
   });
@@ -205,7 +238,8 @@ export function createVREntrance(playScene: THREE.Scene) {
       }
       const progress = Math.min(transitionElapsed / TRANSITION_MS, 1);
       const darken = 1 - ease(progress, .10, .65);
-      const ringScale = Math.max(.001, 1 - ease(progress, .08, .60));
+      const formation = ease(progress, 0, .13);
+      const ringScale = Math.max(.001, formation * (1 - ease(progress, .14, .60)));
       const portalLight = 1 - ease(progress, .12, .56);
       const ignition = ease(progress, 0, .09) * (1 - ease(progress, .10, .42));
       floor.material.uniforms.light.value = darken;
@@ -218,7 +252,9 @@ export function createVREntrance(playScene: THREE.Scene) {
       particles.material.uniforms.time.value = transitionElapsed / 1000;
       particles.material.uniforms.opacity.value = portalLight * .65;
       ring.scale.setScalar(ringScale);
-      ring.material.opacity = Math.min(1, darken * .83 + ignition * .40);
+      ring.material.opacity = formation * Math.min(1, darken * .83 + ignition * .40);
+      logo.material.uniforms.opacity.value = formation * (1 - ease(progress, .21, .51));
+      logo.material.uniforms.sweep.value = THREE.MathUtils.lerp(-.3, 1.4, ease(progress, 0, .40));
       arcMaterial.opacity = .66 * darken;
 
       if (!xr) {
@@ -257,6 +293,7 @@ export function createVREntrance(playScene: THREE.Scene) {
         }
       });
       arcMaterial.dispose();
+      logoMap.dispose();
       black.dispose();
     },
   };
