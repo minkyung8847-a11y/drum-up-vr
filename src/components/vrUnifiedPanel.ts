@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { DRUM_ENVIRONMENTS } from './drumEnvironments';
 import type { DrumEnvironmentId } from './drumEnvironments';
 import type { StickHand } from './virtualDrumsticks';
-import { PANEL_SIZE, PANEL_TABS, PANEL_GENRES, SONG_LIST, DEMO_SONGS, musicCovers, drawUnifiedPanel, maxSongScroll, panelActionAt } from './vrUnifiedPanelDesign';
+import { PANEL_SIZE, PANEL_TABS, PANEL_GENRES, SONG_LIST, MUSIC_SONGS, musicCovers, drawUnifiedPanel, maxSongScroll, panelActionAt } from './vrUnifiedPanelDesign';
 import type { PlayableVRSong } from './vrMusicSong';
 import { createVRSongDetail } from './vrSongDetail';
 import { getNoteSyncMs, setNoteSyncMs } from './vrNoteSync';
@@ -189,7 +189,7 @@ export function createVRUnifiedPanel(scene: THREE.Scene, rig: THREE.Group, kit: 
     }
     if (action.kind === 'tab') { state.songResults = undefined; state.tab = PANEL_TABS[action.index]; state.hover = ''; state.minimized = false; if (state.tab !== 'MUSIC') detail.close(); }
     else if (action.kind === 'genre') { state.genre = PANEL_GENRES[action.index]; state.scroll = 0; }
-    else if (action.kind === 'song') { state.song = action.index; detail.select(DEMO_SONGS[action.index]); }
+    else if (action.kind === 'song') { state.song = action.index; detail.select(MUSIC_SONGS[action.index]); }
     else if (action.kind === 'detail') void detail.activate(action.index);
     else if (action.kind === 'practice') {
       state.practice = action.index ? 'RUDIMENT' : 'FREE PLAY';

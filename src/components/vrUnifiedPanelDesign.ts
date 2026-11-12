@@ -15,18 +15,7 @@ export const PANEL_SIZE = { width: 1024, height: 920 };
 export const PANEL_TABS = ['MUSIC', 'PRACTICE', 'BACKGROUND', 'SETTINGS'] as const;
 export const PANEL_GENRES = ['All', 'Pop', 'Rock', 'Band', 'K-Pop', 'My Song'] as const;
 export const SONG_LIST = { x: 50, y: 388, width: 922, height: 480, row: 80 };
-export const DEMO_SONGS = [
-  LOVE_SONG,
-  ANTIFREEZE_SONG,
-  { title: 'Shape of You', artist: 'Ed Sheeran', difficulty: 'Normal', stars: 4, genres: ['Pop'], art: 0 },
-  { title: 'Believer', artist: 'Imagine Dragons', difficulty: 'Hard', stars: 3, genres: ['Rock', 'Band'], art: 1 },
-  { title: 'Back In Black', artist: 'AC/DC', difficulty: 'Hard', stars: 2, genres: ['Rock', 'Band'], art: 2 },
-  { title: 'Sunday Morning', artist: 'Maroon 5', difficulty: 'Normal', stars: 3.5, genres: ['Pop', 'Band'], art: 3 },
-  { title: 'I Was Made For Loving You', artist: 'KISS', difficulty: 'Expert', stars: 3, genres: ['Rock', 'Band'], art: 4 },
-  { title: 'Radioactive', artist: 'Imagine Dragons', difficulty: 'Normal', stars: 4, genres: ['Rock', 'Band'], art: 5 },
-  { title: 'Hysteria', artist: 'Muse', difficulty: 'Expert', stars: 5, genres: ['Rock', 'Band'], art: 6 },
-  { title: 'Seven Nation Army', artist: 'The White Stripes', difficulty: 'Hard', stars: 3, genres: ['Rock', 'Band'], art: 7 },
-] as const;
+export const MUSIC_SONGS = [LOVE_SONG, ANTIFREEZE_SONG] as const;
 export interface UnifiedPanelState {
   tab: typeof PANEL_TABS[number]; genre: string; song: number; scroll: number;
   practice: 'FREE PLAY' | 'RUDIMENT'; background: DrumEnvironmentId;
@@ -41,7 +30,7 @@ export interface UnifiedPanelState {
   songResults?: { perfect: number; great: number; miss: number; accuracy: number };
 }
 export function filteredSongs(state: UnifiedPanelState) {
-  return DEMO_SONGS.map((song, id) => ({ ...song, id }))
+  return MUSIC_SONGS.map((song, id) => ({ ...song, id }))
     .filter(song => state.genre === 'All' || (song.genres as readonly string[]).includes(state.genre));
 }
 export const maxSongScroll = (state: UnifiedPanelState) => Math.max(0, filteredSongs(state).length * SONG_LIST.row - SONG_LIST.height);
@@ -160,38 +149,7 @@ function stars(ctx: CanvasRenderingContext2D, count: number, y: number) {
     if (fraction) { ctx.save(); ctx.clip(path); ctx.fillStyle = '#f68c3e'; ctx.fillRect(x - 13, y - 14, 26 * fraction, 28); ctx.restore(); }
   }
 }
-// Local illustrative placeholders, not downloaded or presented as real album art.
-function album(index: number) {
-  const canvas = document.createElement('canvas'); canvas.width = canvas.height = 120;
-  const ctx = canvas.getContext('2d')!;
-  const palettes = [['#0588c1', '#fa9488', '#33234b'], ['#06080b', '#31404d', '#08090b'], ['#11100e', '#403b33', '#060606'],
-    ['#404c6b', '#df7e59', '#683633'], ['#f3efe5', '#f7e5cc', '#f0e9dc'], ['#003c50', '#138599', '#001d2c'],
-    ['#261e4f', '#aebbd0', '#141023'], ['#26212a', '#dbdfdc', '#73171f']];
-  const gradient = ctx.createLinearGradient(0, 0, 0, 120);
-  palettes[index].forEach((color, at) => gradient.addColorStop(at / 2, color)); ctx.fillStyle = gradient; ctx.fillRect(0, 0, 120, 120);
-  if (index === 0) {
-    ctx.fillStyle = '#403761'; ctx.beginPath(); ctx.moveTo(0, 91); ctx.lineTo(42, 69); ctx.lineTo(120, 98); ctx.lineTo(120, 120); ctx.lineTo(0, 120); ctx.fill();
-    ctx.fillStyle = '#151723'; ctx.beginPath(); ctx.arc(62, 59, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(59, 63, 7, 25); ctx.fillRect(58, 85, 3, 16); ctx.fillRect(64, 85, 3, 16);
-  } else if (index === 1) {
-    const glow = ctx.createRadialGradient(61, 39, 1, 61, 39, 48); glow.addColorStop(0, '#ffffff'); glow.addColorStop(.2, '#bdcfdc'); glow.addColorStop(1, '#202b3500'); ctx.fillStyle = glow; ctx.fillRect(0, 0, 120, 120);
-    ctx.fillStyle = '#d4e0e7'; ctx.beginPath(); ctx.moveTo(57, 17); ctx.lineTo(68, 83); ctx.lineTo(43, 83); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#9e332c'; ctx.fillRect(40, 79, 39, 16);
-  } else if (index === 2) {
-    ctx.textAlign = 'center'; ctx.fillStyle = '#d8d2c6'; ctx.font = 'italic bold 22px Georgia'; ctx.fillText('Back', 60, 43); ctx.font = 'italic 15px Georgia'; ctx.fillText('in black', 60, 65);
-  } else if (index === 3 || index === 4) {
-    for (let n = 0; n < 14; n++) {
-      const x = 12 + (n * 23 % 96), y = 26 + (n * 17 % 64);
-      ctx.fillStyle = index === 3 ? (n % 2 ? '#ffbd8d' : '#813d38') : (n % 2 ? '#c8452e' : '#921f21');
-      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(x - 4, y + 5, 9, 20);
-    }
-  } else {
-    ctx.fillStyle = index === 7 ? '#a42c32' : '#b9d1d3';
-    for (let n = 0; n < 12; n++) { const y = 45 + n * 5; ctx.fillRect(15 + n * 7 % 65, y, 24, 2); }
-    ctx.fillStyle = '#e1e8df'; ctx.font = 'bold 8px Arial'; ctx.textAlign = 'center'; ctx.fillText(index === 5 ? 'RADIOACTIVE' : index === 6 ? 'HYSTERIA' : 'SEVEN NATION', 60, 22);
-  }
-  return canvas;
-}
-const albumCache: HTMLCanvasElement[] = [];
-const songCovers = new Map([LOVE_SONG, ANTIFREEZE_SONG].map(song => {
+const songCovers = new Map(MUSIC_SONGS.map(song => {
   const cover = new Image();
   cover.src = song.cover;
   return [song.key, cover] as const;
@@ -265,10 +223,11 @@ export function drawUnifiedPanel(ctx: CanvasRenderingContext2D, state: UnifiedPa
         [[0, '#a6adbc'], [.12, '#444953'], [.5, '#292c33'], [.86, '#3b404b'], [1, '#969eae']].forEach(([stop, color]) => selectedBody.addColorStop(stop as number, color as string));
         ctx.fillStyle = selectedBody; ctx.fill(); ctx.strokeStyle = '#d7dce8'; ctx.lineWidth = 1.2; ctx.stroke();
       } else if (state.hover === `song-${song.id}`) { ctx.fillStyle = '#ffffff08'; ctx.fillRect(51, y, 920, 80); }
-      if (!albumCache[song.art]) albumCache[song.art] = album(song.art % 8);
       ctx.save(); rounded(ctx, 88, y + 4, 72, 72, 9); ctx.clip();
-      const cover = 'key' in song ? songCovers.get(song.key) : undefined;
-      ctx.drawImage(cover?.complete && cover.naturalWidth ? cover : albumCache[song.art], 88, y + 4, 72, 72); ctx.restore();
+      const cover = songCovers.get(song.key);
+      if (cover?.complete && cover.naturalWidth) ctx.drawImage(cover, 88, y + 4, 72, 72);
+      else { ctx.fillStyle = '#292c33'; ctx.fillRect(88, y + 4, 72, 72); }
+      ctx.restore();
       ctx.textAlign = 'left'; ctx.fillStyle = '#f2f3f6'; ctx.font = '600 24px Arial'; ctx.fillText(song.title, 204, y + 32, 430);
       ctx.fillStyle = '#c1c4ce'; ctx.font = '400 21px Arial, "Malgun Gothic", sans-serif'; ctx.fillText(song.artist, 204, y + 62, 430);
       ctx.textAlign = 'center'; ctx.fillStyle = '#e0e2e8'; ctx.font = '400 21px Arial'; ctx.fillText(song.difficulty, 692, y + 47);

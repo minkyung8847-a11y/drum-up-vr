@@ -74,6 +74,7 @@ try {
     const get = name => scene.getObjectByName(name), panel = get('vr-unified-panel'), state = panel.userData.panelState;
     const rig = get('player-rig'), kit = get('vr-drum-kit'), kitMatrix = kit.matrixWorld.clone();
     const { unifiedPanelPoint } = await import('/src/components/vrUnifiedPanel.ts');
+    const { filteredSongs } = await import('/src/components/vrUnifiedPanelDesign.ts');
     const { drumSynth } = await import('/src/utils/synth.ts');
     const inputs = ['left', 'right'].map(hand => session.connect(hand));
     for (const input of inputs) { input.gamepad.axes = [0, 0, 0, 0]; input.targetRaySpace = { ...input.gripSpace }; }
@@ -93,20 +94,17 @@ try {
       session.step(3);
     }
     const hitsBefore = window.hits.length;
-    click(204, 338); const all = state.genre === 'All';
+    click(130, 338); const all = filteredSongs(state).map(song => song.key).join(',') === 'love,antifreeze';
     click(308, 338); const pop = state.genre === 'Pop';
-    click(350, 510); const selectedPop = state.song === 5;
-    click(130, 338); aim(400, 650);
-    inputs[1].gamepad.axes[3] = 1; session.step(100); inputs[1].gamepad.axes[3] = 0;
-    const stickScroll = state.scroll === 320;
-    click(340, 818); const lastSong = state.song === 9;
-    // Drag upward to scroll, using the left controller's front Trigger.
+    const popEmpty = filteredSongs(state).length === 0;
+    click(130, 338);
+    click(350, 510); const antifreeze = state.song === 1;
+    click(350, 590); const thirdRowEmpty = state.song === 1;
+    aim(400, 510);
+    inputs[1].gamepad.axes[3] = 1; session.step(16); inputs[1].gamepad.axes[3] = 0;
+    const shortListDoesNotScroll = state.scroll === 0;
     click(432, 106); const practiceTab = state.tab === 'PRACTICE';
     click(700, 450); const rudiment = state.practice === 'RUDIMENT';
-    click(200, 106); aim(400, 500, inputs[0]);
-    inputs[0].gamepad.buttons[0].pressed = true; inputs[0].gamepad.buttons[0].value = 1; session.step();
-    aim(400, 760, inputs[0]); inputs[0].gamepad.buttons[0].pressed = false; inputs[0].gamepad.buttons[0].value = 0; session.step();
-    const dragScroll = state.scroll < 80 && state.song === 9;
     click(656, 106); click(180, 480);
     const concert = state.background === 'concert' && get('concert-stage-environment').visible;
     click(490, 480);
@@ -130,7 +128,7 @@ try {
     const pose = panel.matrixWorld.clone();
     window.panelMode(inputs[1], 'ar');
     const ar = scene.background === null && panel.visible && panel.matrixWorld.equals(pose) && state.tab === 'BACKGROUND';
-    return { all, pop, selectedPop, stickScroll, lastSong, practiceTab, rudiment, dragScroll, background, settings, audio,
+    return { all, pop, popEmpty, antifreeze, thirdRowEmpty, shortListDoesNotScroll, practiceTab, rudiment, background, settings, audio,
       controllerCard, noteCard, generalCard, noPlayback, quietUI, grip, leftGripQuiet, chartContinues, ar,
       kitUnchanged: kit.matrixWorld.equals(kitMatrix), removedModesStayRemoved: !get('vr-stick-mode-window') && !get('vr-drum-position-settings') };
   });
@@ -167,5 +165,5 @@ try {
   });
   assert(opaqueVR, 'Raw Trigger selection also works in immersive-vr without AR support');
   assert.deepEqual(errors, []);
-  console.log('PASS: curved world-fixed stereo UI, no lane overlap, 4 tabs, genres/song selection, thumbstick/Trigger scrolling, background/audio bindings, Grip/haptics and no song playback. Physical Quest 3 NOT tested.');
+  console.log('PASS: curved world-fixed stereo UI, no lane overlap, two-song MUSIC catalog, genre filters, background/audio bindings, Grip/haptics and no song playback. Physical Quest 3 NOT tested.');
 } finally { await browser?.close(); await vite.close(); }
