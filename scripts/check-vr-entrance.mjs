@@ -37,6 +37,11 @@ try {
     await dialog.getByRole('button', { name: 'YES', exact: true }).click();
     await page.waitForURL('**/#/vr');
   };
+  const dismissTutorial = async page => {
+    const tutorial = page.getByRole('dialog', { name: 'DRUM UP TUTORIAL' });
+    await tutorial.getByRole('button', { name: '건너뛰기' }).click();
+    await page.getByRole('button', { name: 'Reset view' }).waitFor();
+  };
 
   const desktop = await pageFor({ width: 1280, height: 720 });
   await desktop.goto(url);
@@ -46,17 +51,20 @@ try {
   assert.equal(desktop.url(), url + '/');
   await confirm(desktop);
   assert.ok(await desktop.evaluate(() => window.fullscreenRequested && !!document.fullscreenElement));
-  await desktop.getByRole('button', { name: 'Reset view' }).waitFor();
+  await dismissTutorial(desktop);
   assert.equal(await desktop.locator('.vr-entrance-target').count(), 0);
   await desktop.goBack({ waitUntil: 'domcontentloaded' });
   await desktop.getByRole('button', { name: 'VR ZONE' }).waitFor();
   assert.ok(await desktop.evaluate(() => window.fullscreenExited && !document.fullscreenElement));
+  await confirm(desktop);
+  await desktop.getByRole('button', { name: 'Reset view' }).waitFor();
+  assert.equal(await desktop.getByRole('dialog', { name: 'DRUM UP TUTORIAL' }).count(), 0);
   await desktop.close();
 
   const mobile = await pageFor({ width: 390, height: 844 }, true);
   await mobile.goto(url);
   await confirm(mobile);
-  await mobile.getByRole('button', { name: 'Reset view' }).waitFor();
+  await dismissTutorial(mobile);
   assert.ok(await mobile.evaluate(() => window.fullscreenRequested && !document.fullscreenElement));
   await mobile.close();
 
@@ -64,7 +72,7 @@ try {
   await denied.addInitScript(installMockWebXR, { rejectVR: true });
   await denied.goto(url);
   await confirm(denied);
-  await denied.getByRole('button', { name: 'Reset view' }).waitFor();
+  await dismissTutorial(denied);
   assert.deepEqual(await denied.evaluate(() => window.testXRRequests), [{ mode: 'immersive-vr', active: true }]);
   assert.equal(await denied.getByRole('button', { name: 'Exit VR' }).count(), 0);
   await denied.close();

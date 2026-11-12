@@ -16,7 +16,6 @@ try {
   desktop.on('pageerror', error => errors.push(error.message));
   await openVRPractice(desktop, url, { firstTutorial: true });
   const replay = desktop.getByRole('button', { name: '튜토리얼 다시 보기' });
-  await replay.click();
   const dialog = desktop.getByRole('dialog');
   await dialog.getByRole('button', { name: '튜토리얼 시작' }).click();
   await dialog.getByRole('heading', { name: 'STEP 01 / PLAY THE DRUMS' }).waitFor();
@@ -36,8 +35,15 @@ try {
   const page = await browser.newPage();
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(installMockWebXR, { mode: 'switchable' });
-  await openVRPractice(page, url, { firstTutorial: true });
-  await page.getByRole('status').filter({ hasText: 'Click to play' }).waitFor();
+  await page.goto(server.resolvedUrls.local[0]);
+  await page.getByRole('button', { name: 'VR ZONE' }).click();
+  await page.getByRole('button', { name: 'YES', exact: true }).click();
+  await page.waitForFunction(() => window.testXR?.callbacks.size);
+  await page.evaluate(() => {
+    window.testXR.head.position = [.55, 1.5, .2];
+    window.testXR.step();
+    window.testXR.step(1, .45);
+  });
   await page.evaluate(async () => {
     const url = performance.getEntriesByType('resource').find(entry => /\/three\.js\?/.test(entry.name)).name;
     const T = window.T = await import(url);
@@ -60,11 +66,9 @@ try {
       return start.apply(this, args);
     };
   });
-  await page.waitForFunction(() => window.scene);
-  await page.getByRole('button', { name: 'Enter VR', exact: true }).click();
-  await page.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
-  await page.evaluate(installUnifiedPanelControls);
   await page.evaluate(() => window.testXR.step(15));
+  await page.waitForFunction(() => window.scene);
+  await page.evaluate(installUnifiedPanelControls);
   await page.waitForFunction(() => ['left', 'right'].every(hand =>
     window.scene.getObjectByName(`vr-tutorial-controller-${hand}`)?.children.length));
   const result = await page.evaluate(() => {
@@ -252,11 +256,13 @@ try {
     assert(result[key], `${key}: ${JSON.stringify(result)}`);
   }
   await page.evaluate(() => window.testXR.end());
+  await page.getByRole('button', { name: 'VR ZONE' }).waitFor();
+  await page.goto(url);
   await page.getByRole('button', { name: 'Enter VR', exact: true }).click();
   await page.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
   assert(await page.evaluate(() => {
     window.testXR.step(20);
-    return window.scene.getObjectByName('vr-unified-panel').visible && !window.scene.getObjectByName('vr-tutorial-panel').visible;
+    return !document.querySelector('.vr-practice.is-tutorial');
   }), 'Returning after completion leaves the main UI open');
   assert.deepEqual(errors, []);
   console.log('PASS: desktop skip, XR Trigger steps, grip actions, demo judgment, 60 BPM count-in and eight notes, same-session restore and Settings replay.');

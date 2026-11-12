@@ -333,6 +333,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     }
     let tutorialReturn: { resume: boolean; lanesVisible: boolean; session: XRSession | null; hiHatClosed: boolean } | null = null;
     let tutorialSeen = hasSeenVRTutorial();
+    let desktopTutorialPrompted = false;
     let tutorialPromptSession: XRSession | null = null;
     let desktopHatPressed = false;
     const tutorial = createVRTutorial(scene, rig, kit.hitSurfaces, songCountdown, {
@@ -865,6 +866,9 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       footPedal.tick(time);
       if (session && viewer && isVisibleXR() && sessionMode === 'vr' && !song && !tutorialSeen && tutorialPromptSession !== session) {
         tutorialPromptSession = session;
+        openTutorial();
+      } else if (!session && !sessionBusy && !song && !tutorialSeen && !desktopTutorialPrompted && document.visibilityState === 'visible') {
+        desktopTutorialPrompted = true;
         openTutorial();
       }
       if (!tutorial.active) musicPlayer.update(musicTransport, unifiedPanel.state.rhythm, renderer.xr.isPresenting && isVisibleXR(), time);
