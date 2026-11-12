@@ -45,6 +45,7 @@ try {
 
   const desktop = await pageFor({ width: 1280, height: 720 });
   await desktop.goto(url);
+  await desktop.evaluate(() => localStorage.setItem('drumup.vr.tutorial-seen.v1', '1'));
   await desktop.getByRole('button', { name: 'VR ZONE' }).click();
   await desktop.keyboard.press('Escape');
   assert.equal(await desktop.getByRole('dialog').count(), 0);
@@ -57,8 +58,7 @@ try {
   await desktop.getByRole('button', { name: 'VR ZONE' }).waitFor();
   assert.ok(await desktop.evaluate(() => window.fullscreenExited && !document.fullscreenElement));
   await confirm(desktop);
-  await desktop.getByRole('button', { name: 'Reset view' }).waitFor();
-  assert.equal(await desktop.getByRole('dialog', { name: 'DRUM UP TUTORIAL' }).count(), 0);
+  await dismissTutorial(desktop);
   await desktop.close();
 
   const mobile = await pageFor({ width: 390, height: 844 }, true);
@@ -80,6 +80,7 @@ try {
   const xr = await pageFor({ width: 1080, height: 720 });
   await xr.addInitScript(installMockWebXR, { mode: 'switchable' });
   await xr.goto(url);
+  await xr.evaluate(() => localStorage.setItem('drumup.vr.tutorial-seen.v1', '1'));
   await confirm(xr);
   await xr.waitForFunction(() => window.testXR?.callbacks.size);
   await xr.evaluate(() => {

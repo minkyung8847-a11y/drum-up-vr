@@ -9,11 +9,6 @@ import type { createVRSongCountdown } from './vrSongDetail';
 import { createVRTutorialGuides } from './vrTutorialGuides';
 import { createWorldPanelTransform } from './vrWorldPanel';
 
-export const VR_TUTORIAL_KEY = 'drumup.vr.tutorial-seen.v1';
-export function hasSeenVRTutorial() {
-  try { return localStorage.getItem(VR_TUTORIAL_KEY) === '1'; }
-  catch { return false; }
-}
 
 const STEPS = ['welcome', 'intro', 'hihat', 'snare', 'other', 'timing', 'hat-grip', 'kick', 'ready', 'practice', 'complete'] as const;
 export type TutorialStep = typeof STEPS[number];
@@ -196,7 +191,8 @@ export function createVRTutorial(scene: THREE.Scene, rig: THREE.Group, surfaces:
       ctx.stroke();
       ctx.fillStyle = button.action === 'next' ? '#17191e' : '#fff';
       ctx.font = '600 41px "Malgun Gothic", Arial, sans-serif';
-      ctx.fillText(button.label, button.x + button.width / 2, 356, button.width - 20);
+      const label = button.action === 'next' ? `A 확인 · ${button.label}` : button.label;
+      ctx.fillText(label, button.x + button.width / 2, 356, button.width - 20);
     });
     texture.needsUpdate = true;
   }
@@ -265,9 +261,6 @@ export function createVRTutorial(scene: THREE.Scene, rig: THREE.Group, surfaces:
     panel.visible = false;
     guides.hide();
     rings.forEach(({ ring }) => { ring.visible = false; });
-    if (completed) {
-      try { localStorage.setItem(VR_TUTORIAL_KEY, '1'); } catch { /* Optional persistence. */ }
-    }
     callbacks.onView(null, desktop);
     callbacks.onClose(completed);
   }

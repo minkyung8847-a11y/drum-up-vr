@@ -37,7 +37,7 @@ import { createVRSongCountdown } from './vrSongDetail';
 import { getNoteSyncMs } from './vrNoteSync';
 import { createVREntrance, hasSeenVREntrance } from './vrEntrance';
 import { takeVREntranceSession } from './vrEntranceNavigation';
-import { createVRTutorial, hasSeenVRTutorial, tutorialContent } from './vrTutorial';
+import { createVRTutorial, tutorialContent } from './vrTutorial';
 import type { TutorialAction, TutorialView } from './vrTutorial';
 import './vrPractice.css';
 
@@ -332,9 +332,8 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
         } : undefined, (perfect, great, miss, time) => unifiedPanel.setSongResults(perfect, great, miss, time));
     }
     let tutorialReturn: { resume: boolean; lanesVisible: boolean; session: XRSession | null; hiHatClosed: boolean } | null = null;
-    let tutorialSeen = hasSeenVRTutorial();
-    let desktopTutorialPrompted = false;
-    let tutorialPromptSession: XRSession | null = null;
+    let entryTutorialOpened = false;
+    const tutorialConfirmButtons = new WeakMap<XRInputSource, boolean>();
     let desktopHatPressed = false;
     const tutorial = createVRTutorial(scene, rig, kit.hitSurfaces, songCountdown, {
       onView: (view, desktop) => {
@@ -345,7 +344,6 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       onDemoKick: () => { if (audioReady) interaction.hit('kick', .55); },
       onHiHatPreview: closed => { interaction.setHiHatClosed(closed, false); },
       onClose: completed => {
-        tutorialSeen ||= completed;
         if (desktopHatPressed) {
           desktopHatPressed = false;
           hiHatRef.current(false);
@@ -378,7 +376,10 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       tutorial.open(!session, sessionMode === 'ar' && !!session);
     }
     tutorialOpenRef.current = () => { void drumSynth.unlock(); openTutorial(); };
-    tutorialActionRef.current = action => { void drumSynth.unlock(); tutorial.activate(action); };
+    tutorialActionRef.current = action => {
+      if (action === 'next') void drumSynth.unlock();
+      tutorial.activate(action);
+    };
     const footPedal = createFootPedal(window, {
       active: () => {
         const session = renderer.xr.getSession();
@@ -504,7 +505,6 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     };
     const endXR = () => {
       if (tutorial.active) tutorial.close(false);
-      tutorialPromptSession = null;
       footPedal.setImmersive(false);
       if (!disposed) setFootPedalState({ ...footPedal.state });
       cancelLook();
@@ -758,6 +758,12 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
     canvas.addEventListener('lostpointercapture', up);
     const tomKeys: Record<string, string> = { KeyF: 'smallTom', KeyG: 'middleTom', KeyH: 'floorTom' };
     const hitTomKey = (event: KeyboardEvent) => {
+      if (event.code === 'KeyA' && !event.repeat && !event.altKey && !event.ctrlKey && !event.metaKey
+        && !renderer.xr.isPresenting && tutorial.active) {
+        event.preventDefault();
+        tutorialActionRef.current('next');
+        return;
+      }
       if (!renderer.xr.isPresenting && tutorial.step === 'hat-grip' && event.code === 'KeyH' && !event.repeat) {
         event.preventDefault();
         desktopHatPressed = hiHatRef.current(true);
@@ -864,12 +870,20 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
       if (renderer.xr.isPresenting && frame && reference) seating.update(frame, reference);
       const viewer = frame && reference ? frame.getViewerPose(reference) ?? null : null;
       footPedal.tick(time);
-      if (session && viewer && isVisibleXR() && sessionMode === 'vr' && !song && !tutorialSeen && tutorialPromptSession !== session) {
-        tutorialPromptSession = session;
+      const headsetReady = !!session && !!viewer && isVisibleXR() && sessionMode === 'vr';
+      const desktopReady = !session && !sessionBusy && document.visibilityState === 'visible';
+      if (!song && !entryTutorialOpened && (headsetReady || desktopReady)) {
+        entryTutorialOpened = true;
         openTutorial();
-      } else if (!session && !sessionBusy && !song && !tutorialSeen && !desktopTutorialPrompted && document.visibilityState === 'visible') {
-        desktopTutorialPrompted = true;
-        openTutorial();
+      }
+      if (session && viewer && isVisibleXR() && tutorial.active) {
+        for (const input of session.inputSources) {
+          if (input.handedness !== 'right' || !input.profiles.some(profile => /^(meta-quest-touch|oculus-touch)/.test(profile))) continue;
+          // Touch maps the right-hand A button to index 4.
+          const pressed = input.gamepad?.buttons[4]?.pressed ?? false;
+          if (pressed && tutorialConfirmButtons.get(input) === false) tutorial.activate('next');
+          tutorialConfirmButtons.set(input, pressed);
+        }
       }
       if (!tutorial.active) musicPlayer.update(musicTransport, unifiedPanel.state.rhythm, renderer.xr.isPresenting && isVisibleXR(), time);
       unifiedPanel.update(session, frame, reference, viewer, time);
@@ -1017,6 +1031,7 @@ export default function VRPractice({ song }: { song?: SongPlayback }) {
           {tutorialView.step === 'hat-grip' && <p className="vr-tutorial-desktop-hint">H 키를 누르고 놓아 보세요.</p>}
           {tutorialView.step === 'kick' && <p className="vr-tutorial-desktop-hint">킥드럼을 클릭하거나 연결된 페달을 밟아 보세요.</p>}
           {tutorialCopy.hint && <p className="vr-tutorial-desktop-hint" role="status">{tutorialCopy.hint}</p>}
+          {tutorialCopy.next && <p className="vr-tutorial-desktop-hint">A 키 · 확인</p>}
           <div className="vr-tutorial-desktop-actions">
             {tutorialCopy.next && <button onClick={() => tutorialActionRef.current('next')}>{tutorialCopy.next}</button>}
             {tutorialView.step !== 'complete' && <button onClick={() => tutorialActionRef.current('skip')}>건너뛰기</button>}

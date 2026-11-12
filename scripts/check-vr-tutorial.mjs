@@ -17,7 +17,8 @@ try {
   await openVRPractice(desktop, url, { firstTutorial: true });
   const replay = desktop.getByRole('button', { name: '튜토리얼 다시 보기' });
   const dialog = desktop.getByRole('dialog');
-  await dialog.getByRole('button', { name: '튜토리얼 시작' }).click();
+  await dialog.getByText('A 키 · 확인').waitFor();
+  await desktop.keyboard.press('a');
   await dialog.getByRole('heading', { name: 'STEP 01 / PLAY THE DRUMS' }).waitFor();
   for (const heading of [/RIGHT HAND/, /LEFT HAND/, /BOTH HANDS/, /NOTE TIMING/, /LEFT GRIP/]) {
     await dialog.getByRole('button', { name: '다음', exact: true }).click();
@@ -29,7 +30,6 @@ try {
   await dialog.getByText('OPEN HI-HAT', { exact: true }).waitFor();
   await dialog.getByRole('button', { name: '건너뛰기' }).click();
   await replay.waitFor();
-  assert.equal(await desktop.evaluate(() => localStorage.getItem('drumup.vr.tutorial-seen.v1')), '1');
   await desktop.close();
 
   const page = await browser.newPage();
@@ -111,7 +111,16 @@ try {
     const feedback = () => noteAnchor()?.children.find(child => child.visible && child.userData.judgment)?.userData.judgment;
     frame(14);
     const firstPrompt = panel.visible && !hub.visible && panel.userData.step === 'welcome';
-    click(445); steps.push(panel.userData.step);
+    left.gamepad.buttons[4].pressed = true;
+    right.gamepad.buttons[5].pressed = true;
+    frame(14);
+    const ignoresOtherButtons = panel.userData.step === 'welcome';
+    left.gamepad.buttons[4].pressed = false;
+    right.gamepad.buttons[5].pressed = false;
+    right.gamepad.buttons[4].pressed = true;
+    frame(28); steps.push(panel.userData.step);
+    right.gamepad.buttons[4].pressed = false;
+    frame();
     click(445); steps.push(panel.userData.step);
     const hatRing = highlighted('hihat');
     const rightModel = scene.getObjectByName('vr-tutorial-controller-right');
@@ -223,21 +232,24 @@ try {
     const complete = panel.userData.step === 'complete';
     frame(18);
     const lanesCleared = !scene.getObjectByName('vr-tutorial-lanes') && !countdown.visible;
-    click(600);
+    right.gamepad.buttons[4].pressed = true;
+    frame(14);
+    right.gamepad.buttons[4].pressed = false;
+    frame();
     const restored = hub.visible && !panel.visible && !session.ended;
-    const persisted = localStorage.getItem('drumup.vr.tutorial-seen.v1') === '1';
     window.panelClick(right, 880, 106);
     window.panelClick(right, 510, 866);
     frame(15);
     const reopenedFromSettings = panel.visible && !hub.visible && panel.userData.step === 'welcome';
     click(750);
     const skipped = hub.visible && !panel.visible && !session.ended;
-    return { firstPrompt, steps, hatRing, snareRing, tomRing, nextTom, demoPerfect, demoStick, lineUncovered, rightGuide, leftGuide, bothGuides,
+    return { firstPrompt, ignoresOtherButtons, steps, hatRing, snareRing, tomRing, nextTom, demoPerfect, demoStick, lineUncovered, rightGuide, leftGuide, bothGuides,
       closed, open, reopened, gripMarker, nativeGripPressed, kickRing, beaterMoved, kickCount, pedalKickCount,
       automaticHatClosed, automaticHatOpened, automaticKick, handleHovered, boundedDrag, movedDuringDrag,
       retainedPosition, retainedNextStep, noKickOnDrag, practiceClear, labels: [...labels], notes: [...notes],
-      sawMiss, earlyNote, complete, lanesCleared, restored, persisted, reopenedFromSettings, skipped, longAudio: window.longAudio };
+      sawMiss, earlyNote, complete, lanesCleared, restored, reopenedFromSettings, skipped, longAudio: window.longAudio };
   });
+  assert(result.ignoresOtherButtons);
   assert.deepEqual(result.steps, ['intro', 'hihat', 'snare', 'other', 'timing', 'hat-grip', 'kick', 'ready', 'practice']);
   assert.deepEqual(result.labels, ['3', '2', '1', 'GO!']);
   assert.equal(result.notes.filter(name => name.startsWith('note-hihat-')).length, 4);
@@ -252,20 +264,15 @@ try {
   for (const key of ['firstPrompt', 'hatRing', 'snareRing', 'tomRing', 'nextTom', 'demoPerfect', 'demoStick', 'lineUncovered', 'rightGuide', 'leftGuide',
     'bothGuides', 'gripMarker', 'nativeGripPressed', 'kickRing', 'beaterMoved', 'automaticHatClosed', 'automaticHatOpened', 'automaticKick',
     'handleHovered', 'boundedDrag', 'movedDuringDrag', 'retainedPosition',
-    'retainedNextStep', 'noKickOnDrag', 'practiceClear', 'sawMiss', 'complete', 'lanesCleared', 'restored', 'persisted', 'reopenedFromSettings', 'skipped']) {
+    'retainedNextStep', 'noKickOnDrag', 'practiceClear', 'sawMiss', 'complete', 'lanesCleared', 'restored', 'reopenedFromSettings', 'skipped']) {
     assert(result[key], `${key}: ${JSON.stringify(result)}`);
   }
   await page.evaluate(() => window.testXR.end());
   await page.getByRole('button', { name: 'VR ZONE' }).waitFor();
   await page.goto(url);
-  await page.getByRole('button', { name: 'Enter VR', exact: true }).click();
-  await page.getByRole('button', { name: 'Exit VR', exact: true }).waitFor();
-  assert(await page.evaluate(() => {
-    window.testXR.step(20);
-    return !document.querySelector('.vr-practice.is-tutorial');
-  }), 'Returning after completion leaves the main UI open');
+  await page.getByRole('dialog', { name: 'DRUM UP TUTORIAL' }).waitFor();
   assert.deepEqual(errors, []);
-  console.log('PASS: desktop skip, XR Trigger steps, grip actions, demo judgment, 60 BPM count-in and eight notes, same-session restore and Settings replay.');
+  console.log('PASS: A confirmation on desktop and XR, Trigger steps, grip actions, eight practice notes, Settings replay and automatic tutorial on return.');
 } finally {
   await browser?.close();
   await server.close();
